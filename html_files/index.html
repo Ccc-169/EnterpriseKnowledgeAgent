@@ -1,0 +1,1076 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>HNGD 智能知识助手系统</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    font-family: 'PingFang SC', 'Microsoft YaHei', '微软雅黑', sans-serif;
+    background: #e8eef5;
+    overflow: hidden;
+    height: 100vh;
+    width: 100vw;
+  }
+
+  /* ========== LOGIN PAGE ========== */
+  #login-page {
+    width: 100%;
+    height: 100vh;
+    position: relative;
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    background: linear-gradient(135deg, #c8d8e8 0%, #dce8f2 30%, #eaf2f8 60%, #f0f6fb 100%);
+    transition: opacity 0.5s ease;
+  }
+
+  /* Background image area (left side) */
+  .login-bg {
+    position: absolute;
+    inset: 0;
+    overflow: hidden;
+  }
+
+  .login-bg-scene {
+    position: absolute;
+    left: 0;
+    bottom: 0;
+    width: 65%;
+    height: 100%;
+    background:
+      /* Warship painted in CSS-gradient layers, supplemented by SVG inline */
+      linear-gradient(180deg, transparent 40%, rgba(180,200,220,0.15) 100%);
+    display: flex;
+    align-items: flex-end;
+  }
+
+  /* Actual background image */
+  .bg-image {
+    position: absolute;
+    inset: 0;
+    background-image: url('../project_documents/登录界面背景.png');
+    background-size: 100% 100%;
+    background-position: left center;
+    opacity: 1;
+  }
+
+  /* Left side text */
+  .login-left-content {
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 75%;
+    height: 78%;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 0 60px;
+    z-index: 2;
+  }
+
+  .login-logo {
+    position: absolute;
+    top: 24px;
+    left: 28px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+
+  .logo-icon {
+    width: 44px;
+    height: 44px;
+    background: linear-gradient(135deg, #1a3a6e, #2d5fa8);
+    border-radius: 8px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border: 1.5px solid rgba(255,255,255,0.3);
+  }
+
+  .logo-icon svg {
+    width: 26px;
+    height: 26px;
+    fill: white;
+  }
+
+  .logo-text h1 {
+    font-size: 16px;
+    font-weight: 700;
+    color: #1a3a6e;
+    letter-spacing: 1px;
+  }
+  .logo-text p {
+    font-size: 11px;
+    color: #4a6a9e;
+    margin-top: 1px;
+  }
+
+  .login-main-title {
+    font-size: 46px;
+    font-weight: 800;
+    color: #1a3a6e;
+    letter-spacing: 2px;
+    line-height: 1.2;
+    text-shadow: 0 2px 8px rgba(26,58,110,0.1);
+    margin-top: 40px;
+  }
+
+  .login-subtitle {
+    font-size: 15px;
+    color: #3a5a8e;
+    margin-top: 16px;
+    letter-spacing: 3px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .login-subtitle .dot {
+    color: #2a5aa8;
+    font-weight: bold;
+  }
+
+  .login-divider {
+    width: 180px;
+    height: 2px;
+    background: linear-gradient(90deg, #2a5aa8, transparent);
+    margin-top: 18px;
+    position: relative;
+  }
+  .login-divider::after {
+    content: '★';
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    transform: translate(-50%, -50%);
+    color: #2a5aa8;
+    font-size: 10px;
+    background: linear-gradient(135deg, #c8d8e8, #dce8f2);
+    padding: 0 6px;
+  }
+
+  .login-copyright {
+    position: absolute;
+    bottom: 18px;
+    left: 28px;
+    font-size: 12px;
+    color: #6a8ab8;
+    z-index: 2;
+  }
+
+  /* Login form card */
+  .login-card {
+    position: relative;
+    z-index: 10;
+    width: 420px;
+    margin-right: 8%;
+    background: rgba(255,255,255,0.96);
+    border-radius: 16px;
+    padding: 44px 44px 36px;
+    box-shadow: 0 8px 40px rgba(26,58,110,0.12), 0 2px 8px rgba(26,58,110,0.06);
+    backdrop-filter: blur(10px);
+  }
+
+  .login-card h2 {
+    font-size: 22px;
+    font-weight: 700;
+    color: #1a2a4a;
+    text-align: center;
+    margin-bottom: 6px;
+  }
+
+  .login-card .subtitle {
+    font-size: 13px;
+    color: #8a9ab8;
+    text-align: center;
+    margin-bottom: 28px;
+  }
+
+  .form-group {
+    position: relative;
+    margin-bottom: 16px;
+  }
+
+  .form-group .field-icon {
+    position: absolute;
+    left: 14px;
+    top: 50%;
+    transform: translateY(-50%);
+    color: #8a9ab8;
+    font-size: 16px;
+    z-index: 1;
+  }
+
+  .form-group input {
+    width: 100%;
+    height: 48px;
+    border: 1.5px solid #d0dae8;
+    border-radius: 8px;
+    padding: 0 44px 0 42px;
+    font-size: 14px;
+    color: #1a2a4a;
+    background: #f8fafd;
+    outline: none;
+    transition: all 0.2s;
+    font-family: inherit;
+  }
+
+  .form-group input::placeholder { color: #b0bcd0; }
+
+  .form-group input:focus {
+    border-color: #2a5aa8;
+    background: #fff;
+    box-shadow: 0 0 0 3px rgba(42,90,168,0.08);
+  }
+
+  .eye-icon {
+    position: absolute;
+    right: 14px;
+    top: 50%;
+    transform: translateY(-50%);
+    color: #8a9ab8;
+    cursor: pointer;
+    font-size: 16px;
+  }
+
+  .form-options {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin: 8px 0 20px;
+  }
+
+  .remember-me {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 13px;
+    color: #5a6a8a;
+    cursor: pointer;
+  }
+
+  .remember-me input[type="checkbox"] {
+    width: 15px;
+    height: 15px;
+    accent-color: #2a5aa8;
+    cursor: pointer;
+  }
+
+  .forgot-link {
+    font-size: 13px;
+    color: #2a5aa8;
+    text-decoration: none;
+    cursor: pointer;
+  }
+  .forgot-link:hover { text-decoration: underline; }
+
+  .login-btn {
+    width: 100%;
+    height: 48px;
+    background: linear-gradient(135deg, #1a3a7e, #2a5aa8);
+    color: white;
+    border: none;
+    border-radius: 8px;
+    font-size: 16px;
+    font-weight: 600;
+    cursor: pointer;
+    letter-spacing: 4px;
+    transition: all 0.2s;
+    font-family: inherit;
+    box-shadow: 0 4px 16px rgba(42,90,168,0.3);
+  }
+
+  .login-btn:hover {
+    background: linear-gradient(135deg, #1a3570, #2350a0);
+    box-shadow: 0 6px 20px rgba(42,90,168,0.4);
+    transform: translateY(-1px);
+  }
+
+  .login-btn:active { transform: translateY(0); }
+
+  .internal-account-note {
+    text-align: center;
+    font-size: 12px;
+    color: #8a9ab8;
+    margin-top: 20px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 4px;
+  }
+
+  .error-msg {
+    font-size: 12px;
+    color: #e05252;
+    margin-top: 6px;
+    display: none;
+    padding-left: 4px;
+  }
+
+  /* ========== HOME PAGE ========== */
+  #home-page {
+    width: 100%;
+    height: 100vh;
+    display: none;
+    opacity: 0;
+    flex-direction: row;
+    background: #f0f4f8;
+  }
+
+  /* Sidebar */
+  .sidebar {
+    width: 180px;
+    min-width: 180px;
+    height: 100vh;
+    background: linear-gradient(180deg, #0f2a5e 0%, #1a3a7e 40%, #0d2050 100%);
+    display: flex;
+    flex-direction: column;
+    position: relative;
+    z-index: 10;
+    box-shadow: 2px 0 16px rgba(10,30,80,0.18);
+  }
+
+  .sidebar-logo {
+    padding: 22px 18px 18px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    border-bottom: 1px solid rgba(255,255,255,0.08);
+    margin-bottom: 12px;
+  }
+
+  .sidebar-logo-icon {
+    width: 38px;
+    height: 38px;
+    background: rgba(255,255,255,0.15);
+    border-radius: 8px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border: 1.5px solid rgba(255,255,255,0.25);
+    flex-shrink: 0;
+  }
+
+  .sidebar-logo-icon svg { width: 22px; height: 22px; fill: white; }
+
+  .sidebar-logo-text h2 {
+    font-size: 14px;
+    font-weight: 700;
+    color: white;
+    letter-spacing: 1px;
+  }
+  .sidebar-logo-text p {
+    font-size: 10px;
+    color: rgba(255,255,255,0.55);
+    margin-top: 2px;
+  }
+
+  .nav-menu {
+    flex: 1;
+    padding: 8px 10px;
+  }
+
+  .nav-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 11px 14px;
+    border-radius: 8px;
+    cursor: pointer;
+    margin-bottom: 4px;
+    color: rgba(255,255,255,0.65);
+    font-size: 14px;
+    font-weight: 500;
+    transition: all 0.2s;
+    text-decoration: none;
+  }
+
+  .nav-item:hover {
+    background: rgba(255,255,255,0.08);
+    color: rgba(255,255,255,0.9);
+  }
+
+  .nav-item.active {
+    background: rgba(255,255,255,0.15);
+    color: white;
+  }
+
+  .nav-item svg { width: 18px; height: 18px; flex-shrink: 0; }
+
+  .sidebar-user {
+    padding: 14px 16px;
+    border-top: 1px solid rgba(255,255,255,0.08);
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    cursor: pointer;
+  }
+
+  .user-avatar {
+    width: 34px;
+    height: 34px;
+    border-radius: 50%;
+    background: rgba(255,255,255,0.2);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    border: 1.5px solid rgba(255,255,255,0.3);
+  }
+
+  .user-avatar svg { width: 18px; height: 18px; fill: rgba(255,255,255,0.8); }
+
+  .user-info { flex: 1; min-width: 0; }
+  .user-info .name { font-size: 13px; font-weight: 600; color: white; }
+  .user-info .role { font-size: 11px; color: rgba(255,255,255,0.55); margin-top: 1px; }
+
+  .user-chevron { color: rgba(255,255,255,0.4); font-size: 12px; }
+
+  /* Main content */
+  .main-content {
+    flex: 1;
+    height: 100vh;
+    overflow-y: auto;
+    position: relative;
+    background: #f2f6fa;
+  }
+
+  /* Top bar */
+  .topbar {
+    position: sticky;
+    top: 0;
+    z-index: 5;
+    background: rgba(242,246,250,0.95);
+    backdrop-filter: blur(8px);
+    padding: 0 32px;
+    height: 56px;
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 20px;
+    border-bottom: 1px solid rgba(200,215,230,0.5);
+  }
+
+  .topbar-item {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 12.5px;
+    color: #5a6a8a;
+    cursor: pointer;
+  }
+
+  .topbar-item svg { width: 14px; height: 14px; }
+
+  .topbar-divider {
+    width: 1px;
+    height: 18px;
+    background: #d0dae8;
+  }
+
+  .topbar-bell {
+    width: 32px;
+    height: 32px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    color: #5a6a8a;
+    border-radius: 6px;
+    transition: background 0.15s;
+  }
+  .topbar-bell:hover { background: rgba(42,90,168,0.08); }
+  .topbar-bell svg { width: 18px; height: 18px; }
+
+  /* Home content */
+  .home-body {
+    padding: 32px 32px 40px;
+    position: relative;
+  }
+
+  /* Background watermark */
+  .home-body::before {
+    content: '';
+    position: absolute;
+    right: 0;
+    top: 0;
+    width: 55%;
+    height: 100%;
+    background-image: url('/mnt/user-data/uploads/登录界面背景.png');
+    background-size: contain;
+    background-repeat: no-repeat;
+    background-position: right top;
+    opacity: 0.05;
+    pointer-events: none;
+  }
+
+  .greeting-section { margin-bottom: 28px; position: relative; z-index: 1; }
+
+  .greeting-section h2 {
+    font-size: 22px;
+    font-weight: 700;
+    color: #1a2a4a;
+    margin-bottom: 5px;
+  }
+
+  .greeting-section p {
+    font-size: 13.5px;
+    color: #7a8aaa;
+  }
+
+  /* Feature cards */
+  .feature-cards {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 16px;
+    margin-bottom: 28px;
+    position: relative;
+    z-index: 1;
+  }
+
+  .feature-card {
+    background: white;
+    border-radius: 12px;
+    padding: 20px 18px;
+    cursor: pointer;
+    transition: all 0.2s;
+    border: 1.5px solid rgba(210,225,240,0.6);
+    display: flex;
+    flex-direction: row;
+    align-items: flex-start;
+    gap: 14px;
+    box-shadow: 0 2px 8px rgba(26,58,110,0.04);
+  }
+
+  .feature-card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 20px rgba(26,58,110,0.1);
+    border-color: rgba(42,90,168,0.2);
+  }
+
+  .feature-icon {
+    width: 40px;
+    height: 40px;
+    border-radius: 10px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+  }
+
+  .feature-icon svg { width: 22px; height: 22px; }
+
+  .feature-icon.blue { background: #e8f0fc; }
+  .feature-icon.blue svg { fill: #2a5aa8; }
+  .feature-icon.green { background: #e8f8f0; }
+  .feature-icon.green svg { fill: #2a9a5a; }
+  .feature-icon.purple { background: #f0e8fc; }
+  .feature-icon.purple svg { fill: #7a42d8; }
+  .feature-icon.orange { background: #fff0e8; }
+  .feature-icon.orange svg { fill: #e06a20; }
+
+  .feature-text h3 {
+    font-size: 14px;
+    font-weight: 700;
+    color: #1a2a4a;
+    margin-bottom: 4px;
+  }
+
+  .feature-text p {
+    font-size: 12px;
+    color: #8a9ab8;
+    line-height: 1.5;
+  }
+
+  /* Chat section */
+  .chat-section {
+    position: relative;
+    z-index: 1;
+  }
+
+  .chat-section h3 {
+    font-size: 17px;
+    font-weight: 700;
+    color: #1a2a4a;
+    margin-bottom: 14px;
+  }
+
+  .chat-input-area {
+    background: white;
+    border-radius: 12px;
+    border: 1.5px solid #d0dae8;
+    padding: 16px 18px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    box-shadow: 0 2px 8px rgba(26,58,110,0.04);
+    transition: border-color 0.2s, box-shadow 0.2s;
+  }
+
+  .chat-input-area:focus-within {
+    border-color: #2a5aa8;
+    box-shadow: 0 0 0 3px rgba(42,90,168,0.08);
+  }
+
+  .chat-input-area input {
+    flex: 1;
+    border: none;
+    outline: none;
+    font-size: 14px;
+    color: #1a2a4a;
+    font-family: inherit;
+    background: transparent;
+  }
+
+  .chat-input-area input::placeholder { color: #b0bcd0; }
+
+  .send-btn {
+    width: 40px;
+    height: 40px;
+    background: linear-gradient(135deg, #1a3a7e, #2a5aa8);
+    border: none;
+    border-radius: 8px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    transition: all 0.2s;
+    box-shadow: 0 2px 8px rgba(42,90,168,0.3);
+  }
+
+  .send-btn:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(42,90,168,0.4);
+  }
+
+  .send-btn svg { width: 18px; height: 18px; fill: white; }
+
+  /* Suggestions */
+  .suggestion-chips {
+    margin-top: 14px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-wrap: wrap;
+  }
+
+  .chip-label {
+    font-size: 12.5px;
+    color: #7a8aaa;
+    flex-shrink: 0;
+  }
+
+  .chip {
+    background: white;
+    border: 1.5px solid #d8e4f0;
+    border-radius: 20px;
+    padding: 6px 14px;
+    font-size: 12.5px;
+    color: #3a5a8e;
+    cursor: pointer;
+    transition: all 0.15s;
+    white-space: nowrap;
+  }
+
+  .chip:hover {
+    background: #e8f0fc;
+    border-color: #2a5aa8;
+    color: #1a3a7e;
+  }
+
+  .footer-note {
+    text-align: center;
+    font-size: 12px;
+    color: #9aaac0;
+    margin-top: 28px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 5px;
+    position: relative;
+    z-index: 1;
+  }
+
+  /* ========== TRANSITIONS ========== */
+  .page-fade-out { animation: fadeOut 0.4s ease forwards; }
+  .page-fade-in { animation: fadeIn 0.5s ease forwards; }
+
+  @keyframes fadeOut {
+    from { opacity: 1; }
+    to { opacity: 0; }
+  }
+
+  @keyframes fadeIn {
+    from { opacity: 0; transform: translateY(8px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+
+  /* Loading spinner overlay */
+  .loading-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(240,246,252,0.85);
+    display: none;
+    align-items: center;
+    justify-content: center;
+    z-index: 100;
+    backdrop-filter: blur(4px);
+  }
+
+  .spinner {
+    width: 40px;
+    height: 40px;
+    border: 3px solid rgba(42,90,168,0.2);
+    border-top-color: #2a5aa8;
+    border-radius: 50%;
+    animation: spin 0.8s linear infinite;
+  }
+
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  /* Real-time clock update style */
+  #home-clock { letter-spacing: 0.5px; }
+</style>
+</head>
+<body>
+
+<!-- Loading Overlay -->
+<div class="loading-overlay" id="loading-overlay">
+  <div class="spinner"></div>
+</div>
+
+<!-- ========== LOGIN PAGE ========== -->
+<div id="login-page">
+  <!-- Background -->
+  <div class="login-bg">
+    <div class="bg-image"></div>
+  </div>
+
+  <!-- Logo top-left -->
+  <div class="login-logo">
+    <div class="logo-icon">
+      <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+        <path d="M12 2L3 7v5c0 5.25 3.75 10.15 9 11.35C17.25 22.15 21 17.25 21 12V7L12 2zm0 2.18l7 3.9V12c0 4.35-2.98 8.4-7 9.63C7.98 20.4 5 16.35 5 12V8.08l7-3.9z"/>
+        <path d="M10 12l-2-2-1.4 1.4L10 14.8l6-6L14.6 7.4z"/>
+      </svg>
+    </div>
+    <div class="logo-text">
+      <h1>HNGD</h1>
+      <p>智能知识助手系统</p>
+    </div>
+  </div>
+
+  <!-- Left text content -->
+  <div class="login-left-content">
+    <div class="login-main-title">企业知识库智能体</div>
+    <div class="login-subtitle">
+      <span>智能问答</span>
+      <span class="dot">·</span>
+      <span>知识检索</span>
+      <span class="dot">·</span>
+      <span>数据分析</span>
+    </div>
+    <div class="login-divider"></div>
+  </div>
+
+  <!-- Login Card -->
+  <div class="login-card">
+    <h2>用户登录</h2>
+    <p class="subtitle">请输入您的账号信息</p>
+
+    <div class="form-group">
+      <span class="field-icon">
+        <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor"><path d="M12 12c2.7 0 5-2.3 5-5s-2.3-5-5-5-5 2.3-5 5 2.3 5 5 5zm0 2c-3.3 0-10 1.7-10 5v2h20v-2c0-3.3-6.7-5-10-5z"/></svg>
+      </span>
+      <input type="text" id="username" placeholder="请输入用户名" autocomplete="username" />
+    </div>
+
+    <div class="form-group">
+      <span class="field-icon">
+        <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor"><path d="M18 8h-1V6c0-2.76-2.24-5-5-5S7 3.24 7 6v2H6c-1.1 0-2 .9-2 2v10c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V10c0-1.1-.9-2-2-2zm-6 9c-1.1 0-2-.9-2-2s.9-2 2-2 2 .9 2 2-.9 2-2 2zm3.1-9H8.9V6c0-1.71 1.39-3.1 3.1-3.1 1.71 0 3.1 1.39 3.1 3.1v2z"/></svg>
+      </span>
+      <input type="password" id="password" placeholder="请输入密码" autocomplete="current-password" />
+      <span class="eye-icon" id="eye-toggle">
+        <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor"><path d="M12 4.5C7 4.5 2.73 7.61 1 12c1.73 4.39 6 7.5 11 7.5s9.27-3.11 11-7.5c-1.73-4.39-6-7.5-11-7.5zM12 17c-2.76 0-5-2.24-5-5s2.24-5 5-5 5 2.24 5 5-2.24 5-5 5zm0-8c-1.66 0-3 1.34-3 3s1.34 3 3 3 3-1.34 3-3-1.34-3-3-3z"/></svg>
+      </span>
+    </div>
+    <div class="error-msg" id="error-msg">账号或密码错误，请重新输入</div>
+
+    <div class="form-options">
+      <label class="remember-me">
+        <input type="checkbox" id="remember-me" /> 记住我
+      </label>
+      <a class="forgot-link" href="javascript:void(0)">忘记密码?</a>
+    </div>
+
+    <button class="login-btn" id="login-btn" onclick="handleLogin()">登 录</button>
+
+    <div class="internal-account-note">
+      <svg viewBox="0 0 24 24" width="13" height="13" fill="currentColor" style="color:#8a9ab8"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-6h2v6zm0-8h-2V7h2v2z"/></svg>
+      请使用内部账号登录
+    </div>
+  </div>
+
+  <div class="login-copyright">© 2024 HNGD · 保密信息 严禁外泄</div>
+</div>
+
+<!-- ========== HOME PAGE ========== -->
+<div id="home-page">
+  <!-- Sidebar -->
+  <div class="sidebar">
+    <div class="sidebar-logo">
+      <div class="sidebar-logo-icon">
+        <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+          <path d="M12 2L3 7v5c0 5.25 3.75 10.15 9 11.35C17.25 22.15 21 17.25 21 12V7L12 2zm0 2.18l7 3.9V12c0 4.35-2.98 8.4-7 9.63C7.98 20.4 5 16.35 5 12V8.08l7-3.9z"/>
+          <path d="M10 12l-2-2-1.4 1.4L10 14.8l6-6L14.6 7.4z"/>
+        </svg>
+      </div>
+      <div class="sidebar-logo-text">
+        <h2>HNGD</h2>
+        <p>智能知识助手系统</p>
+      </div>
+    </div>
+
+    <nav class="nav-menu">
+      <a class="nav-item active" href="javascript:void(0)">
+        <svg viewBox="0 0 24 24" fill="currentColor"><path d="M20 2H4c-1.1 0-2 .9-2 2v18l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2z"/></svg>
+        对话
+      </a>
+      <a class="nav-item" href="javascript:void(0)" onclick="setActive(this)">
+        <svg viewBox="0 0 24 24" fill="currentColor"><path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-5 14H7v-2h7v2zm3-4H7v-2h10v2zm0-4H7V7h10v2z"/></svg>
+        知识库
+      </a>
+      <a class="nav-item" href="javascript:void(0)" onclick="setActive(this)">
+        <svg viewBox="0 0 24 24" fill="currentColor"><path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zM9 17H7v-7h2v7zm4 0h-2V7h2v10zm4 0h-2v-4h2v4z"/></svg>
+        数据分析
+      </a>
+      <a class="nav-item" href="javascript:void(0)" onclick="setActive(this)">
+        <svg viewBox="0 0 24 24" fill="currentColor"><path d="M20 6h-2.18c.07-.44.18-.86.18-1.3C18 2.55 15.45 1 13 1c-1.46 0-2.87.62-3.86 1.7L8 4H6L3 7v2h18V6zM3 18c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2v-7H3v7zm5-5h8v2H8v-2z"/></svg>
+        文件管理
+      </a>
+      <a class="nav-item" href="javascript:void(0)" onclick="setActive(this)">
+        <svg viewBox="0 0 24 24" fill="currentColor"><path d="M19.14 12.94c.04-.3.06-.61.06-.94 0-.32-.02-.64-.07-.94l2.03-1.58c.18-.14.23-.41.12-.61l-1.92-3.32c-.12-.22-.37-.29-.59-.22l-2.39.96c-.5-.38-1.03-.7-1.62-.94l-.36-2.54c-.04-.24-.24-.41-.48-.41h-3.84c-.24 0-.43.17-.47.41l-.36 2.54c-.59.24-1.13.57-1.62.94l-2.39-.96c-.22-.08-.47 0-.59.22L2.74 8.87c-.12.21-.08.47.12.61l2.03 1.58c-.05.3-.09.63-.09.94s.02.64.07.94l-2.03 1.58c-.18.14-.23.41-.12.61l1.92 3.32c.12.22.37.29.59.22l2.39-.96c.5.38 1.03.7 1.62.94l.36 2.54c.05.24.24.41.48.41h3.84c.24 0 .44-.17.47-.41l.36-2.54c.59-.24 1.13-.56 1.62-.94l2.39.96c.22.08.47 0 .59-.22l1.92-3.32c.12-.22.07-.47-.12-.61l-2.01-1.58zM12 15.6c-1.98 0-3.6-1.62-3.6-3.6s1.62-3.6 3.6-3.6 3.6 1.62 3.6 3.6-1.62 3.6-3.6 3.6z"/></svg>
+        系统设置
+      </a>
+    </nav>
+
+    <div class="sidebar-user">
+      <div class="user-avatar">
+        <svg viewBox="0 0 24 24"><path d="M12 12c2.7 0 5-2.3 5-5s-2.3-5-5-5-5 2.3-5 5 2.3 5 5 5zm0 2c-3.3 0-10 1.7-10 5v2h20v-2c0-3.3-6.7-5-10-5z"/></svg>
+      </div>
+      <div class="user-info">
+        <div class="name" id="sidebar-username">张三</div>
+        <div class="role">系统管理员</div>
+      </div>
+      <span class="user-chevron">∨</span>
+    </div>
+  </div>
+
+  <!-- Main Content -->
+  <div class="main-content">
+    <!-- Topbar -->
+    <div class="topbar">
+      <div class="topbar-item">
+        <svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor"><path d="M11.99 2C6.47 2 2 6.48 2 12s4.47 10 9.99 10C17.52 22 22 17.52 22 12S17.52 2 11.99 2zM12 20c-4.42 0-8-3.58-8-8s3.58-8 8-8 8 3.58 8 8-3.58 8-8 8zm.5-13H11v6l5.25 3.15.75-1.23-4.5-2.67V7z"/></svg>
+        使用指南
+      </div>
+      <div class="topbar-divider"></div>
+      <div class="topbar-item">
+        <svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor"><path d="M11.99 2C6.47 2 2 6.48 2 12s4.47 10 9.99 10C17.52 22 22 17.52 22 12S17.52 2 11.99 2zM12 20c-4.42 0-8-3.58-8-8s3.58-8 8-8 8 3.58 8 8-3.58 8-8 8zm.5-13H11v6l5.25 3.15.75-1.23-4.5-2.67V7z"/></svg>
+        <span id="home-clock">2024-05-20 15:30:45</span>
+      </div>
+      <div class="topbar-bell">
+        <svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 22c1.1 0 2-.9 2-2h-4c0 1.1.9 2 2 2zm6-6v-5c0-3.07-1.64-5.64-4.5-6.32V4c0-.83-.67-1.5-1.5-1.5s-1.5.67-1.5 1.5v.68C7.63 5.36 6 7.92 6 11v5l-2 2v1h16v-1l-2-2z"/></svg>
+      </div>
+    </div>
+
+    <!-- Home Body -->
+    <div class="home-body">
+      <!-- Greeting -->
+      <div class="greeting-section">
+        <h2 id="greeting-text">下午好，张三</h2>
+        <p>有什么可以帮助您的吗？</p>
+      </div>
+
+      <!-- Feature Cards -->
+      <div class="feature-cards">
+        <div class="feature-card">
+          <div class="feature-icon blue">
+            <svg viewBox="0 0 24 24"><path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-5 14H7v-2h7v2zm3-4H7v-2h10v2zm0-4H7V7h10v2z"/></svg>
+          </div>
+          <div class="feature-text">
+            <h3>知识问答</h3>
+            <p>基于企业知识库<br>获取准确答案</p>
+          </div>
+        </div>
+        <div class="feature-card">
+          <div class="feature-icon green">
+            <svg viewBox="0 0 24 24"><path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zM9 17H7v-7h2v7zm4 0h-2V7h2v10zm4 0h-2v-4h2v4z"/></svg>
+          </div>
+          <div class="feature-text">
+            <h3>数据分析</h3>
+            <p>对Excel/CSV数据<br>进行统计分析</p>
+          </div>
+        </div>
+        <div class="feature-card">
+          <div class="feature-icon purple">
+            <svg viewBox="0 0 24 24"><path d="M20 6h-2.18c.07-.44.18-.86.18-1.3C18 2.55 15.45 1 13 1c-1.46 0-2.87.62-3.86 1.7L8 4H6L3 7v2h18V6zM3 18c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2v-7H3v7zm5-5h8v2H8v-2z"/></svg>
+          </div>
+          <div class="feature-text">
+            <h3>文件管理</h3>
+            <p>管理和查看<br>知识库文件</p>
+          </div>
+        </div>
+        <div class="feature-card">
+          <div class="feature-icon orange">
+            <svg viewBox="0 0 24 24"><path d="M19.14 12.94c.04-.3.06-.61.06-.94 0-.32-.02-.64-.07-.94l2.03-1.58c.18-.14.23-.41.12-.61l-1.92-3.32c-.12-.22-.37-.29-.59-.22l-2.39.96c-.5-.38-1.03-.7-1.62-.94l-.36-2.54c-.04-.24-.24-.41-.48-.41h-3.84c-.24 0-.43.17-.47.41l-.36 2.54c-.59.24-1.13.57-1.62.94l-2.39-.96c-.22-.08-.47 0-.59.22L2.74 8.87c-.12.21-.08.47.12.61l2.03 1.58c-.05.3-.09.63-.09.94s.02.64.07.94l-2.03 1.58c-.18.14-.23.41-.12.61l1.92 3.32c.12.22.37.29.59.22l2.39-.96c.5.38 1.03.7 1.62.94l.36 2.54c.05.24.24.41.48.41h3.84c.24 0 .44-.17.47-.41l.36-2.54c.59-.24 1.13-.56 1.62-.94l2.39.96c.22.08.47 0 .59-.22l1.92-3.32c.12-.22.07-.47-.12-.61l-2.01-1.58zM12 15.6c-1.98 0-3.6-1.62-3.6-3.6s1.62-3.6 3.6-3.6 3.6 1.62 3.6 3.6-1.62 3.6-3.6 3.6z"/></svg>
+          </div>
+          <div class="feature-text">
+            <h3>系统设置</h3>
+            <p>个性化配置<br>系统参数</p>
+          </div>
+        </div>
+      </div>
+
+      <!-- Chat -->
+      <div class="chat-section">
+        <h3>对话</h3>
+        <div class="chat-input-area">
+          <input type="text" id="chat-input" placeholder="请输入您的问题，支持文档问答和数据分析..." />
+          <button class="send-btn" onclick="sendChat()">
+            <svg viewBox="0 0 24 24"><path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"/></svg>
+          </button>
+        </div>
+
+        <div class="suggestion-chips">
+          <span class="chip-label">试试这些问题：</span>
+          <span class="chip" onclick="setChat(this)">公司差旅报销制度是怎样的？</span>
+          <span class="chip" onclick="setChat(this)">上月考勤异常情况统计</span>
+          <span class="chip" onclick="setChat(this)">各部门人均产值对比分析</span>
+          <span class="chip" onclick="setChat(this)">如何申请项目预算？</span>
+        </div>
+      </div>
+
+      <div class="footer-note">
+        <svg viewBox="0 0 24 24" width="13" height="13" fill="currentColor" style="color:#9aaac0"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-6h2v6zm0-8h-2V7h2v2z"/></svg>
+        内容由AI生成，仅供参考，请以官方信息为准
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+  // ─── Auth ───────────────────────────────────────
+  const CREDENTIALS = { admin: '123' };
+
+  function handleLogin() {
+    const username = document.getElementById('username').value.trim();
+    const password = document.getElementById('password').value;
+    const errorMsg = document.getElementById('error-msg');
+
+    if (!username || !password) {
+      errorMsg.textContent = '请输入账号和密码';
+      errorMsg.style.display = 'block';
+      return;
+    }
+
+    if (CREDENTIALS[username] && CREDENTIALS[username] === password) {
+      errorMsg.style.display = 'none';
+      goToHome(username);
+    } else {
+      errorMsg.textContent = '账号或密码错误，请重新输入';
+      errorMsg.style.display = 'block';
+      document.getElementById('password').value = '';
+    }
+  }
+
+  function goToHome(username) {
+    // Show loading
+    const overlay = document.getElementById('loading-overlay');
+    overlay.style.display = 'flex';
+
+    setTimeout(() => {
+      const loginPage = document.getElementById('login-page');
+      const homePage = document.getElementById('home-page');
+
+      // Update greeting
+      const hour = new Date().getHours();
+      let greeting = '上午好';
+      if (hour >= 12 && hour < 18) greeting = '下午好';
+      else if (hour >= 18) greeting = '晚上好';
+      const displayName = username === 'admin' ? '张三' : username;
+      document.getElementById('greeting-text').textContent = `${greeting}，${displayName}`;
+      document.getElementById('sidebar-username').textContent = displayName;
+
+      // Transition
+      loginPage.classList.add('page-fade-out');
+      setTimeout(() => {
+        loginPage.style.display = 'none';
+        homePage.style.display = 'flex';
+        homePage.classList.add('page-fade-in');
+        overlay.style.display = 'none';
+        startClock();
+      }, 380);
+    }, 600);
+  }
+
+  // ─── Password toggle ────────────────────────────
+  document.getElementById('eye-toggle').addEventListener('click', function() {
+    const pw = document.getElementById('password');
+    pw.type = pw.type === 'password' ? 'text' : 'password';
+  });
+
+  // ─── Enter key ─────────────────────────────────
+  document.addEventListener('keydown', function(e) {
+    if (e.key === 'Enter') {
+      if (document.getElementById('login-page').style.display !== 'none') {
+        handleLogin();
+      } else {
+        sendChat();
+      }
+    }
+  });
+
+  // ─── Clock ──────────────────────────────────────
+  function startClock() {
+    updateClock();
+    setInterval(updateClock, 1000);
+  }
+
+  function updateClock() {
+    const now = new Date();
+    const pad = n => String(n).padStart(2, '0');
+    const dateStr = `${now.getFullYear()}-${pad(now.getMonth()+1)}-${pad(now.getDate())} ${pad(now.getHours())}:${pad(now.getMinutes())}:${pad(now.getSeconds())}`;
+    document.getElementById('home-clock').textContent = dateStr;
+  }
+
+  // ─── Nav active ─────────────────────────────────
+  function setActive(el) {
+    document.querySelectorAll('.nav-item').forEach(i => i.classList.remove('active'));
+    el.classList.add('active');
+  }
+
+  // ─── Chat ───────────────────────────────────────
+  function setChat(chip) {
+    document.getElementById('chat-input').value = chip.textContent;
+    document.getElementById('chat-input').focus();
+  }
+
+  function sendChat() {
+    const input = document.getElementById('chat-input');
+    if (input.value.trim()) {
+      // In a real app, this would send the message. For now just clear.
+      input.value = '';
+      input.focus();
+    }
+  }
+</script>
+
+</body>
+</html>
