@@ -1,1 +1,26 @@
 .env
+
+# Python virtual environments
+venv/
+.venv/
+
+# Python cache files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# VS Code local settings
+.vscode/
+
+# Distribution / packaging
+*.egg-info/
+pip-wheel-metadata/
+
+# Logs and temporary files
+*.log
+*.tmp
+*.temp
+
+# OS files
+.DS_Store
+Thumbs.db
