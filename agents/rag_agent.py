@@ -8,6 +8,9 @@ from langchain_core.prompts import ChatPromptTemplate
 from langchain_core.messages import HumanMessage
 from langgraph.prebuilt import create_react_agent
 
+# ── 规则引擎导入 ─────────────────────────────────────
+from rules.integration import check_generated_answer
+
 
 # ── 常量 ────────────────────────────────────────────────────────────────
 
@@ -176,6 +179,19 @@ def create_rag_agent(llm):
     DIFY_API_KEY  = os.environ["DIFY_DATASET_KEY"]
     DIFY_KB_ID    = os.environ["DIFY_KB_ID"]
 
+    # ── 答案质量后校验（v2.0：仅日志记录，不修改答案）─
+    def _post_check_answer(raw_answer: str, context_text: str = "") -> str:
+        """对生成的答案执行全局质量检查，结果仅记日志不影响返回"""
+        try:
+            report = check_generated_answer(raw_answer, context=context_text, agent_name="rag_agent")
+            # 仅对裸技术错误信息做替换
+            for f in report.get_failures():
+                if f.rule_id == "GEN_QUALITY-002":  # 技术错误信息暴露
+                    return "系统处理时遇到技术问题，已自动恢复。请您重新描述问题，或联系管理员处理。"
+        except Exception:
+            pass  # 规则引擎异常时静默跳过，不影响答案返回
+        return raw_answer
+
     @tool
     def rag_search(query: str) -> str:
         """
@@ -221,7 +237,10 @@ def create_rag_agent(llm):
 
             if not retry_records:
                 if verdict == "INSUFFICIENT":
-                    return f"{answer}\n\n⚠️ 以上回答基于知识库中部分相关内容，可能不够完整。如需更详细信息，建议联系对应部门确认。"
+                    return _post_check_answer(
+                        f"{answer}\n\n⚠️ 以上回答基于知识库中部分相关内容，可能不够完整。如需更详细信息，建议联系对应部门确认。",
+                        context_text
+                    )
                 return "根据当前知识库，未能找到与您问题直接相关的内容。建议联系对应部门确认。"
 
             context_text = _format_records(retry_records)
@@ -230,13 +249,19 @@ def create_rag_agent(llm):
 
         # 重试后仍不够完整，展示部分答案
         if verdict == "INSUFFICIENT":
-            return f"{answer}\n\n⚠️ 以上回答基于知识库中部分相关内容，可能不够完整。如需更详细信息，建议联系对应部门确认。"
+            return _post_check_answer(
+                f"{answer}\n\n⚠️ 以上回答基于知识库中部分相关内容，可能不够完整。如需更详细信息，建议联系对应部门确认。",
+                context_text
+            )
 
         # HALLUCINATION 重试后仍不行
         if verdict == "HALLUCINATION":
-            return "检索到的文档与问题关联度不足，无法生成可靠答案。建议提供更具体的问题或联系对应部门确认。"
+            return _post_check_answer(
+                "检索到的文档与问题关联度不足，无法生成可靠答案。建议提供更具体的问题或联系对应部门确认。",
+                context_text
+            )
 
-        return answer
+        return _post_check_answer(answer, context_text)
 
     @tool
     def list_kb_documents(keyword: str = "") -> str:

@@ -24,3 +24,8 @@ ACCESS_TOKEN_EXPIRE_MINUTES = int(os.environ.get("ACCESS_TOKEN_EXPIRE_MINUTES", 
 
 # ── 数据库 ─────────────────────────────────────────────
 DB_PATH = os.environ.get("DB_PATH", "./data/hngd.db")
+
+# ── 全局规则引擎 ───────────────────────────────────────
+RULES_CONFIG_PATH = os.environ.get("RULES_CONFIG_PATH", "./rules/rule_config.yaml")
+RULES_ENABLED = os.environ.get("RULES_ENABLED", "true").lower() == "true"
+RULES_BLOCK_ON_CRITICAL = os.environ.get("RULES_BLOCK_ON_CRITICAL", "true").lower() == "true"

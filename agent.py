@@ -6,6 +6,8 @@ from langgraph_supervisor import create_supervisor
 from langgraph.checkpoint.memory import MemorySaver
 from agents.rag_agent import create_rag_agent
 from agents.data_agent import create_data_agent
+from rules.integration import init_engine, check_user_input
+from rules.engine import RuleViolationError
 
 load_dotenv()
 
@@ -31,6 +33,9 @@ llm = ChatOpenAI(
 # ── 创建两个 Sub-Agent ────────────────────────────────
 rag_agent  = create_rag_agent(llm)
 data_agent = create_data_agent(llm)
+
+# ── 初始化全局规则引擎（含 LLM 检查器）──────────────
+init_engine(llm=llm)
 
 # ── Router：只做分发，不干具体活 ──────────────────────
 memory = MemorySaver()
@@ -90,6 +95,12 @@ def chat(
         trace_username = user_context.get("username", trace_username)
     else:
         trace_username = username
+
+    # ── 规则检查：用户输入安全校验 ─────────────────
+    try:
+        check_user_input(user_input)
+    except RuleViolationError as e:
+        return f"⚠️ 输入安全检查未通过：{e}", [], None
 
     # 构建 LangSmith 元数据（用于 Trace 分组和筛选）
     metadata = {

@@ -1,6 +1,42 @@
 # 开发日志列表
 :
 
+## 2026-05-22 (全局规则 v2.0 重构——柔性拦截)
+
+**问题**：v1.0 规则过于死板，SAFETY-001 拦截 import os 导致 os.path.basename() 等正常操作被阻断，多文件分析等功能不可用。
+
+**重构**：重写 rule_config.yaml 和 integration.py，将一刀切 BLOCKLIST 改为精准拦截。仅 os.system/subprocess/eval/exec/compile/file-write 等真正危险操作标记 CRITICAL 并阻断；import os/os.path 等安全操作正常放行；风格/质量规则全部降为 WARNING，不阻断执行仅日志记录。
+
+**新增 CODEBASE 类别**：7条代码库完整性指引（模块隔离/Registry扩展/功能开关/不可变核心/接口兼容/错误隔离/日志规范），enabled=false 仅作文档指导不自动检查，防止 AI 工具随意修改已验证完善的功能代码。
+
+**修复**：data_agent.py 安全检查提示更明确；rag_agent.py 移除侵入式答案警告标记，仅对裸技术错误信息做静默替换。
+
+**效果**：import os + os.path.basename() 正常通过；os.system/eval/subprocess 仍被 CRITICAL 阻断；规则从18条优化为17条（10条执行+7条文档指引）。
+
+**时间**：2026-05-22 13:52
+
+---
+
+## 2026-05-22 (全局规则引擎)
+
+**新增**：设计并实现全局规则配置系统，确保AI代码生成的一致性与高质量。
+
+**架构**：rules/模块含models（Rule/RuleCategory/RuleSeverity/CheckResult数据模型）、engine（RulesEngine检查引擎，BLOCKLIST/ALLOWLIST/PATTERN/LLM_CHECK四种检查方式）、loader（YAML配置加载器）、integration（全局单例+便捷集成接口）。
+
+**规则分类**：安全规则（禁止危险模块/文件操作/网络请求/代码注入，CRITICAL阻断）、代码风格（DATA_PATH/结构化输出/禁止硬编码，ERROR级）、输出质量（禁止编造/空答案/裸错误信息，CRITICAL~WARNING级）、业务领域（数值转换/日期处理/来源标记，ERROR~WARNING级），共18条。
+
+**配置方式**：rules/rule_config.yaml以声明式YAML定义全部规则，支持按category/severity/type/stage/applies_to过滤，修改YAML即可调整规则不改变代码。
+
+**集成点**：agent.py启动时初始化引擎含LLM检查器+用户输入安全校验；data_agent.py在代码发往沙箱前做BLOCKLIST/ALLOWLIST/PATTERN检查，CRITICAL违规拒绝执行；rag_agent.py在答案返回前做LLM_CHECK/PATTERN质量检查，违规附加警告或替换。
+
+**配置项**：新增RULES_CONFIG_PATH/RULES_ENABLED/RULES_BLOCK_ON_CRITICAL环境变量；requirements.txt新增PyYAML>=6.0。
+
+**效果**：AI生成代码在沙箱执行前通过12道安全+风格+领域检查，不安全代码被拦截反馈LLM修正；生成答案通过4道质量检查，空答案和异常错误被自动过滤。
+
+**时间**：2026-05-22 11:26
+
+---
+
 ## 2026-05-20 (code_executor 进程池预热改造)
 
 **问题**：code_executor 每次请求通过 subprocess.run 创建新进程执行代码，pandas 冷启动 ~1.5s + 解释器启动 ~0.5s，占单次查询 60%+ 耗时。

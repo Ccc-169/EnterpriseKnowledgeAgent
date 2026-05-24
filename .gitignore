@@ -1,26 +1,59 @@
+# ── 敏感配置 ─────────────────────────────────────────
 .env
+*.pem
+*.key
 
-# Python virtual environments
+# ── Python 虚拟环境 ──────────────────────────────────
 venv/
 .venv/
 
-# Python cache files
+# ── Python 编译缓存 ──────────────────────────────────
 __pycache__/
 *.py[cod]
 *$py.class
 
-# VS Code local settings
+# ── IDE / 编辑器 ─────────────────────────────────────
 .vscode/
+.idea/
+*.swp
+*.swo
+*~
 
-# Distribution / packaging
+# ── 分发 / 打包 ──────────────────────────────────────
 *.egg-info/
 pip-wheel-metadata/
+dist/
+build/
+*.egg
 
-# Logs and temporary files
+# ── 日志和临时文件 ──────────────────────────────────
 *.log
 *.tmp
 *.temp
 
-# OS files
+# ── 备份文件 ─────────────────────────────────────────
+*.bak
+
+# ── 数据库 ───────────────────────────────────────────
+*.db
+*.db-journal
+*.db-wal
+*.db-shm
+
+# ── 运行时数据 ───────────────────────────────────────
+data/files/
+trace_export*.json
+generated-images/
+
+# ── 代码审查 / 覆盖率 ────────────────────────────────
+.coverage
+htmlcov/
+.pytest_cache/
+
+# ── CodeBuddy IDE ────────────────────────────────────
+.codebuddy/
+
+# ── 操作系统文件 ─────────────────────────────────────
 .DS_Store
 Thumbs.db
+desktop.ini

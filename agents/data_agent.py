@@ -8,6 +8,10 @@ from langgraph.prebuilt import create_react_agent
 # 复用 TCP 连接，避免每次请求重新建连（~2s → <10ms）
 _http_session = requests.Session()
 
+# ── 规则引擎导入 ─────────────────────────────────────
+from rules.integration import check_generated_code
+from rules.engine import RuleViolationError
+
 
 def create_data_agent(llm):
 
@@ -138,6 +142,12 @@ df = pd.concat(dfs, ignore_index=True)
 
         # 统一只发一次请求：多文件传列表，单文件传字符串
         payload_data_path = file_paths if is_multi else file_paths[0]
+
+        # ── 规则检查：仅 CRITICAL 危险操作（os.system/eval/subprocess 等）才会阻断 ──
+        try:
+            check_generated_code(code, agent_name="data_agent", raise_on_critical=True)
+        except RuleViolationError as e:
+            return f"代码安全校验未通过：{e}\n请修改代码后重试（提示：os.path 操作是安全的，但 os.system/eval/subprocess 等危险调用已拦截）。"
 
         # 优先使用 /execute_batch，若服务未更新则回退到 /execute
         batch_payload = {"codes": [code], "data_path": payload_data_path}

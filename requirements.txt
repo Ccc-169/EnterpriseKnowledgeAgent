@@ -9,6 +9,9 @@ langchain-protocol>=0.0.10
 requests>=2.31.0
 python-dotenv>=1.0.0
 
+# Config & Rules
+PyYAML>=6.0
+
 # API Server
 fastapi>=0.109.0
 uvicorn[standard]>=0.27.0
