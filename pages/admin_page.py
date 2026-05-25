@@ -14,6 +14,12 @@ def render():
 
     user = get_current_user()
 
+    # ── 侧边栏：返回首页 ──────────────────────────────────
+    with st.sidebar:
+        if st.button("← 返回首页", use_container_width=True):
+            st.session_state.current_page = "首页"
+            st.rerun()
+
     st.title("管理后台")
 
     tab_users, tab_logs, tab_kb = st.tabs(["用户管理", "审计日志", "知识库管理"])

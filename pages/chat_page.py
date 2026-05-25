@@ -51,6 +51,7 @@ def render():
 
         # 新建对话按钮
         if st.button("+ 新建对话", use_container_width=True, type="primary"):
+            st.session_state.agent_mode = "knowledge_qa"
             new_conv_id = create_conversation(user["user_id"])
             st.session_state.current_conversation_id = new_conv_id
             st.session_state.messages = []
@@ -145,13 +146,25 @@ def render():
         _render_user_settings(user)
         return
 
-    st.title("企业知识库智能体")
-    st.caption("支持文档问答 · 数据统计 · 文档编写 · 内容仿写")
+    render_chat_main(user)
 
-    # 如果没有选中任何对话，显示提示
+
+def render_chat_main(user: dict, use_direct_agent: str = None) -> None:
+    """
+    渲染主聊天区（供 index_page 等其他页面复用）。
+
+    Args:
+        user: 当前用户信息
+        use_direct_agent: 非 None 时直接调用指定智能体（"rag_agent"/"data_agent"），
+                          None 时使用自动路由 supervisor。
+    """
+    # 如果没有选中任何对话，自动创建一个
     if not st.session_state.current_conversation_id:
-        st.info("请在左侧侧边栏新建对话或选择已有对话")
-        return
+        new_conv_id = create_conversation(user["user_id"])
+        st.session_state.current_conversation_id = new_conv_id
+        st.session_state.messages = []
+        st.session_state._reload_conversations = True
+        st.rerun()
 
     # 显示当前对话标题
     current_conv = get_conversation(st.session_state.current_conversation_id, user["user_id"])
@@ -204,14 +217,23 @@ def render():
             with st.spinner("思考中..."):
                 response, steps, agent_used = "抱歉，处理您的问题时发生了错误，请稍后重试。", None, None
                 try:
-                    # 生成 thread_id（基于 conversation_id）
                     thread_id = f"conversation-{st.session_state.current_conversation_id}"
 
-                    response, steps, agent_used = chat(
-                        user_input,
-                        thread_id,
-                        user_context=user_context,
-                    )
+                    # 根据模式选择调用方式
+                    if use_direct_agent:
+                        from agent import chat_direct
+                        response, steps, agent_used = chat_direct(
+                            use_direct_agent,
+                            user_input,
+                            thread_id,
+                            user_context=user_context,
+                        )
+                    else:
+                        response, steps, agent_used = chat(
+                            user_input,
+                            thread_id,
+                            user_context=user_context,
+                        )
 
                     # 折叠显示思考过程
                     if steps:
@@ -219,7 +241,7 @@ def render():
                             for step in steps:
                                 st.markdown(step)
 
-                    # 无答案时显示橙色警告框（Phase 3 新增）
+                    # 无答案时显示橙色警告框
                     if "未能找到" in response:
                         st.warning(response)
                     else:

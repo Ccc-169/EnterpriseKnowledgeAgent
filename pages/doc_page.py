@@ -227,8 +227,12 @@ def _load_history_document(doc_id: int, user_id: int):
 
 # ── 页面渲染 ──────────────────────────────────────────────────────────────
 
-def render():
-    """渲染文档编写页面，实现两步交互流程。"""
+def render(embedded: bool = False):
+    """渲染文档编写页面，实现两步交互流程。
+
+    Args:
+        embedded: True 表示嵌入在首页中使用（跳过标题/副标题，由母版统一显示）。
+    """
     require_login()
     require_role(["user", "admin"])
 
@@ -258,9 +262,10 @@ def render():
     if "doc_expanded_id" not in st.session_state:
         st.session_state.doc_expanded_id = None  # 当前展开query的历史文档ID
 
-    # ── 页面标题 ─────────────────────────────────────────
-    st.title("📝 文档编写")
-    st.caption("智能生成文档目录，确认后自动撰写完整文档")
+    # ── 页面标题（嵌入模式下由母版统一显示，跳过）─────────
+    if not embedded:
+        st.title("📝 文档编写")
+        st.caption("智能生成文档目录，确认后自动撰写完整文档")
 
     # ── 流程步骤指示器 ──────────────────────────────────
     step_names = {0: "输入需求", 1: "确认目录", 2: "生成文档"}
@@ -366,13 +371,14 @@ def render():
                             status="error",
                         )
 
-        # 返回对话按钮
+        # 返回首页按钮
         with col2:
-            if st.button("← 返回对话", use_container_width=True):
+            if st.button("← 返回首页", use_container_width=True):
                 st.session_state.doc_step = "input"
                 st.session_state.doc_current_id = None
                 st.session_state.doc_expanded_id = None
-                st.session_state.current_page = "对话"
+                st.session_state.agent_mode = "knowledge_qa"
+                st.session_state.current_page = "首页"
                 st.rerun()
 
     # ================================================================
@@ -648,13 +654,14 @@ def render():
                 st.session_state.doc_uploader_key += 1  # 重置 file_uploader
                 st.rerun()
         with col3:
-            if st.button("← 返回对话", use_container_width=True):
+            if st.button("← 返回首页", use_container_width=True):
                 st.session_state.doc_step = "input"
                 st.session_state.doc_reference_context = ""
                 st.session_state.doc_current_id = None
                 st.session_state.doc_expanded_id = None
                 st.session_state.doc_uploader_key += 1
-                st.session_state.current_page = "对话"
+                st.session_state.agent_mode = "knowledge_qa"
+                st.session_state.current_page = "首页"
                 st.rerun()
 
         # 复制文档按钮（使用 st.code 方便复制）

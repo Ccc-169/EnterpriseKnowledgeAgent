@@ -81,6 +81,102 @@ router = create_supervisor(
 ).compile()
 
 
+def chat_direct(
+    agent_name: str,
+    user_input: str,
+    thread_id: str = "default",
+    user_context: dict = None,
+    username: str = "unknown",
+) -> tuple[str, list, str]:
+    """
+    直接调用指定子智能体，不使用 Router 自动路由分发。
+
+    Args:
+        agent_name: "rag_agent" 或 "data_agent"
+        user_input: 用户输入的问题
+        thread_id: 对话线程 ID（支持多轮对话记忆）
+        user_context: 用户上下文 {user_id, username, role}
+        username: 用户名（用于 Tracing 分组）
+
+    Returns:
+        (final_answer, steps_log, agent_used)
+    """
+    from langchain_core.messages import AIMessage
+
+    # ── 规则检查 ──
+    try:
+        check_user_input(user_input)
+    except RuleViolationError as e:
+        return f"⚠️ 输入安全检查未通过：{e}", [], None
+
+    agent_map = {"rag_agent": rag_agent, "data_agent": data_agent}
+    agent = agent_map.get(agent_name)
+    if agent is None:
+        return f"未知智能体：{agent_name}", [], None
+
+    # 用户名优先级
+    trace_username = "unknown"
+    if user_context and isinstance(user_context, dict):
+        trace_username = user_context.get("username", trace_username)
+    else:
+        trace_username = username
+
+    metadata = {
+        "user_id": trace_username,
+        "conversation_id": thread_id,
+    }
+
+    config = {
+        "configurable": {"thread_id": thread_id},
+        "recursion_limit": 50,
+        "metadata": metadata,
+    }
+
+    steps_log = []
+    seen_tools = set()
+    all_messages = []
+
+    state_input = {"messages": [{"role": "user", "content": user_input}]}
+    if user_context:
+        state_input["user_context"] = user_context
+
+    for chunk in agent.stream(state_input, config=config, stream_mode="updates"):
+        for node_name, node_data in chunk.items():
+            for msg in node_data.get("messages", []):
+                all_messages.append(msg)
+
+                # 记录工具调用
+                if hasattr(msg, "tool_calls") and msg.tool_calls:
+                    for tc in msg.tool_calls:
+                        tool_key = tc["id"]
+                        if tool_key not in seen_tools:
+                            seen_tools.add(tool_key)
+                            steps_log.append(f"🔧 调用工具：**{tc['name']}**")
+                            if tc.get("args"):
+                                for k, v in tc["args"].items():
+                                    steps_log.append(f"&nbsp;&nbsp;&nbsp;参数 {k}：{v}")
+
+                # 记录工具返回
+                if getattr(msg, "name", None):
+                    tool_key = f"{msg.name}_{str(msg.content)[:20]}"
+                    if tool_key not in seen_tools:
+                        seen_tools.add(tool_key)
+                        preview = str(msg.content)[:80]
+                        steps_log.append(f"✅ 工具返回：{preview}...")
+
+    # 提取最终答案
+    final_answer = ""
+    for msg in reversed(all_messages):
+        if isinstance(msg, AIMessage) and msg.content and not getattr(msg, "tool_calls", None):
+            final_answer = msg.content
+            break
+
+    if not final_answer:
+        final_answer = "智能体未返回有效回答，请重试。"
+
+    return final_answer, steps_log, agent_name
+
+
 def chat(
     user_input: str,
     thread_id: str = "default",
