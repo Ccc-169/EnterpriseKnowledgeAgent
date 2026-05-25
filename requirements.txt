@@ -20,6 +20,8 @@ pydantic>=2.5.0
 # Data Processing
 pandas>=2.1.0
 openpyxl>=3.1.0
+python-docx>=0.8.11
+PyPDF2>=3.0.0
 
 # Web UI
 streamlit>=1.30.0

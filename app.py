@@ -3,6 +3,10 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
+# 确保数据库表结构最新（幂等，已存在不重复创建）
+from core.database import init_db
+# init_db()
+
 from auth.session import is_logged_in, get_current_user, login_session, logout_session
 from auth.auth_service import authenticate_user
 from audit.audit_service import log_event

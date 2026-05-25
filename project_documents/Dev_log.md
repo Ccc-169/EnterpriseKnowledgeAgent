@@ -1,6 +1,75 @@
 # 开发日志列表
 :
 
+## 2026-05-25 (历史文档列表改为单行布局)
+
+**优化**：将时间提示、文档标题、查看query、删除合并为同一行，时间提示用灰色圆角标签与按钮等高对齐，整体更紧凑美观。
+
+**修改文件**：`pages/doc_page.py` — `_render_doc_history` 和底部渲染处统一改为四列布局（col_time/col_title/col_query/col_del），时间提示使用 `st.markdown` + 内联 CSS 标签样式，移除独立 caption 行
+
+**时间**：2026-05-25 16:57
+
+---
+
+## 2026-05-25 (查看用户query功能移至按钮交互)
+
+**优化**：移除历史文档列表中默认的 query 截断预览框，将"📋 查看"改为"📋 查看用户query"按钮；点击后局部展开完整需求原文，再次点击收起，不影响其他文档项。
+
+**修改文件**：`pages/doc_page.py` — 按钮重命名+切换展开逻辑（`doc_expanded_id` session_state 追踪），所有重置路径同步清除展开状态
+
+**时间**：2026-05-25 16:37
+
+---
+
+## 2026-05-25 (历史文档需求原文支持局部展开查看)
+
+**优化**：历史文档列表中需求原文超过40字时，使用 `st.expander` 折叠显示，点击即可局部展开查看完整内容，无需触发页面重载。
+
+**修改文件**：`pages/doc_page.py` — caption 处改用条件 expander（超过40字折叠、不足直接显示）
+
+**时间**：2026-05-25 16:17
+
+---
+
+## 2026-05-25 (修复 document_history 表缺失导致启动报错)
+
+**修复**：`app.py` 启动时自动调用 `init_db()`，确保每次应用启动都会补建缺失的数据库表（CID 幂等）。原方案仅在 `start.bat` 中运行一次 `init_db.py`，旧数据库文件新增表后不会自动迁移。
+
+**修改文件**：`app.py` — 在 `load_dotenv()` 后增加 `from core.database import init_db; init_db()`
+
+**时间**：2026-05-25 16:03
+
+---
+
+## 2026-05-25 (文档编写历史记录持久化)
+
+**功能**：文档编写页支持保存和查看历史生成文档，与对话页的历史记录模式一致。生成文档时自动保存到 SQLite `document_history` 表；页面底部展示历史列表，支持加载、查看、删除。
+
+**新增/修改文件**：
+- `core/database.py`：新增 `document_history` 表（id/user_id/title/requirements/outline/content/reference_context/timestamps）
+- `data/document_service.py`：文档历史 CRUD 服务（save_document/get_documents/get_document/delete_document/generate_title_from_requirements）
+- `pages/doc_page.py`：文档生成后自动保存（`_auto_save_document` 5分钟去重）；页面底部新增"📚 历史生成文档"区域，按更新时间倒序展示，支持点击加载/删除
+
+**时间**：2026-05-25 15:50
+
+---
+
+## 2026-05-25 (文档编写增加文件上传+知识库检索)
+
+**功能**：输入需求时支持上传参考附件（.txt/.md/.docx/.pdf/.xlsx 等），可选；同时自动调用 Dify 知识库语义检索用户 query 相关文档。附件内容 + 知识库结果融合为"参考上下文"，传入目录生成和内容生成 LLM prompt。LLM 在正文中引用参考资料时标注来源（[附件1]、[知识库：文件名.docx]）。
+
+**新增文件**：
+- `data/file_parser.py`：多格式文件内容提取器（txt/md/docx/pdf/xlsx/csv 等），自动截断超长内容（8000 字符）
+- `data/kb_search.py`：`search_knowledge_base()` 调用 Dify 检索 API，`format_kb_results()` 格式化来源标注文本，`build_reference_context()` 融合两路参考上下文
+
+**依赖新增**：`python-docx>=0.8.11`、`PyPDF2>=3.0.0`
+
+**影响文件**：`pages/doc_page.py`（file_uploader + 参考上下文注入）、`agents/doc_agent.py`（提示词同步更新引用标注指令）、`requirements.txt`
+
+**时间**：2026-05-25 15:02
+
+---
+
 ## 2026-05-25 (二级标题丢失修复)
 
 **问题**：逐章节生成文档时，一级标题正常，二级标题（如 1.1）在最终文档中消失。
