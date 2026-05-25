@@ -13,6 +13,12 @@ AGENT_REGISTRY = {
         "required_role": ["user", "admin"],
         "enabled": True,
     },
+    "doc_agent": {
+        "name": "Doc 文档编写智能体",
+        "description": "文档生成、报告撰写、方案编写",
+        "required_role": ["user", "admin"],
+        "enabled": True,
+    },
     # 未来扩展示例（不需要修改 agent.py）：
     # "report_agent": {
     #     "name": "Report 报告生成智能体",

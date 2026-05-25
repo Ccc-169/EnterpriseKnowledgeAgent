@@ -56,3 +56,6 @@ if st.session_state.current_page == "对话":
 elif st.session_state.current_page == "管理后台":
     from pages.admin_page import render as render_admin
     render_admin()
+elif st.session_state.current_page == "文档编写":
+    from pages.doc_page import render as render_doc
+    render_doc()

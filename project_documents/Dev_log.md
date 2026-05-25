@@ -1,6 +1,76 @@
 # 开发日志列表
 :
 
+## 2026-05-25 (二级标题丢失修复)
+
+**问题**：逐章节生成文档时，一级标题正常，二级标题（如 1.1）在最终文档中消失。
+**根因**：`_parse_sections` 只提取 `## ` 一级标题，没有把下属 `### ` 二级标题传入 LLM prompt，导致 LLM 不知道需要输出哪些二级标题。
+**修复**：改 `_parse_sections` 返回 `[{title, subsections}]` 字典列表，在每章节 prompt 中显式列出"该章节下的二级标题（必须写入）"清单；`SECTION_PROMPT` 新增"保留所有二级标题"的硬性要求。`doc_page.py` 和 `doc_agent.py` 同步修改。
+
+**时间**：2026-05-25 10:44
+
+---
+
+## 2026-05-24 (复制按钮 React 兼容修复)
+
+**问题**：复制按钮报 `React error #231`，因为 Streamlit 底层用 React 渲染，React 不允许 HTML 标签里的 `onclick="..."` 字符串式事件绑定，必须用 `addEventListener`。
+
+**修复**：将 `<button onclick="...">` 改为纯 `<button>` + `<script>addEventListener("click", ...)</script>`，绕过 React 对字符串事件处理的限制。复制逻辑不变（`navigator.clipboard` 优先，`execCommand('copy')` 兜底）。
+
+**时间**：2026-05-24 15:46
+
+---
+
+## 2026-05-24 (复制按钮样式与标题字体再优化)
+
+**复制按钮**：改为 SVG 图标（两个重叠矩形），白色背景、浅灰边框、圆角 0.375rem，与 Streamlit `st.code` 自带复制按钮视觉一致。复制逻辑改进为 `navigator.clipboard.writeText` 主路径 + `execCommand('copy')` fallback（临时 textarea 定位到视口外），确保各浏览器均可一键复制。按钮嵌入 `doc-display-area` 容器内部右上角，通过 `padding-top: 2.5rem` 避免遮挡正文。
+
+**标题字体再调**：h1 1.3→1.2rem、h2 1.1→1.05rem、h3 0.95→0.9rem，阅读密度进一步提升。
+
+**时间**：2026-05-24 14:56
+
+---
+
+## 2026-05-24 (文档展示体验优化 4 项)
+
+**优化 1·去除描述说明**：`_parse_sections` 用正则 `re.split(r"\s*[—－]\s*")` 去除目录中 "— 内容说明" 部分，只保留章节名传给 LLM 生成正文。`SECTION_PROMPT` 和 `DOCUMENT_PROMPT` 均加入"标题只用章节名"约束。
+
+**优化 2·字体缩小**：Step 3 注入自定义 CSS，`.doc-display-area` 范围内 h1/h2/h3 分别缩至 1.3/1.1/0.95rem，正文 0.85rem、行高 1.55，提升阅读密度。
+
+**优化 3·一键复制**：文档容器右上角新增 "📋 复制" 按钮，通过隐藏 `<textarea>` + `navigator.clipboard.writeText` 实现整篇复制，点击后显示 "✅ 已复制" 2 秒。
+
+**优化 4·按钮单行**：将 "🔄 修改目录重新生成" 缩写为 "🔄 重新生成"，列宽调为 `[1.3, 1, 1, 1.7]`，确保不再换行。
+
+**时间**：2026-05-24 14:29
+
+---
+
+## 2026-05-24 (文档生成 APIConnectionError 修复)
+
+**修复问题**：文档编写功能生成全文时偶发 `APIConnectionError: Connection error`，原因是 LLM 未设置 `max_tokens`（默认 2048），长篇文档超出限制导致服务端断开连接。
+
+**修复内容**：`agent.py` 全局 LLM 加 `max_tokens=8192`、`timeout=300`、`max_retries=2`。`doc_page.py` 和 `doc_agent.py` 增加 `_invoke_with_retry` 重试函数，连接超时自动重试 3 次（指数退避）。
+
+**时间**：2026-05-24 13:28
+
+---
+
+## 2026-05-24 (文档编写 Agent + 专用交互页面)
+
+**新增功能**：Doc Agent 文档编写智能体 + 文档编写专用页面，实现"需求→目录→确认→生成"两步交互流程。
+
+**架构**：新增 `agents/doc_agent.py`（ReAct Agent，含 `generate_document_outline`/`generate_document_content`/`improve_document_outline` 三个工具），与现有 rag_agent、data_agent 架构统一。`agent.py` Supervisor 路由新增 `doc_agent`，支持对话中处理编写文档/报告/方案等请求。
+
+**专用页面**：`pages/doc_page.py` 实现三步流程指示器（输入需求→确认目录→生成文档）。Step1 用户输入需求，LLM 生成结构化目录；Step2 目录放入可编辑文本区，用户自由修改；Step3 用户确认后 LLM 生成完整文档并展示。支持修改目录重新生成、新建文档、查看 Markdown 源码复制等操作。
+
+**集成**：`agents/registry.py` 注册 doc_agent；`app.py` 新增"文档编写"页面路由；`chat_page.py` 侧边栏新增"📝 文档编写"入口按钮。
+
+**效果**：第三个业务功能上线，支持文档/报告/方案/手册/规章制度的智能编写，不影响原有 RAG 问答和数据统计功能。
+
+**时间**：2026-05-24 12:42
+
+---
+
 ## 2026-05-22 (全局规则 v2.0 重构——柔性拦截)
 
 **问题**：v1.0 规则过于死板，SAFETY-001 拦截 import os 导致 os.path.basename() 等正常操作被阻断，多文件分析等功能不可用。
