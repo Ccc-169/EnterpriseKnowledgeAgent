@@ -6,6 +6,7 @@ from langgraph_supervisor import create_supervisor
 from langgraph.checkpoint.memory import MemorySaver
 from agents.rag_agent import create_rag_agent
 from agents.data_agent import create_data_agent
+from agents.doc_agent import create_doc_agent
 from rules.integration import init_engine, check_user_input
 from rules.engine import RuleViolationError
 
@@ -18,6 +19,9 @@ llm = ChatOpenAI(
     base_url="https://dashscope.aliyuncs.com/compatible-mode/v1",
     api_key=os.environ["QWEN_API_KEY"],
     temperature=0,
+    max_tokens=8192,
+    timeout=300,
+    max_retries=2,
 )
 
 # # 本地 Ollama（需先启动 Ollama 服务，模型名根据本地部署情况修改）
@@ -30,9 +34,10 @@ llm = ChatOpenAI(
 
 
 
-# ── 创建两个 Sub-Agent ────────────────────────────────
+# ── 创建三个 Sub-Agent ────────────────────────────────
 rag_agent  = create_rag_agent(llm)
 data_agent = create_data_agent(llm)
+doc_agent  = create_doc_agent(llm)
 
 # ── 初始化全局规则引擎（含 LLM 检查器）──────────────
 init_engine(llm=llm)
@@ -41,7 +46,7 @@ init_engine(llm=llm)
 memory = MemorySaver()
 
 router = create_supervisor(
-    agents=[rag_agent, data_agent],
+    agents=[rag_agent, data_agent, doc_agent],
     model=llm,
     prompt="""
     你是任务路由器，只做一件事：
@@ -59,6 +64,12 @@ router = create_supervisor(
 - 出勤率、迟到次数、工作时长等考勤数据分析
 - 任何需要读取 Excel 文件的问题
 - 跨月数据对比、趋势分析
+
+转发给 doc_agent 的情况：
+- 编写文档、报告、方案、手册、规章制度
+- 生成文档目录/大纲
+- 撰写工作总结、汇报材料
+- 文档格式排版、内容扩写
 
 【严格规则】
 1. 只做判断和转发，不自己回答问题
@@ -165,7 +176,7 @@ def chat(
             isinstance(msg, AIMessage)
             and msg.content
             and not getattr(msg, "tool_calls", None)
-            and getattr(msg, "name", None) in ("rag_agent", "data_agent")
+            and getattr(msg, "name", None) in ("rag_agent", "data_agent", "doc_agent")
             and not str(msg.content).startswith("Transferring")
         ):
             final_answer = msg.content

@@ -23,10 +23,10 @@ DEFAULT_USERS = [
         "role": "user",
     },
     {
-        "username": "visitor",
-        "password": "Visitor@123",
-        "display_name": "访客",
-        "role": "visitor",
+        "username": "chen",
+        "password": "chenchen",
+        "display_name": "管理员",
+        "role": "admin",
     },
 ]
 

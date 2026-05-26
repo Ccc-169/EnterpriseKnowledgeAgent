@@ -113,6 +113,11 @@ def render():
 
             st.caption(rel_time)
 
+        # 文档编写入口
+        if st.button("📝 文档编写", use_container_width=True):
+            st.session_state.current_page = "文档编写"
+            st.rerun()
+
         st.divider()
 
         # 管理后台入口（仅 admin 可见）
@@ -141,7 +146,7 @@ def render():
         return
 
     st.title("企业知识库智能体")
-    st.caption("支持文档问答 · 数据统计 · 内容仿写")
+    st.caption("支持文档问答 · 数据统计 · 文档编写 · 内容仿写")
 
     # 如果没有选中任何对话，显示提示
     if not st.session_state.current_conversation_id:

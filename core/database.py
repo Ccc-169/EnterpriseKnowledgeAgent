@@ -52,6 +52,21 @@ CREATE TABLE IF NOT EXISTS messages (
 );
 """
 
+_CREATE_DOCUMENT_HISTORY_TABLE = """
+CREATE TABLE IF NOT EXISTS document_history (
+    id                  INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id             INTEGER NOT NULL,
+    title               TEXT NOT NULL DEFAULT '新建文档',
+    requirements        TEXT,
+    outline             TEXT,
+    content             TEXT,
+    reference_context   TEXT,
+    created_at          TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at          TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (user_id) REFERENCES users(id)
+);
+"""
+
 
 def get_db() -> sqlite3.Connection:
     """返回数据库连接，自动创建 ./data/ 目录。"""
@@ -73,6 +88,7 @@ def init_db() -> None:
         conn.execute(_CREATE_AUDIT_LOGS_TABLE)
         conn.execute(_CREATE_CONVERSATIONS_TABLE)
         conn.execute(_CREATE_MESSAGES_TABLE)
+        conn.execute(_CREATE_DOCUMENT_HISTORY_TABLE)
         conn.commit()
     finally:
         conn.close()

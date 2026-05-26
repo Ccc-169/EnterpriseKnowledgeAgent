@@ -3,6 +3,10 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
+# 确保数据库表结构最新（幂等，已存在不重复创建）
+from core.database import init_db
+# init_db()
+
 from auth.session import is_logged_in, get_current_user, login_session, logout_session
 from auth.auth_service import authenticate_user
 from audit.audit_service import log_event
@@ -56,3 +60,6 @@ if st.session_state.current_page == "对话":
 elif st.session_state.current_page == "管理后台":
     from pages.admin_page import render as render_admin
     render_admin()
+elif st.session_state.current_page == "文档编写":
+    from pages.doc_page import render as render_doc
+    render_doc()
