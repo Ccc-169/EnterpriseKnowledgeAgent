@@ -1,5 +1,7 @@
 # agents/doc_agent.py
+import os
 import time
+import requests
 from langchain_core.tools import tool
 from langgraph.prebuilt import create_react_agent
 
@@ -100,7 +102,7 @@ OUTLINE_PROMPT = """你是一位专业的文档编写专家。请根据用户的
 只输出目录结构，不要添加其他说明文字。"""
 
 
-# ── 文档生成提示词 ─────────────────────────────────────────────────────────
+# ── 文档生成提示词（兜底用）─────────────────────────────────────────────────
 
 DOCUMENT_PROMPT = """你是一位资深的文档撰写专家。请根据用户确认的目录结构和原始需求，撰写一份专业、详实、格式规范的中文文档。
 
@@ -120,39 +122,115 @@ DOCUMENT_PROMPT = """你是一位资深的文档撰写专家。请根据用户�
 输出格式：完整的 Markdown 格式文档，从文档标题开始，包含所有章节内容。"""
 
 
+# ── KB 检索工具（供 doc_agent 内部调用）────────────────────────────────────
+
+def _format_kb_records(records: list, max_chars: int = 4000) -> str:
+    """将 Dify 检索记录格式化为参考文本，含文档来源标注。"""
+    if not records:
+        return ""
+    chunks = sorted(records, key=lambda x: x.get("score", 0), reverse=True)
+    parts = []
+    total_chars = 0
+    for c in chunks:
+        doc_name = c["segment"]["document"]["name"]
+        text = c["segment"]["content"]
+        if total_chars + len(text) > max_chars:
+            remaining = max_chars - total_chars
+            if remaining < 50:
+                break
+            text = text[:remaining] + "..."
+        parts.append(f"[知识库：{doc_name}]\n{text}")
+        total_chars += len(text)
+        if total_chars >= max_chars:
+            break
+    return "\n---\n".join(parts)
+
+
 # ── Doc Agent 创建函数 ──────────────────────────────────────────────────────
 
 def create_doc_agent(llm):
 
+    DIFY_BASE_URL = os.environ.get("DIFY_API_BASE", "https://api.dify.ai/v1")
+    DIFY_API_KEY  = os.environ.get("DIFY_DATASET_KEY", "")
+    DIFY_KB_ID    = os.environ.get("DIFY_KB_ID", "")
+
     @tool
-    def generate_document_outline(requirements: str) -> str:
+    def search_knowledge_base(query: str) -> str:
         """
-        根据用户描述的需求，生成文档目录结构（含多级标题和内容说明）。
+        从企业知识库中检索与查询语义相关的文档片段，返回原始文档内容（带来源标注）。
+        适用场景：文档撰写前需要参考知识库中的相关制度、规定、流程等资料。
+
+        参数：
+          query - 检索查询词（通常是用户的需求描述或关键词）
+        """
+        if not DIFY_API_KEY or not DIFY_KB_ID:
+            return "知识库未配置（缺少 DIFY_DATASET_KEY 或 DIFY_KB_ID 环境变量）。"
+
+        try:
+            resp = requests.post(
+                f"{DIFY_BASE_URL}/datasets/{DIFY_KB_ID}/retrieve",
+                headers={
+                    "Authorization": f"Bearer {DIFY_API_KEY}",
+                    "Content-Type": "application/json",
+                },
+                json={
+                    "query": query,
+                    "retrieval_model": {
+                        "search_method": "semantic_search",
+                        "reranking_enable": False,
+                        "top_k": 5,
+                        "score_threshold_enabled": False,
+                    },
+                },
+                timeout=30,
+            )
+            if resp.status_code != 200:
+                return f"知识库检索失败：HTTP {resp.status_code}"
+            records = resp.json().get("records", [])
+            if not records:
+                return "知识库中未检索到相关文档内容。"
+            formatted = _format_kb_records(records)
+            return f"=== 知识库参考资料 ===\n{formatted}"
+        except Exception as e:
+            return f"知识库检索异常：{e}"
+
+    @tool
+    def generate_document_outline(requirements: str, reference_context: str = "") -> str:
+        """
+        根据用户描述的需求和参考上下文，生成文档目录结构（含多级标题和内容说明）。
         适用场景：用户需要编写报告、方案、手册、总结、规章制度等各类文档时，第一步先生成目录。
 
         参数：
-          requirements - 用户对文档的完整需求描述，包括文档类型、主题、内容要点、风格要求等
+          requirements      - 用户对文档的完整需求描述，包括文档类型、主题、内容要点、风格要求等
+          reference_context - 参考资料上下文（知识库检索结果、用户上传附件内容等）
         """
-        outline_input = f"{OUTLINE_PROMPT}\n\n用户需求：\n{requirements}"
-        return _invoke_with_retry(llm, outline_input, label="目录生成")
+        if reference_context:
+            prompt = f"{OUTLINE_PROMPT}\n\n【参考上下文】\n{reference_context}\n\n用户需求：\n{requirements}"
+        else:
+            prompt = f"{OUTLINE_PROMPT}\n\n用户需求：\n{requirements}"
+        return _invoke_with_retry(llm, prompt, label="目录生成")
 
     @tool
-    def generate_document_content(outline: str, requirements: str) -> str:
+    def generate_document_content(outline: str, requirements: str, reference_context: str = "") -> str:
         """
         根据用户已确认的目录结构和原始需求，生成完整的文档内容。
         必须在用户确认目录之后才调用此工具。
         适用场景：目录已确认，需要生成完整文档正文。
 
         参数：
-          outline   - 用户已确认的文档目录结构（Markdown 格式）
-          requirements - 用户原始需求描述
+          outline           - 用户已确认的文档目录结构（Markdown 格式）
+          requirements      - 用户原始需求描述
+          reference_context - 参考资料上下文（知识库检索结果、用户上传附件内容等）
         """
         sections = _parse_sections(outline)
+
+        ref_prefix = f"【参考上下文】\n{reference_context}\n\n" if reference_context else ""
 
         # 如果解析不到章节，回退到一次性生成（兜底）
         if not sections:
             doc_input = (
                 f"{DOCUMENT_PROMPT}\n\n"
+                f"{ref_prefix}"
                 f"【原始需求】\n{requirements}\n\n"
                 f"【已确认的目录结构（严格遵循此结构）】\n{outline}"
             )
@@ -176,6 +254,7 @@ def create_doc_agent(llm):
 
             section_prompt = (
                 f"{SECTION_PROMPT}\n\n"
+                f"{ref_prefix}"
                 f"【原始需求】\n{requirements}\n\n"
                 f"【完整目录结构（供参考，不要写其他章节）】\n{outline}\n\n"
                 f"【当前需要撰写的章节】\n{section_title}"
@@ -225,25 +304,35 @@ def create_doc_agent(llm):
     return create_react_agent(
         model=llm,
         name="doc_agent",
-        tools=[generate_document_outline, generate_document_content, improve_document_outline],
+        tools=[search_knowledge_base, generate_document_outline, generate_document_content, improve_document_outline],
         prompt="""你是企业文档编写专家，处理文档生成、报告撰写、方案编写等任务。
 
 【工具说明】
-- generate_document_outline：根据需求生成文档目录（第一步使用）
-- generate_document_content：根据确认的目录生成完整文档（目录确认后使用）
+- search_knowledge_base：从企业知识库检索与需求相关的原始文档片段（带来源标注），作为撰写参考
+- generate_document_outline：根据需求和参考资料生成文档目录结构（多级编号+内容说明）
+- generate_document_content：根据已确认的目录结构、原始需求和参考上下文，逐章节生成完整文档内容
 - improve_document_outline：根据用户反馈修改目录
 
-【工作流程】
-1. 首先调用 generate_document_outline 生成目录
-2. 将目录展示给用户确认或修改
-3. 用户确认后，调用 generate_document_content 生成完整文档
-4. 如果用户对目录有修改意见，调用 improve_document_outline 调整
+【单次调用规则】每次收到用户消息，只执行当前阶段的任务，不要跨阶段操作。
+
+如果是【生成目录】阶段（用户消息包含"生成目录"或"任务：生成文档目录"）：
+1. 先调用 search_knowledge_base，用用户需求作为查询词检索知识库
+2. 再调用 generate_document_outline，将知识库检索结果和用户消息中的参考上下文合并后填入 reference_context 参数
+3. 将生成的目录原样返回
+
+如果是【生成文档内容】阶段（用户消息包含"生成文档内容"、"已确认的目录"或"任务：生成文档内容"）：
+1. 直接调用 generate_document_content，使用用户消息中提供的目录结构、原始需求和参考上下文
+2. 将生成的完整文档原样返回
+
+如果是【修改目录】阶段（用户消息包含"修改目录"或反馈意见）：
+1. 调用 improve_document_outline
+2. 返回修改后的目录
 
 【硬性约束】
-1. 必须先确认目录再生成内容，不要跳过目录确认步骤
-2. 生成的文档内容必须严格遵循已确认的目录结构
+1. 一次调用只执行一个阶段，不要生成目录后又接着生成文档内容
+2. 返回工具输出时原样返回，不要添加任何解释、补充或总结
 3. 文档使用中文撰写，格式规范、内容专业
-4. 不编造需要实际数据的数字，如需数据应标注"（示例数据）"
+4. 不编造实际数据，如需数据应标注"（示例数据）"
 
 【回答语言】中文。""",
     )

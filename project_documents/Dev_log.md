@@ -1,5 +1,83 @@
 # 开发日志列表
-:
+::
+
+## 2026-05-26 (仅保存有实际消息的对话 + 文档生成记录融入侧边栏)
+
+**问题1**：进入任意模式即自动创建空对话（即使用户未输入）。
+
+**修复1**：`chat_page.py` 去掉 `render_chat_main()` 的自动创建逻辑，改为仅在用户真正发送消息时创建对话并生成标题。
+
+**问题2**：文档生成历史仅在 doc_page 底部独立展示，不在侧边栏统一显示。
+
+**修复2**：`_auto_save_document()` 同步创建 conversations 记录（用户消息=需求，助手消息=文档内容），侧边栏自动刷新；移除 doc_page 底部独立历史区域和废弃函数。
+
+**修改文件**：`pages/chat_page.py`、`pages/doc_page.py`
+
+**时间**：2026-05-26 18:04
+
+---
+
+## 2026-05-26 (修复模式切换 no-op 错误 + 历史对话无响应)
+
+**问题1**：点击文档撰写出现 "Calling st.rerun() within a callback is a no-op"。
+
+**根因**：Streamlit `st.button(on_click=...)` 回调内部不允许调用 `st.rerun()`。
+
+**修复1**：回退为 `if st.button(...):` 模式，在按钮判断体内调用 `st.rerun()`。
+
+**问题2**：文档撰写模式下点击侧边栏历史对话无响应。
+
+**根因**：只设置了 `current_conversation_id`/`messages`，未切换 `agent_mode`，页面仍渲染文档撰写。
+
+**修复2**：点击历史对话时同步设置 `agent_mode = "knowledge_qa"`。
+
+**补充**：`doc_page.render(embedded=True)` 只是跳过独立标题（index_page 已统一渲染），侧边栏由 index_page 统一管理，无需额外统一。
+
+**修改文件**：`pages/index_page.py`
+
+**时间**：2026-05-26 17:42
+
+**问题**：在首页切换"知识库问答"→"数据统计"时，对话状态不清空，用户仍在上一模式的对话中继续。
+
+**方案**：`_render_agent_selector()` 三个模式按钮改用 `st.button(on_click=_switch_mode)` 回调，切换时自动清除 `current_conversation_id` 和 `messages`。
+
+**修改文件**：`pages/index_page.py`
+
+**时间**：2026-05-26 17:25
+
+---
+
+## 2026-05-26 (修复相对时间显示 8 小时偏差)
+
+**问题**：对话和文档历史的相对时间（"X小时前"）始终比实际多约 8 小时。
+
+**根因**：SQLite `CURRENT_TIMESTAMP` 返回 UTC 时间，而 `datetime.now()` 返回本地时间（UTC+8），导致 8 小时偏差。
+
+**方案**：创建 `core/time_utils.py` 统一工具函数，使用 `datetime.now(timezone.utc)` 与数据库 UTC 时间戳对齐；所有页面统一调用 `calc_rel_time()`，消除重复代码。
+
+**修改文件**：`core/time_utils.py`（新增）、`pages/index_page.py`、`pages/chat_page.py`、`pages/doc_page.py`
+
+**时间**：2026-05-26 17:08
+
+---
+
+## 2026-05-26 (文档撰写接入 Agent 框架 + 完整 LangSmith Trace)
+
+**问题**：`doc_page.py` 绕过 `doc_agent`，直接 `llm.invoke()` 调用 LLM，LangSmith trace 中看不到 Agent 调用链和 KB 检索步骤。
+
+**方案**：`doc_page.py` 保持三步 UI，每步通过 `chat_direct("doc_agent", ...)` 调用 doc_agent；doc_agent 新增 `search_knowledge_base` 工具（直调 Dify 语义检索），KB 检索纳入 Agent trace。
+
+**改动1**：`agents/doc_agent.py` — 新增 `search_knowledge_base` 工具，`generate_document_outline/content` 增加 `reference_context` 参数，prompt 改为单阶段调用。
+**改动2**：`agent.py` — `chat_direct()` 的 `agent_map` 新增 `doc_agent`。
+**改动3**：`pages/doc_page.py` — 删除重复的 `OUTLINE_PROMPT`/`SECTION_PROMPT`/`_parse_sections`/`_invoke_with_retry`；附件解析保留，KB 检索移入 doc_agent；Step 1/2 改用 `chat_direct("doc_agent", ...)` + 展示 steps_log。
+
+**工作流**：用户需求+附件 → doc_page 解析附件 → chat_direct("doc_agent") → search_knowledge_base（检索 Dify KB）→ generate_document_outline（生成目录）→ 用户确认 → generate_document_content（逐章生成文档）→ 完整 LangSmith trace。
+
+**修改文件**：`agents/doc_agent.py`、`agent.py`、`pages/doc_page.py`
+
+**时间**：2026-05-26 16:17
+
+---
 
 ## 2026-05-25 (页面布局统一与侧边导航优化)
 
@@ -258,7 +336,9 @@
 
 **效果**：预热后单次代码执行 9-10ms（对比 subprocess 冷启动 ~1.5-2s，提升 150x+）；data_agent 连接复用后消除 ~2s TCP 建连开销。
 
-**时间**：2026-05-20 20:42:
+**时间**：2026-05-20 20:42
+
+---
 
 ## 2026-05-20 (多文件查询 + 规则7优化)
 

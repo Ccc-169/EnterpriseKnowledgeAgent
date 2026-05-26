@@ -24,7 +24,7 @@ DEFAULT_USERS = [
     },
     {
         "username": "chen",
-        "password": "chenchen",
+        "password": "chen@123",
         "display_name": "管理员",
         "role": "admin",
     },

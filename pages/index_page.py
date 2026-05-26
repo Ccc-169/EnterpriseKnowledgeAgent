@@ -1,6 +1,6 @@
 # pages/index_page.py — 首页：侧边栏导航 + 三种智能体模式切换
-from datetime import datetime
 import streamlit as st
+from core.time_utils import calc_rel_time
 from auth.session import get_current_user, require_login, require_role, logout_session
 from auth.auth_service import update_password, update_display_name
 from audit.audit_service import log_event
@@ -91,7 +91,7 @@ def _render_sidebar(user: dict) -> None:
             updated_at = conv["updated_at"]
 
             # 计算相对时间
-            rel_time = _calc_rel_time(updated_at)
+            rel_time = calc_rel_time(updated_at)
 
             col1, col2 = st.columns([4, 1])
             with col1:
@@ -101,6 +101,7 @@ def _render_sidebar(user: dict) -> None:
                     use_container_width=True,
                     type="secondary" if st.session_state.current_conversation_id != conv_id else "primary",
                 ):
+                    st.session_state.agent_mode = "knowledge_qa"
                     st.session_state.current_conversation_id = conv_id
                     st.session_state.messages = get_messages(conv_id, user["user_id"])
                     st.rerun()
@@ -149,7 +150,10 @@ def _render_agent_selector() -> None:
             use_container_width=True,
             type="primary" if st.session_state.agent_mode == "knowledge_qa" else "secondary",
         ):
-            st.session_state.agent_mode = "knowledge_qa"
+            if st.session_state.agent_mode != "knowledge_qa":
+                st.session_state.agent_mode = "knowledge_qa"
+                st.session_state.current_conversation_id = None
+                st.session_state.messages = []
             st.rerun()
     with col2:
         if st.button(
@@ -157,7 +161,10 @@ def _render_agent_selector() -> None:
             use_container_width=True,
             type="primary" if st.session_state.agent_mode == "data_stats" else "secondary",
         ):
-            st.session_state.agent_mode = "data_stats"
+            if st.session_state.agent_mode != "data_stats":
+                st.session_state.agent_mode = "data_stats"
+                st.session_state.current_conversation_id = None
+                st.session_state.messages = []
             st.rerun()
     with col3:
         if st.button(
@@ -165,7 +172,10 @@ def _render_agent_selector() -> None:
             use_container_width=True,
             type="primary" if st.session_state.agent_mode == "doc_write" else "secondary",
         ):
-            st.session_state.agent_mode = "doc_write"
+            if st.session_state.agent_mode != "doc_write":
+                st.session_state.agent_mode = "doc_write"
+                st.session_state.current_conversation_id = None
+                st.session_state.messages = []
             st.rerun()
 
     st.divider()
@@ -262,25 +272,5 @@ def _render_user_settings(user: dict) -> None:
 
 
 # ── 辅助函数 ────────────────────────────────────────────────────────────────
-
-def _calc_rel_time(updated_at: str | None) -> str:
-    """根据 ISO 时间字符串计算相对时间。"""
-    try:
-        dt = datetime.fromisoformat(updated_at.replace("Z", "+00:00"))
-        now = datetime.now()
-        delta = now.replace(tzinfo=None) - dt.replace(tzinfo=None)
-        if delta.days == 0:
-            if delta.seconds < 60:
-                return "刚刚"
-            elif delta.seconds < 3600:
-                return f"{delta.seconds // 60}分钟前"
-            else:
-                return f"{delta.seconds // 3600}小时前"
-        elif delta.days == 1:
-            return "昨天"
-        elif delta.days < 7:
-            return f"{delta.days}天前"
-        else:
-            return updated_at[:10] if updated_at else ""
-    except Exception:
-        return updated_at[:10] if updated_at else ""
+# calc_rel_time 统一使用 UTC 时间对比，避免与本地时间（UTC+8）出现 8 小时偏差。
+# 详见 core/time_utils.py。

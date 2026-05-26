@@ -109,7 +109,7 @@ def chat_direct(
     except RuleViolationError as e:
         return f"⚠️ 输入安全检查未通过：{e}", [], None
 
-    agent_map = {"rag_agent": rag_agent, "data_agent": data_agent}
+    agent_map = {"rag_agent": rag_agent, "data_agent": data_agent, "doc_agent": doc_agent}
     agent = agent_map.get(agent_name)
     if agent is None:
         return f"未知智能体：{agent_name}", [], None

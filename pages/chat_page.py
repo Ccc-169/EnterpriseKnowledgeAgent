@@ -1,7 +1,7 @@
 # pages/chat_page.py — 主对话页（支持多对话记录）
 import streamlit as st
-from datetime import datetime
 from agent import chat
+from core.time_utils import calc_rel_time
 from agents.registry import can_use_agent
 from auth.session import get_current_user, require_login, require_role, logout_session
 from auth.session import is_logged_in
@@ -69,26 +69,8 @@ def render():
             title = conv["title"]
             updated_at = conv["updated_at"]
 
-            # 计算相对时间
-            try:
-                dt = datetime.fromisoformat(updated_at.replace("Z", "+00:00"))
-                now = datetime.now()
-                delta = now - dt
-                if delta.days == 0:
-                    if delta.seconds < 60:
-                        rel_time = "刚刚"
-                    elif delta.seconds < 3600:
-                        rel_time = f"{delta.seconds // 60}分钟前"
-                    else:
-                        rel_time = f"{delta.seconds // 3600}小时前"
-                elif delta.days == 1:
-                    rel_time = "昨天"
-                elif delta.days < 7:
-                    rel_time = f"{delta.days}天前"
-                else:
-                    rel_time = updated_at[:10]
-            except Exception:
-                rel_time = updated_at[:10] if updated_at else ""
+            # 计算相对时间（UTC 基准，统一使用 core/time_utils）
+            rel_time = calc_rel_time(updated_at)
 
             # 对话项
             col1, col2 = st.columns([4, 1])
@@ -158,18 +140,11 @@ def render_chat_main(user: dict, use_direct_agent: str = None) -> None:
         use_direct_agent: 非 None 时直接调用指定智能体（"rag_agent"/"data_agent"），
                           None 时使用自动路由 supervisor。
     """
-    # 如果没有选中任何对话，自动创建一个
-    if not st.session_state.current_conversation_id:
-        new_conv_id = create_conversation(user["user_id"])
-        st.session_state.current_conversation_id = new_conv_id
-        st.session_state.messages = []
-        st.session_state._reload_conversations = True
-        st.rerun()
-
-    # 显示当前对话标题
-    current_conv = get_conversation(st.session_state.current_conversation_id, user["user_id"])
-    if current_conv:
-        st.subheader(current_conv["title"])
+    # 显示当前对话标题（仅在已有对话时）
+    if st.session_state.current_conversation_id:
+        current_conv = get_conversation(st.session_state.current_conversation_id, user["user_id"])
+        if current_conv:
+            st.subheader(current_conv["title"])
 
     # 渲染历史消息
     for msg in st.session_state.messages:
@@ -196,22 +171,21 @@ def render_chat_main(user: dict, use_direct_agent: str = None) -> None:
         with st.chat_message("user"):
             st.markdown(user_input)
 
+        # 如果还没有对话，仅当用户真正发送消息时才创建
+        if not st.session_state.current_conversation_id:
+            new_conv_id = create_conversation(user["user_id"])
+            st.session_state.current_conversation_id = new_conv_id
+            st.session_state._reload_conversations = True
+            # 立即用用户问题生成对话标题
+            new_title = generate_title_from_message(user_input)
+            update_conversation_title(new_conv_id, user["user_id"], new_title)
+
         # 保存到数据库（用户消息）
         save_message(
             conversation_id=st.session_state.current_conversation_id,
             role="user",
             content=user_input
         )
-
-        # 如果是第一条消息，用用户问题生成对话标题
-        if current_conv and current_conv["title"] == "新对话":
-            new_title = generate_title_from_message(user_input)
-            update_conversation_title(
-                st.session_state.current_conversation_id,
-                user["user_id"],
-                new_title
-            )
-            st.session_state._reload_conversations = True
 
         with st.chat_message("assistant"):
             with st.spinner("思考中..."):
