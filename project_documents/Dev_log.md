@@ -1,6 +1,46 @@
 # 开发日志列表
 ::
 
+## 2026-05-27 (更新智能体工作流说明文档)
+
+同步当前代码变更到 `智能体工作流说明.md`：Supervisor agents 改为 [rag, data]、补充最多两次转发规则、doc_agent 仅直调不路由、新增 index_page 三种模式调用路径表。
+
+**修改文件**：`project_documents/智能体工作流说明.md`
+
+---
+
+## 2026-05-27 (修复 GraphRecursionError 无限循环)
+
+**问题**：Supervisor 收到子 Agent "未找到"类回答后，会尝试重新路由到另一个 Agent，形成死循环触发 recursion_limit=50。
+
+**修复**：优化 Supervisor prompt，明确最多两次转发、达到上限后即使未找到也必须结束，同时 rag_agent 职责补充"咨询建议类问题"。
+
+**修改文件**：`agent.py`
+
+---
+
+## 2026-05-27 (修复历史对话标题始终显示"新对话")
+
+**问题**：点击"新建对话"时已设置 `current_conversation_id`，导致发送消息后标题更新逻辑被跳过，标题永远为"新对话"。
+
+**修复**：在 `chat_page.py` 中新增 else 分支，检查对话标题是否为默认"新对话"，若是则用第一条用户消息更新标题。
+
+**修改文件**：`pages/chat_page.py`
+
+---
+
+## 2026-05-27 (知识库问答模式移除 doc_agent 路由)
+
+**问题**：知识库问答模式下 Supervisor 可能将写作类问题路由到 doc_agent，导致生成目录等不符合聊天 UI 的输出。
+
+**修复**：Supervisor agents 列表从 `[rag, data, doc]` 改为 `[rag, data]`，写作类文本需求由 rag_agent 直接回答。doc_agent 仍通过文档撰写页 chat_direct 调用，不受影响。
+
+**修改文件**：`agent.py`
+
+**时间**：2026-05-27
+
+---
+
 ## 2026-05-26 (三智能体工作流文档整理)
 
 新增 `project_documents/智能体工作流说明.md`，详细记录 rag_agent/data_agent/doc_agent 的工作流、关键机制和共享架构。

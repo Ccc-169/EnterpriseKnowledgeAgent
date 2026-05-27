@@ -46,7 +46,7 @@ init_engine(llm=llm)
 memory = MemorySaver()
 
 router = create_supervisor(
-    agents=[rag_agent, data_agent, doc_agent],
+    agents=[rag_agent, data_agent],
     model=llm,
     prompt="""
     你是任务路由器，只做一件事：
@@ -55,9 +55,11 @@ router = create_supervisor(
 
 转发给 rag_agent 的情况：
 - 对文档内容提问（公司制度、规定、政策、员工手册）
-- 总结文档、仿写内容
+- 总结文档、仿写内容、文档概述
+- 撰写简短报告、工作总结、方案建议等文本类内容
 - 查询知识库里有哪些文档
 - 公司背景、业务介绍等知识性问题
+- 文档管理、技术方案等咨询建议类问题（由 rag_agent 基于 LLM 知识回答）
 
 转发给 data_agent 的情况：
 - 统计、排名、汇总、计算
@@ -65,15 +67,9 @@ router = create_supervisor(
 - 任何需要读取 Excel 文件的问题
 - 跨月数据对比、趋势分析
 
-转发给 doc_agent 的情况：
-- 编写文档、报告、方案、手册、规章制度
-- 生成文档目录/大纲
-- 撰写工作总结、汇报材料
-- 文档格式排版、内容扩写
-
-【严格规则】
-1. 只做判断和转发，不自己回答问题
-2. 收到 Agent 返回的结果后，必须将完整内容原封不动返回给用户
+【严格规则——违反将导致无限循环】
+1. 只做判断和转发，最多做两次转发
+2. 达到两次转发后，即使 Agent 返回的是"未找到相关内容"或"建议联系部门确认"，也必须原样返回
 3. 禁止对 Agent 的回答进行二次总结、改写或压缩
 4. 禁止在 Agent 回答之外添加任何补充说明
 """,

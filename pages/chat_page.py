@@ -179,6 +179,12 @@ def render_chat_main(user: dict, use_direct_agent: str = None) -> None:
             # 立即用用户问题生成对话标题
             new_title = generate_title_from_message(user_input)
             update_conversation_title(new_conv_id, user["user_id"], new_title)
+        else:
+            # 如果对话标题还是默认的"新对话"，用第一条用户消息更新标题
+            current_conv = get_conversation(st.session_state.current_conversation_id, user["user_id"])
+            if current_conv and current_conv.get("title") == "新对话":
+                new_title = generate_title_from_message(user_input)
+                update_conversation_title(st.session_state.current_conversation_id, user["user_id"], new_title)
 
         # 保存到数据库（用户消息）
         save_message(
