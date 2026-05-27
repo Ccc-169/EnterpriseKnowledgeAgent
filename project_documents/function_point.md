@@ -109,10 +109,3 @@
 - **长度截断**：提取内容超过 8000 字符时自动截断并标注原始总字符数。
 - **友好错误提示**：解析失败时返回具体错误原因，不阻塞主流程。
 
-## 十四、系统部署
-
-- **双模式运行**：Web 界面（streamlit run app.py）+ 命令行模式（python main.py），共享同一 agent.py 核心。
-- **一键启动脚本**：start.bat 自动创建虚拟环境、安装依赖、初始化数据库、启动代码沙箱和 Web 服务。
-- **数据库自动建表**：首次启动时自动创建 users、audit_logs、conversations、messages、document_history 五张表。
-- **环境配置**：通过 .env 文件配置 QWEN_API_KEY、DIFY_DATASET_KEY、DIFY_KB_ID、DATA_DIR、EXECUTOR_URL 等参数。
-- **WAL 模式**：SQLite 启用 WAL 日志模式，支持并发读写不阻塞。
