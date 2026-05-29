@@ -1,7 +1,89 @@
 # 开发日志列表
-::
+:
 
-<<<<<<< HEAD
+## 2026-05-29 (生成文档标题去除"文档标题："前缀)
+
+**优化**：提取 outline 中的 h1 标题时自动去掉 LLM 自动生成的"文档标题："前缀，只保留 `# 标题名`。
+
+**修改文件**：`agents/doc_agent.py` — 标题提取行增加 `replace("文档标题：", "")` 清理。
+
+**时间**：2026-05-29 11:13
+
+---
+
+## 2026-05-29 (新建对话时重置文档编写状态)
+
+**问题**：文档撰写模式生成文章后，点击"新建对话"再切回文档撰写时仍显示旧文档；只有点击"新建文档"按钮才能开始新文档。
+
+**方案**：`doc_page.py` 新增 `reset_doc_state()` 辅助函数，`index_page.py` 和 `chat_page.py` 的"新建对话"按钮及"文档编写/撰写"入口按钮均调用该函数，确保进入文档编写时始终是新文档。
+
+**修改文件**：`pages/doc_page.py`（新增 `reset_doc_state()`）、`pages/chat_page.py`（2处）、`pages/index_page.py`（2处）
+
+**时间**：2026-05-29 11:29
+
+---
+
+## 2026-05-29 (生成文档补齐标题)
+
+**优化**：提取 outline 中的 h1 标题时自动去掉 LLM 自动生成的"文档标题："前缀，只保留 `# 标题名`。
+
+**修改文件**：`agents/doc_agent.py` — 标题提取行增加 `replace("文档标题：", "")` 清理。
+
+**时间**：2026-05-29 11:13
+
+---
+
+## 2026-05-29 (生成文档补齐标题)
+
+**优化**：逐章生成文档时从 outline 中提取 `# 文档标题`（h1）并置于正文最前面，之前缺少标题行。
+
+**修改文件**：`agents/doc_agent.py` — `generate_document_content` 中逐章生成前先解析 outline 首行 h1 标题，拼入 `full_doc_parts` 首部。
+
+**时间**：2026-05-29 10:56
+
+---
+
+## 2026-05-29 (文档生成 APIConnectionError 兜底恢复)
+
+**问题**：文档生成时 Agent 工具调用（逐章生成）成功，但最后 Agent 将大型文档回传 LLM 做收尾决策时 Qwen API 断开连接（`Server disconnected without sending a response`），导致已生成的完整文档被丢弃。
+
+**方案**：`agent.py` 的 `chat_direct()` stream 循环包裹 try/except，捕获连接错误后优先从 `ToolMessage`（工具返回）提取已生成文档，避免前功尽弃。
+
+**修改文件**：`agent.py` — stream 循环加 APIConnectionError 捕获，`ToolMessage` 导入，答案提取改为先查 tool 返回再 AIMessage。
+
+**时间**：2026-05-29 10:02
+
+---
+
+
+## 2026-05-28 (修复 SqliteSaver 导入错误 - venv 安装遗漏)
+
+**问题**：`ModuleNotFoundError: No module named 'langgraph.checkpoint.sqlite'`，上次 `pip install` 装到了全局 Python 而非项目 venv。
+
+**修复**：用 venv 路径 `venv\Scripts\pip.exe install langgraph-checkpoint-sqlite` 重新安装，并调整 `SqliteSaver` 初始化方式——`from_conn_string()` 是 context manager，模块级使用改用 `sqlite3.connect() + SqliteSaver(conn) + .setup()`。
+
+**修改文件**：`agent.py`
+
+---
+
+## 2026-05-28 (修复多轮对话上下文记忆丢失 - 第二轮)
+
+**问题**：同一对话中追问"那第二呢"时，LLM 仍无法理解上下文。
+
+**根因分析（两个问题叠加）**：
+1. **致命 Bug**：`_build_messages_with_history()` 调用 `get_messages(conv_id)` 缺少必需的 `user_id` 参数 → 触发 TypeError → 历史消息永远无法加载
+2. **设计缺陷**：使用 `MemorySaver`（纯内存字典），Streamlit rerun 或服务重启后运行时状态必然丢失
+
+**修复方案（双重保障）**：
+1. **修复 Bug**：`_build_messages_with_history()` 新增 `user_id` 参数，从 `user_context["user_id"]` 提取并正确传递给 `get_messages(conv_id, user_id)`
+2. **持久化 Checkpointer**：将 `MemorySaver` 替换为 `SqliteSaver`，checkpoint 数据写入 `data/checkpoints.sqlite` 文件，重启不丢失
+3. **保留手动注入**：即使 SqliteSaver 已生效，仍保留 SQLite 历史消息注入作为 Streamlit rerun 场景下的额外保险
+
+**修改文件**：`agent.py`, `requirements.txt`
+**新增依赖**：`langgraph-checkpoint-sqlite>=2.0.0`
+
+---
+
 ## 2026-05-27 (更新智能体工作流说明文档)
 
 同步当前代码变更到 `智能体工作流说明.md`：Supervisor agents 改为 [rag, data]、补充最多两次转发规则、doc_agent 仅直调不路由、新增 index_page 三种模式调用路径表。
@@ -39,7 +121,9 @@
 **修改文件**：`agent.py`
 
 **时间**：2026-05-27
-=======
+
+---
+
 ## 2026-05-27 (项目概述重写)
 
 重写 `项目概述.md`（约 450 字），涵盖系统定位、核心架构（Supervisor + 3 Agent）、功能亮点、技术栈和部署方式，聚焦宏观全局视角。
@@ -55,7 +139,6 @@
 ## 2026-05-27 (功能点清单全面梳理更新)
 
 全面梳理项目核心功能点，基于实际代码更新 `function_point.md`：从 10 个章节扩展为 14 个章节，新增规则引擎、LLM 与可观测性、Agent 注册与权限、文件解析四大章节；RAG/数据分析/文档编写/代码沙箱/对话功能等章节大幅补充实现细节（查询改写、答案验证、代码缓存、进程池预热、逐章生成等）。
->>>>>>> 17c05eace950365c48424485c2544804268e752d
 
 ---
 

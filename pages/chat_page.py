@@ -51,6 +51,8 @@ def render():
 
         # 新建对话按钮
         if st.button("+ 新建对话", use_container_width=True, type="primary"):
+            from pages.doc_page import reset_doc_state
+            reset_doc_state()
             st.session_state.agent_mode = "knowledge_qa"
             new_conv_id = create_conversation(user["user_id"])
             st.session_state.current_conversation_id = new_conv_id
@@ -98,6 +100,8 @@ def render():
 
         # 文档编写入口
         if st.button("📝 文档编写", use_container_width=True):
+            from pages.doc_page import reset_doc_state
+            reset_doc_state()
             st.session_state.current_page = "文档编写"
             st.rerun()
 

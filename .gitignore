@@ -39,6 +39,9 @@ build/
 *.db-journal
 *.db-wal
 *.db-shm
+*.sqlite
+*.sqlite-shm
+*.sqlite-wal
 
 # ── 运行时数据 ───────────────────────────────────────
 data/files/

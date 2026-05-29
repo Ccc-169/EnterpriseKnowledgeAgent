@@ -59,6 +59,20 @@ def _auto_save_document(user: dict, outline: str) -> int | None:
 
 # ── 页面渲染 ──────────────────────────────────────────────────────────────
 
+# ── 文档状态重置（供外部页面调用，确保切换到文档编写时是新文档）──
+
+def reset_doc_state():
+    """清空文档编写相关 session_state，回到新建文档状态。"""
+    import streamlit as st
+    st.session_state.doc_step = "input"
+    st.session_state.doc_requirements = ""
+    st.session_state.doc_outline = ""
+    st.session_state.doc_content = ""
+    st.session_state.doc_reference_context = ""
+    st.session_state.doc_current_id = None
+    st.session_state.doc_expanded_id = None
+    st.session_state.doc_uploader_key = st.session_state.get("doc_uploader_key", 0) + 1
+
 
 def render(embedded: bool = False):
     """渲染文档编写页面，实现两步交互流程。
@@ -325,9 +339,9 @@ def render(embedded: bool = False):
         st.markdown("""
         <style>
         /* 仅在文档展示区域生效 */
-        .doc-display-area h1 { font-size: 1.2rem !important; margin-top: 0.9rem !important; margin-bottom: 0.4rem !important; }
-        .doc-display-area h2 { font-size: 1.05rem !important; margin-top: 0.7rem !important; margin-bottom: 0.3rem !important; }
-        .doc-display-area h3 { font-size: 0.9rem !important; margin-top: 0.6rem !important; margin-bottom: 0.25rem !important; }
+        .doc-display-area h1 { font-size: 0.95rem !important; margin-top: 0.5rem !important; margin-bottom: 0.4rem !important; }
+        .doc-display-area h2 { font-size: 0.90rem !important; margin-top: 0.7rem !important; margin-bottom: 0.3rem !important; }
+        .doc-display-area h3 { font-size: 0.85rem !important; margin-top: 0.6rem !important; margin-bottom: 0.25rem !important; }
         .doc-display-area p, .doc-display-area li, .doc-display-area td, .doc-display-area th {
             font-size: 0.85rem !important; line-height: 1.55 !important;
         }

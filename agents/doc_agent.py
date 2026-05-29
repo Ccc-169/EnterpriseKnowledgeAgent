@@ -237,8 +237,19 @@ def create_doc_agent(llm):
             answer = _invoke_with_retry(llm, doc_input, label="文档生成")
             return answer
 
+        # ── 提取文档标题（outline 第一行的 # 标题）──
+        doc_title = ""
+        for line in outline.strip().splitlines():
+            line = line.strip()
+            if line.startswith("# ") and not line.startswith("## "):
+                # 去掉 "文档标题：" 前缀，只保留 "# 标题名"
+                doc_title = line.replace("文档标题：", "").replace("文档标题:", "").strip()
+                break
+
         # ── 逐章节生成，降低单次请求压力 ──
         full_doc_parts = []
+        if doc_title:
+            full_doc_parts.append(doc_title)
         for idx, section_info in enumerate(sections, start=1):
             section_title = section_info["title"]
             subsections = section_info.get("subsections", [])

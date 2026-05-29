@@ -73,6 +73,8 @@ def _render_sidebar(user: dict) -> None:
 
         # 新建对话按钮
         if st.button("+ 新建对话", use_container_width=True, type="primary"):
+            from pages.doc_page import reset_doc_state
+            reset_doc_state()
             st.session_state.agent_mode = "knowledge_qa"
             new_conv_id = create_conversation(user["user_id"])
             st.session_state.current_conversation_id = new_conv_id
@@ -173,6 +175,8 @@ def _render_agent_selector() -> None:
             type="primary" if st.session_state.agent_mode == "doc_write" else "secondary",
         ):
             if st.session_state.agent_mode != "doc_write":
+                from pages.doc_page import reset_doc_state
+                reset_doc_state()
                 st.session_state.agent_mode = "doc_write"
                 st.session_state.current_conversation_id = None
                 st.session_state.messages = []
