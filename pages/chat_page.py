@@ -191,7 +191,7 @@ def render_chat_main(user: dict, use_direct_agent: str = None) -> None:
                 update_conversation_title(st.session_state.current_conversation_id, user["user_id"], new_title)
 
         # 保存到数据库（用户消息）
-        save_message(
+        user_msg_id = save_message(
             conversation_id=st.session_state.current_conversation_id,
             role="user",
             content=user_input
@@ -265,6 +265,17 @@ def render_chat_main(user: dict, use_direct_agent: str = None) -> None:
 
                 # 更新对话时间戳
                 update_conversation_timestamp(st.session_state.current_conversation_id)
+
+                # 经验记忆：保存用户问题的向量嵌入（异步，异常不阻塞）
+                if user_msg_id and agent_used == "rag_agent":
+                    try:
+                        from data.cache_service import embed_text, save_embedding, _should_cache
+                        if _should_cache(user_input):
+                            vec = embed_text(user_input)
+                            if vec:
+                                save_embedding(user_msg_id, vec)
+                    except Exception as e:
+                        print(f"[QACache] 嵌入保存失败（不影响主流程）: {e}")
 
         # 添加助手回复到 session_state
         st.session_state.messages.append({

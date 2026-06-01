@@ -199,6 +199,25 @@ def create_rag_agent(llm):
         适用：文档问答、内容总结、制度查询、仿写参考。
         当检索不到相关内容或答案质量不佳时会自动重试，无需多次调用。
         """
+        # Step 0: 经验记忆缓存检查（长期记忆：向量相似度匹配历史 Q&A）
+        cache_context = ""
+        try:
+            from data.cache_service import embed_text, search_cache
+            question_vec = embed_text(query)
+            if question_vec:
+                cached = search_cache(question_vec)
+                if cached:
+                    print(f"[QACache] 命中 {len(cached)} 条相似历史问答")
+                    parts = ["\n\n【历史相似问答参考（仅供参考，请以知识库最新内容为准）】"]
+                    for i, item in enumerate(cached, 1):
+                        parts.append(
+                            f"相似问题{i}(相似度={item['score']}): {item['question'][:100]}\n"
+                            f"历史回答{i}: {item['answer'][:300]}"
+                        )
+                    cache_context = "\n".join(parts)
+        except Exception as e:
+            print(f"[QACache] 缓存检查异常（不影响主流程）: {e}")
+
         # Step 1: 查询改写
         rewritten = rewrite_query(llm, query)
         search_query = rewritten["rewritten_query"]
@@ -218,7 +237,9 @@ def create_rag_agent(llm):
 
         # Step 4: 生成答案 + 验证 + 重试
         context_text = _format_records(records)
-        answer = _generate_answer(llm, query, context_text)
+        # 如有缓存命中，将历史 Q&A 附加到上下文
+        full_context = context_text + cache_context if cache_context else context_text
+        answer = _generate_answer(llm, query, full_context)
 
         verdict = verify_answer(llm, query, context_text, answer)
         retry_count = 0
@@ -244,7 +265,8 @@ def create_rag_agent(llm):
                 return "根据当前知识库，未能找到与您问题直接相关的内容。建议联系对应部门确认。"
 
             context_text = _format_records(retry_records)
-            answer = _generate_answer(llm, query, context_text)
+            full_context = context_text + cache_context if cache_context else context_text
+            answer = _generate_answer(llm, query, full_context)
             verdict = verify_answer(llm, query, context_text, answer)
 
         # 重试后仍不够完整，展示部分答案

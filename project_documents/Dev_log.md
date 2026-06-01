@@ -1,5 +1,21 @@
-# 开发日志列表
+﻿# 开发日志列表
 :
+
+## 2026-05-29 (经验记忆缓存：相似问题向量匹配)
+
+**功能**：新增经验记忆缓存——提问时先与历史问题做向量相似度匹配，命中则将历史Q&A作为上下文参考注入LLM回答。
+
+**方案**：
+- database.py：messages表新增question_vec列，init_db兼容已有数据库迁移
+- cache_service.py（新建）：embed_text（Qwen embedding）、cosine_similarity、search_cache、save_embedding、_should_cache（噪音过滤）
+- rag_agent.py：rag_search内Step0先查缓存，命中附加历史Q&A到上下文（标注仅供参考）
+- chat_page.py：回答后异步计算用户问题向量写入messages表（异常不影响主流程）
+
+**修改文件**：core/database.py、agents/rag_agent.py、pages/chat_page.py；新建data/cache_service.py
+
+**时间**：2026-05-29 16:30
+
+---
 
 ## 2026-05-29 (生成文档标题去除"文档标题："前缀)
 

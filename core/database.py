@@ -47,9 +47,14 @@ CREATE TABLE IF NOT EXISTS messages (
     content         TEXT NOT NULL,
     steps_log       TEXT,
     agent_used      TEXT,
+    question_vec    TEXT,
     created_at      TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (conversation_id) REFERENCES conversations(id) ON DELETE CASCADE
 );
+"""
+
+_MIGRATE_MESSAGES_QUESTION_VEC = """
+ALTER TABLE messages ADD COLUMN question_vec TEXT;
 """
 
 _CREATE_DOCUMENT_HISTORY_TABLE = """
@@ -89,6 +94,11 @@ def init_db() -> None:
         conn.execute(_CREATE_CONVERSATIONS_TABLE)
         conn.execute(_CREATE_MESSAGES_TABLE)
         conn.execute(_CREATE_DOCUMENT_HISTORY_TABLE)
+        # 迁移：为已有 messages 表添加 question_vec 列（列已存在则跳过）
+        try:
+            conn.execute(_MIGRATE_MESSAGES_QUESTION_VEC)
+        except Exception:
+            pass  # 列已存在，忽略
         conn.commit()
     finally:
         conn.close()
