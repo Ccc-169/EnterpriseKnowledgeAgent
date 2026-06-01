@@ -1,6 +1,7 @@
 # agents/data_agent.py
 import os
 import re
+import json
 import requests
 from langchain_core.tools import tool
 from langgraph.prebuilt import create_react_agent
@@ -12,6 +13,8 @@ _http_session = requests.Session()
 from rules.integration import check_generated_code
 from rules.engine import RuleViolationError
 
+_SCHEMA_PATH = os.path.join(os.path.dirname(__file__), "..", "project_documents", "data_schema.json")
+
 
 def create_data_agent(llm):
 
@@ -20,6 +23,45 @@ def create_data_agent(llm):
 
     # 代码生成缓存：同一文件+同skiprows+同query 避免重复调用 LLM
     _code_cache: dict[tuple, str] = {}
+
+    @tool
+    def lookup_schema(category: str = "") -> str:
+        """
+        查询 data_schema.json 中已登记的文件模板信息，在 list_files/inspect_file 之前优先调用。
+        - 不传参数：返回所有已知数据类别及其描述和可用文件期间概览
+        - 传入类别名（如"考勤"）：返回该类别的完整模板（skiprows、列名、文件路径、备注）
+        命中模板后可直接调用 execute_data_query，无需再调用 list_files 和 inspect_file。
+        """
+        try:
+            with open(_SCHEMA_PATH, encoding="utf-8") as f:
+                schema = json.load(f)
+        except FileNotFoundError:
+            return "data_schema.json 不存在，请使用 list_files 查找文件。"
+        except Exception as e:
+            return f"读取 data_schema.json 失败：{e}，请使用 list_files 查找文件。"
+
+        if not category:
+            lines = ["已登记的数据模板（可直接使用，无需 list_files/inspect_file）："]
+            for cat, info in schema.items():
+                periods = "、".join(info.get("files", {}).keys())
+                lines.append(f"- {cat}：{info['description']}（可用期间：{periods}）")
+            lines.append("\n如需完整列名和文件路径，请传入类别名再次调用，如 lookup_schema('考勤')。")
+            return "\n".join(lines)
+
+        if category not in schema:
+            return f"未找到类别 '{category}'，已登记类别：{list(schema.keys())}。请改用 list_files 查找文件。"
+
+        info = schema[category]
+        columns_str = "、".join(info.get("columns", []))
+        files_str = "\n".join(f"  {k}: {v}" for k, v in info.get("files", {}).items())
+        return (
+            f"类别：{category}\n"
+            f"描述：{info['description']}\n"
+            f"skiprows：{info['skiprows']}\n"
+            f"列名：{columns_str}\n"
+            f"备注：{info.get('notes', '无')}\n"
+            f"文件列表：\n{files_str}"
+        )
 
     @tool
     def list_files() -> str:
@@ -199,14 +241,21 @@ def create_data_agent(llm):
     return create_react_agent(
         model=llm,
         name="data_agent",
-        tools=[list_files, inspect_file, execute_data_query],
+        tools=[lookup_schema, list_files, inspect_file, execute_data_query],
         prompt="""你是企业数据分析专家，处理统计、汇总、排名、对比、筛选等数据计算任务。
 
 【工具说明】
-- list_files：查看数据目录中有哪些文件
-- inspect_file：读取文件原始内容，判断表头行位置和列名
+- lookup_schema：查询已登记的文件模板，优先调用
+- list_files：查看数据目录中有哪些文件（schema 未命中时使用）
+- inspect_file：读取文件原始内容，判断表头行位置和列名（schema 未命中时使用）
 - execute_data_query：生成 Python 代码并执行统计，需传入 query、file_path、skiprows、columns
-  - columns 参数：必须从 inspect_file 返回的列名列表中提取，以逗号分隔填入（如 "序号,经费类别,实际支出 (元),支出日期"），确保代码使用真实列名
+  - columns 参数：必须使用真实列名，以逗号分隔填入（如 "序号,经费类别,实际支出 (元),支出日期"）
+
+【优先流程——每次任务开始时执行】
+1. 先调用 lookup_schema（不传参）查看有哪些已登记模板
+2. 若用户问题匹配某类别，再调用 lookup_schema(category) 获取完整信息（skiprows、列名、文件路径）
+   → 直接调用 execute_data_query，跳过 list_files 和 inspect_file
+3. 若未匹配到任何类别，再按原流程：list_files → inspect_file → execute_data_query
 
 【效率规则——减少等待时间，提升响应速度】
 4. 合并统计：对同一文件的多项需求（如"硬件采购+软件采购"）应合并为一次 execute_data_query，用多个变量存储结果
@@ -214,7 +263,7 @@ def create_data_agent(llm):
 6. 禁止拆句：不要将"列出A和B以及C"拆成三次独立调用，拆句会导致重复加载文件和重复等待
 
 【硬性约束——运行环境物理限制，违反必然失败】
-1. execute_data_query 的 skiprows 参数必须传入 inspect_file 判断出的表头行号
+1. execute_data_query 的 skiprows 参数必须与文件实际表头行一致（从 schema 或 inspect_file 获取）
 2. 生成代码运行在沙箱中，只能用 pandas/json/os 等标准库，禁调 agent 工具
 3. .xlsx/.xls→pd.read_excel(), .csv→pd.read_csv()，用错函数会报错
 
