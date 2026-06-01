@@ -844,6 +844,79 @@
     max-height: 280px; overflow-y: auto; margin-top: 8px; color: #3a4a6a;
   }
 
+  /* ── 使用指南弹窗 ── */
+  .guide-trigger {
+    position: relative;
+    user-select: none;
+  }
+
+  .guide-popup {
+    position: fixed;
+    width: 300px;
+    background: white;
+    border: 1.5px solid #d0dae8;
+    border-radius: 13px;
+    box-shadow: 0 10px 36px rgba(26,58,110,0.14), 0 2px 10px rgba(26,58,110,0.07);
+    padding: 14px 16px 12px;
+    z-index: 9999;
+    opacity: 0;
+    transform: translateY(-10px) scale(0.98);
+    pointer-events: none;
+    transition: opacity 0.22s ease, transform 0.28s cubic-bezier(0.34, 1.18, 0.64, 1);
+  }
+
+  .guide-popup.open {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+    pointer-events: auto;
+  }
+
+  .guide-popup-header {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 12.5px;
+    font-weight: 700;
+    color: #2a5aa8;
+    margin-bottom: 10px;
+    padding-bottom: 9px;
+    border-bottom: 1.5px solid #eef2f8;
+    letter-spacing: 0.3px;
+  }
+
+  .guide-item {
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+    padding: 8px 0;
+    border-bottom: 1px solid #f2f6fa;
+  }
+
+  .guide-item:last-child {
+    border-bottom: none;
+    padding-bottom: 2px;
+  }
+
+  .guide-icon {
+    font-size: 15px;
+    line-height: 1.2;
+    flex-shrink: 0;
+    margin-top: 1px;
+  }
+
+  .guide-item-title {
+    font-size: 12.5px;
+    font-weight: 600;
+    color: #1a2a4a;
+    margin-bottom: 2px;
+  }
+
+  .guide-item-desc {
+    font-size: 11.5px;
+    color: #8a9ab8;
+    line-height: 1.55;
+  }
+
   /* ── 退出登录 ── */
   .logout-btn {
     display: block;
@@ -942,9 +1015,51 @@
 
     <!-- Topbar -->
     <div class="topbar">
-      <div class="topbar-item">
+      <div class="topbar-item guide-trigger" id="guide-btn" onclick="toggleGuide(event)">
         <svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor"><path d="M11.99 2C6.47 2 2 6.48 2 12s4.47 10 9.99 10C17.52 22 22 17.52 22 12S17.52 2 11.99 2zM12 20c-4.42 0-8-3.58-8-8s3.58-8 8-8 8 3.58 8 8-3.58 8-8 8zm.5-13H11v6l5.25 3.15.75-1.23-4.5-2.67V7z"/></svg>
         使用指南
+      </div>
+      <!-- 使用指南弹窗（fixed 定位，不受父级 overflow:hidden 裁切） -->
+      <div class="guide-popup" id="guide-popup" onclick="event.stopPropagation()">
+        <div class="guide-popup-header">
+          <svg viewBox="0 0 24 24" width="13" height="13" fill="#2a5aa8"><path d="M11.99 2C6.47 2 2 6.48 2 12s4.47 10 9.99 10C17.52 22 22 17.52 22 12S17.52 2 11.99 2zM12 20c-4.42 0-8-3.58-8-8s3.58-8 8-8 8 3.58 8 8-3.58 8-8 8zm.5-13H11v6l5.25 3.15.75-1.23-4.5-2.67V7z"/></svg>
+          快速上手指南
+        </div>
+        <div class="guide-item">
+          <span class="guide-icon">📚</span>
+          <div>
+            <div class="guide-item-title">知识问答</div>
+            <div class="guide-item-desc">选择"知识库检索"模式，直接向 AI 提问，系统自动检索企业知识库后作答</div>
+          </div>
+        </div>
+        <div class="guide-item">
+          <span class="guide-icon">📊</span>
+          <div>
+            <div class="guide-item-title">数据分析</div>
+            <div class="guide-item-desc">切换"数据统计"模式，描述分析需求，AI 自动对 Excel / CSV 进行统计分析</div>
+          </div>
+        </div>
+        <div class="guide-item">
+          <span class="guide-icon">✍️</span>
+          <div>
+            <div class="guide-item-title">仿写创作</div>
+            <div class="guide-item-desc">切换"仿写"模式，描述文档需求，AI 参考知识库风格分步骤生成完整文档</div>
+          </div>
+        </div>
+        <div class="guide-item">
+          <span class="guide-icon">💬</span>
+          <div>
+            <div class="guide-item-title">对话管理</div>
+            <div class="guide-item-desc">历史对话自动保存于左侧列表，随时切换续聊；点击"新建对话"重新开始</div>
+          </div>
+        </div>
+        <div class="guide-item">
+          <span class="guide-icon">⚠️</span>
+          <div>
+            <div class="guide-item-title">免责声明</div>
+            <div class="guide-item-desc">AI 生成内容仅供参考，重要决策请以官方资料为准</div>
+          </div>
+        </div>
       </div>
       <div class="topbar-divider"></div>
       <div class="topbar-item">
@@ -1741,6 +1856,29 @@
       loadRow.classList.remove('visible');
     }
   }
+
+  // ── 使用指南弹窗 ─────────────────────────────────────
+  function toggleGuide(e) {
+    e.stopPropagation();
+    const popup = document.getElementById('guide-popup');
+    const btn   = document.getElementById('guide-btn');
+    const isOpen = popup.classList.contains('open');
+    if (!isOpen) {
+      const rect       = btn.getBoundingClientRect();
+      const popupW     = 300;
+      const margin     = 8;
+      // 右对齐按钮右边缘，超出左侧则夹到最小边距
+      const left = Math.max(margin, rect.right - popupW);
+      popup.style.top  = (rect.bottom + 8) + 'px';
+      popup.style.left = left + 'px';
+    }
+    popup.classList.toggle('open');
+  }
+
+  document.addEventListener('click', function() {
+    const popup = document.getElementById('guide-popup');
+    if (popup) popup.classList.remove('open');
+  });
 
   window.addEventListener('load', initPage);
 </script>

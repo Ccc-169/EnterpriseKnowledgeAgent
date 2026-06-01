@@ -1,6 +1,22 @@
 # 开发日志列表
 :
 
+## 2026-06-01 (home-page 使用指南悬浮弹窗)
+
+**新增**：点击 topbar 右侧"使用指南"按钮，在其正下方弹出包含 5 条核心使用说明的悬浮卡片，点击页面任意处关闭。
+
+**实现要点**：
+- 弹窗采用 `position: fixed` + JS `getBoundingClientRect()` 动态定位，规避 `body` / `.main-content` 的 `overflow: hidden` 裁切问题。
+- 定位策略：`left = max(8, rect.right - 300)`，即弹窗右边缘与按钮右边缘对齐，向左展开，保证不超出右侧视口。
+- 开合动画：`opacity` + `translateY(-10px)` + `scale(0.98)` 三属性联动，过渡曲线 `cubic-bezier(0.34, 1.18, 0.64, 1)` 带轻微弹性，时长 0.22–0.28s。
+- 关闭逻辑：`document` 全局 click 关闭，弹窗内部 `stopPropagation()` 防误触。
+
+**修改文件**：`html_files/home-page.html`（CSS 新增弹窗样式、HTML 增加弹窗结构、JS 新增 `toggleGuide` 与全局关闭监听）。
+
+**时间**：2026-06-01
+
+---
+
 ## 2026-06-01 (Streamlit → HTML 前端迁移)
 
 将原 Streamlit 多页面应用迁移为独立 HTML + REST API 架构，涵盖四个模块：
