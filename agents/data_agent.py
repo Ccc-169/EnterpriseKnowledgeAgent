@@ -1,6 +1,7 @@
 # agents/data_agent.py
 import os
 import re
+import json
 import requests
 from langchain_core.tools import tool
 from langgraph.prebuilt import create_react_agent
@@ -12,6 +13,8 @@ _http_session = requests.Session()
 from rules.integration import check_generated_code
 from rules.engine import RuleViolationError
 
+_SCHEMA_PATH = os.path.join(os.path.dirname(__file__), "..", "project_documents", "data_schema.json")
+
 
 def create_data_agent(llm):
 
@@ -20,6 +23,45 @@ def create_data_agent(llm):
 
     # 代码生成缓存：同一文件+同skiprows+同query 避免重复调用 LLM
     _code_cache: dict[tuple, str] = {}
+
+    @tool
+    def lookup_schema(category: str = "") -> str:
+        """
+        查询 data_schema.json 中已登记的文件模板信息，在 list_files/inspect_file 之前优先调用。
+        - 不传参数：返回所有已知数据类别及其描述和可用文件期间概览
+        - 传入类别名（如"考勤"）：返回该类别的完整模板（skiprows、列名、文件路径、备注）
+        命中模板后可直接调用 execute_data_query，无需再调用 list_files 和 inspect_file。
+        """
+        try:
+            with open(_SCHEMA_PATH, encoding="utf-8") as f:
+                schema = json.load(f)
+        except FileNotFoundError:
+            return "data_schema.json 不存在，请使用 list_files 查找文件。"
+        except Exception as e:
+            return f"读取 data_schema.json 失败：{e}，请使用 list_files 查找文件。"
+
+        if not category:
+            lines = ["已登记的数据模板（可直接使用，无需 list_files/inspect_file）："]
+            for cat, info in schema.items():
+                periods = "、".join(info.get("files", {}).keys())
+                lines.append(f"- {cat}：{info['description']}（可用期间：{periods}）")
+            lines.append("\n如需完整列名和文件路径，请传入类别名再次调用，如 lookup_schema('考勤')。")
+            return "\n".join(lines)
+
+        if category not in schema:
+            return f"未找到类别 '{category}'，已登记类别：{list(schema.keys())}。请改用 list_files 查找文件。"
+
+        info = schema[category]
+        columns_str = "、".join(info.get("columns", []))
+        files_str = "\n".join(f"  {k}: {v}" for k, v in info.get("files", {}).items())
+        return (
+            f"类别：{category}\n"
+            f"描述：{info['description']}\n"
+            f"skiprows：{info['skiprows']}\n"
+            f"列名：{columns_str}\n"
+            f"备注：{info.get('notes', '无')}\n"
+            f"文件列表：\n{files_str}"
+        )
 
     @tool
     def list_files() -> str:
@@ -81,7 +123,7 @@ def create_data_agent(llm):
             return f"读取失败：{e}"
 
     @tool
-    def execute_data_query(query: str, file_path: str, skiprows: int = 0) -> str:
+    def execute_data_query(query: str, file_path: str, skiprows: int = 0, columns: str = "") -> str:
         """
         根据自然语言描述生成 Python 代码并执行，对 Excel 文件做数据统计。
         支持多文件分析：file_path 可以是多个路径（用逗号分隔），会自动合并所有文件后统一分析。
@@ -90,98 +132,138 @@ def create_data_agent(llm):
           query     - 自然语言描述要统计什么
           file_path - 文件完整路径（从 list_files 结果中获取），多个文件用逗号分隔
           skiprows  - 表头所在行号（从 inspect_file 结果中获取），表头在第N行则 skiprows=N
+          columns   - inspect_file 返回的真实列名（逗号分隔字符串），必须填入以避免列名猜测错误
         适用：统计、汇总、排名、均值、跨月对比、条件筛选、全年综合分析。
         """
         file_paths = [p.strip() for p in file_path.split(",") if p.strip()]
         is_multi = len(file_paths) > 1
+        hardcoded_re = re.compile(r'''(['"])[\w一-鿿]+\.(?:xlsx|xls|csv)\1''')
 
-        # 多文件时提示代码必须先合并再分析
-        multi_file_rules = ""
+        def _clean(raw: str) -> str:
+            raw = raw.replace("```python", "").replace("```", "").strip()
+            return hardcoded_re.sub("DATA_PATH", raw)
+
+        # ── 建议 1：将真实列名直接注入 prompt，消除 LLM 猜测 ──────────────
+        col_hint = (
+            f"【真实列名（必须严格使用，含空格/括号的列名用 df['列名'] 而非 df.列名）】\n{columns}\n\n"
+            if columns else ""
+        )
+
+        # ── 建议 2：代码骨架——LLM 只填数据处理逻辑，不再重复写样板代码 ────
         if is_multi:
-            multi_file_rules = f"""
-8. 多文件须逐个读取并标记来源（用于按文件分组）：
-dfs=[]
-for p in DATA_PATH:
-    d = pd.read_excel(p,skiprows={skiprows}) if p.endswith(('.xlsx','.xls')) else pd.read_csv(p,skiprows={skiprows})
-    d['_source_file'] = os.path.basename(p)
-    dfs.append(d)
-df = pd.concat(dfs, ignore_index=True)
-"""
+            load_block = (
+                f"dfs = []\n"
+                f"for p in DATA_PATH:\n"
+                f"    d = pd.read_excel(p, skiprows={skiprows}) if p.endswith(('.xlsx', '.xls')) else pd.read_csv(p, skiprows={skiprows})\n"
+                f"    d['_source_file'] = os.path.basename(p)\n"
+                f"    dfs.append(d)\n"
+                f"df = pd.concat(dfs, ignore_index=True)"
+            )
+        else:
+            load_block = (
+                f"df = pd.read_excel(DATA_PATH, skiprows={skiprows}) "
+                f"if str(DATA_PATH).endswith(('.xlsx', '.xls')) else pd.read_csv(DATA_PATH, skiprows={skiprows})"
+            )
 
-        code_prompt = f"""生成 Python 统计代码，规则：
-1. 必须使用 DATA_PATH 变量读取文件，禁止硬编码任何文件名（如"data.xlsx"、"file.xlsx"等都是错误的）
-2. DATA_PATH {'是文件路径列表(list)，必须逐个读取后合并' if is_multi else '是单个文件路径(str)，直接传入 pd.read_excel/read_csv'}
-3. 单文件：df = pd.read_excel(DATA_PATH, skiprows={skiprows})  或  pd.read_csv(DATA_PATH, skiprows={skiprows})
-4. 多文件：dfs=[]; 
-for p in DATA_PATH:
-    d = pd.read_excel(p,skiprows={skiprows}) if p.endswith(('.xlsx','.xls')) else pd.read_csv(p,skiprows={skiprows})
-    d['_source_file'] = os.path.basename(p)
-    dfs.append(d)
-df = pd.concat(dfs, ignore_index=True)
-5. 禁调 inspect_file/list_files 等 agent 工具（沙箱无这些工具）
-6. 数字列用 pd.to_numeric(..., errors='coerce').fillna(0)
-7. 仅对pandas已识别为datetime类型的列做字符串转换：if pd.api.types.is_datetime64_any_dtype(df['列名']): df['列名']=df['列名'].dt.strftime('%Y-%m-%d')。禁止对纯数字列调用pd.to_datetime
-8. 最后一行：print(json.dumps(result, ensure_ascii=False, default=str))
-9. result={{status/summary/data}} 三个字段
-只输出纯 Python 代码，不含说明和 markdown
+        skeleton = (
+            f"import pandas as pd, json, os, numpy as np\n\n"
+            f"{load_block}\n\n"
+            f"# === 数据处理逻辑（只填写此处，最后定义 result 字典） ===\n\n"
+            f"# result = {{\"status\": \"success\", \"summary\": \"...\", \"data\": {{}}}}\n"
+            f"# === 结束 ===\n"
+            f"print(json.dumps(result, ensure_ascii=False, default=str))"
+        )
 
-需求：{query}
-"""
+        # ── 建议 3：精简 prompt，9 条规则压缩为骨架 + 3 条约束 ─────────────
+        code_prompt = (
+            f"{col_hint}"
+            f"按以下骨架填写「数据处理逻辑」部分，输出完整代码（保留骨架其余部分不变）：\n\n"
+            f"{skeleton}\n\n"
+            f"约束：① 数字列用 pd.to_numeric(..., errors='coerce').fillna(0)；"
+            f"② datetime 列用 .dt.strftime('%Y-%m-%d')（先用 is_datetime64_any_dtype 检查，禁止对数字列调用 pd.to_datetime）；"
+            f"③ result 必须含 status/summary/data 三个字段；"
+            f"④ DataFrame.reset_index() 用 names=（复数），Series.reset_index() 才用 name=（单数），混用必然报错。\n\n"
+            f"需求：{query}"
+        )
+
         cache_key = (file_path, skiprows, query)
         if cache_key in _code_cache:
             code = _code_cache[cache_key]
         else:
-            code = llm.invoke(code_prompt).content
-            code = code.replace("```python", "").replace("```", "").strip()
-            # 后处理兜底：将 LLM 硬编码的文件名替换为 DATA_PATH 变量
-            hardcoded_pattern = re.compile(
-                r'''(['"])[\w\u4e00-\u9fff]+\.(?:xlsx|xls|csv)\1'''
-            )
-            code = hardcoded_pattern.sub('DATA_PATH', code)
+            code = _clean(llm.invoke(code_prompt).content)
             _code_cache[cache_key] = code
 
-        # 统一只发一次请求：多文件传列表，单文件传字符串
         payload_data_path = file_paths if is_multi else file_paths[0]
 
-        # ── 规则检查：仅 CRITICAL 危险操作（os.system/eval/subprocess 等）才会阻断 ──
+        def _run(c: str) -> dict:
+            resp = _http_session.post(
+                f"{EXECUTOR_URL}/execute_batch", json={"codes": [c], "data_path": payload_data_path}
+            )
+            if resp.status_code != 200:
+                resp = _http_session.post(
+                    f"{EXECUTOR_URL}/execute", json={"code": c, "data_path": payload_data_path}
+                )
+            return resp.json()
+
+        # ── 规则安全校验 ──────────────────────────────────────────────────────
         try:
             check_generated_code(code, agent_name="data_agent", raise_on_critical=True)
         except RuleViolationError as e:
-            return f"代码安全校验未通过：{e}\n请修改代码后重试（提示：os.path 操作是安全的，但 os.system/eval/subprocess 等危险调用已拦截）。"
+            return f"代码安全校验未通过：{e}\n请修改代码后重试。"
 
-        # 优先使用 /execute_batch，若服务未更新则回退到 /execute
-        batch_payload = {"codes": [code], "data_path": payload_data_path}
-        simple_payload = {"code": code, "data_path": payload_data_path}
+        exec_result = _run(code)
 
-        resp = _http_session.post(f"{EXECUTOR_URL}/execute_batch", json=batch_payload)
-        if resp.status_code != 200:
-            resp = _http_session.post(f"{EXECUTOR_URL}/execute", json=simple_payload)
+        # ── 建议 4：执行失败时在工具内部增量修复（最多 2 次），避免外层 ReAct 全量重生成 ──
+        for _ in range(2):
+            if exec_result.get("status") != "error":
+                break
+            fix_prompt = (
+                f"以下 Python 代码执行报错，只修改出错的行，输出完整修复后的代码：\n\n"
+                f"【原代码】\n{code}\n\n"
+                f"【错误信息】\n{exec_result.get('error', '')}\n\n"
+                f"{col_hint}"
+                f"只输出修复后的纯 Python 代码，不含说明。"
+            )
+            code = _clean(llm.invoke(fix_prompt).content)
+            _code_cache[cache_key] = code
+            try:
+                check_generated_code(code, agent_name="data_agent", raise_on_critical=True)
+            except RuleViolationError as e:
+                return f"代码安全校验未通过：{e}"
+            exec_result = _run(code)
 
-        result = resp.json()
-        if result.get("status") == "error":
-            return f"执行失败：{result.get('error', '未知错误')}\n生成代码：\n{code}"
+        if exec_result.get("status") == "error":
+            return f"执行失败：{exec_result.get('error', '未知错误')}\n生成代码：\n{code}"
+
         # /execute_batch 返回 outputs 列表，/execute 返回 output 字符串
-        return result.get("outputs", [result.get("output", "")])[0]
+        return exec_result.get("outputs", [exec_result.get("output", "")])[0]
 
     return create_react_agent(
         model=llm,
         name="data_agent",
-        tools=[list_files, inspect_file, execute_data_query],
+        tools=[lookup_schema, list_files, inspect_file, execute_data_query],
         prompt="""你是企业数据分析专家，处理统计、汇总、排名、对比、筛选等数据计算任务。
 
 【工具说明】
-- list_files：查看数据目录中有哪些文件
-- inspect_file：读取文件原始内容，判断表头行位置和列名
-- execute_data_query：生成 Python 代码并执行统计，需传入 query、file_path、skiprows
+- lookup_schema：查询已登记的文件模板，优先调用
+- list_files：查看数据目录中有哪些文件（schema 未命中时使用）
+- inspect_file：读取文件原始内容，判断表头行位置和列名（schema 未命中时使用）
+- execute_data_query：生成 Python 代码并执行统计，需传入 query、file_path、skiprows、columns
+  - columns 参数：必须使用真实列名，以逗号分隔填入（如 "序号,经费类别,实际支出 (元),支出日期"）
+
+【优先流程——每次任务开始时执行】
+1. 先调用 lookup_schema（不传参）查看有哪些已登记模板
+2. 若用户问题匹配某类别，再调用 lookup_schema(category) 获取完整信息（skiprows、列名、文件路径）
+   → 直接调用 execute_data_query，跳过 list_files 和 inspect_file
+3. 若未匹配到任何类别，再按原流程：list_files → inspect_file → execute_data_query
 
 【效率规则——减少等待时间，提升响应速度】
 4. 合并统计：对同一文件的多项需求（如"硬件采购+软件采购"）应合并为一次 execute_data_query，用多个变量存储结果
 5. 多文件合并：同类型文件用逗号分隔 file_path 一次性传入（如 "file1.xlsx,file2.xlsx"），共享一次读取和执行。合并后每行会带 _source_file 列标记来源文件名，按文件名中的月份/类别分组即可
 6. 禁止拆句：不要将"列出A和B以及C"拆成三次独立调用，拆句会导致重复加载文件和重复等待
-7. 失败先修代码：执行失败时优先检查 skiprows 是否正确、是否对纯数字列误调了 pd.to_datetime，先修改代码后重试，而非拆分查询
 
 【硬性约束——运行环境物理限制，违反必然失败】
-1. execute_data_query 的 skiprows 参数必须传入 inspect_file 判断出的表头行号
+1. execute_data_query 的 skiprows 参数必须与文件实际表头行一致（从 schema 或 inspect_file 获取）
 2. 生成代码运行在沙箱中，只能用 pandas/json/os 等标准库，禁调 agent 工具
 3. .xlsx/.xls→pd.read_excel(), .csv→pd.read_csv()，用错函数会报错
 

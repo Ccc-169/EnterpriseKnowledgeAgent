@@ -14,6 +14,41 @@
 **修改文件**：core/database.py、agents/rag_agent.py、pages/chat_page.py；新建data/cache_service.py
 
 **时间**：2026-05-29 16:30
+## 2026-06-01 (Streamlit → HTML 前端迁移)
+
+将原 Streamlit 多页面应用迁移为独立 HTML + REST API 架构，涵盖四个模块：
+
+- **登录模块**：`login-page.html`，JWT 登录/注销，`/api/auth/login` & `/api/auth/logout`。
+- **对话模块**：`home-page.html`，多会话 SSE 流式对话，`/api/conversations` & `/api/chat/stream`；文件管理入口 `more-features-page.html`。
+- **文档编写模块**：`home-page.html` 内嵌文档区，两步流程（生成大纲 → 确认 → 生成正文），`/api/doc/*`。
+- **用户设置模块**：`setting-page.html`，修改显示名称 & 密码，`PUT /api/user/display-name` & `PUT /api/user/password`。
+- **管理员模块**：`admin-page.html`，用户管理/审计日志/知识库管理三 Tab，新增 8 个 `/api/admin/*` 接口，底层复用原有 service 函数不改动业务逻辑。
+
+各模块均编写接口对照说明文档（`project_documents/接口对照说明_*.md`）。
+
+**时间**：2026-06-01
+
+---
+
+## 2026-05-31 (data_schema.json 列名单位标注)
+
+**优化**：考勤模板 columns 中新增单位后缀（`工作时长(小时)`），同时将原来无单位的假期列（事假/调休/年假/病假等）统一改为带单位标注，消除 LLM 自行推断和换算单位的动机，避免生成派生列导致 groupby.agg 找不到原始列而失败。
+
+**修改文件**：`project_documents/data_schema.json` — 考勤 columns 各时长/假期列补全单位括号后缀。
+
+**时间**：2026-05-31
+
+---
+
+## 2026-05-31 (data_agent 新增 lookup_schema 工具)
+
+**优化**：新增 `lookup_schema` 工具，优先读取 `project_documents/data_schema.json` 中已登记的文件模板。命中模板后可直接调用 `execute_data_query`，跳过 `list_files` 和 `inspect_file`，减少 2 次工具调用和约 20s 等待；未命中时回退到原流程。同时修复 data_schema.json 中 `采购_硬件` notes 字段含未转义双引号导致 JSON 解析失败的 bug（将 `"元"` 改为 `'元'`）。
+
+**根因**（JSON bug）：notes 字段内容为 `设备价格字段含单位"元"，...`，双引号未转义，导致 `lookup_schema` 读取时抛 `Expecting ',' delimiter` 错误，降级走 list_files 全流程，无优化效果。
+
+**修改文件**：`agents/data_agent.py`（新增 `lookup_schema` 工具、更新 tools 列表和 prompt 优先流程）、`project_documents/data_schema.json`（修复 JSON 语法）。
+
+**时间**：2026-05-31
 
 ---
 
@@ -100,6 +135,19 @@
 
 ---
 
+## 2026-05-28 (LangSmith 思考链分析 — data_agent 4轮迭代查询 135s)
+
+分析 `trace_export.json`（28,907 行）中 data_agent 处理经费统计问题的完整思考链：诊断出 3 个核心问题（4 轮迭代查询、列名含空格括号识别失败、LLM 代码生成耗时过重），总耗时 135s（data_agent 占 96.9%），给出 5 条优化建议，预期降至 15-20s。
+
+**输出文件**：`problem_document/problem_record_4.md`
+
+## 2026-05-28 (LangSmith 思考链分析 — rag_agent 三子问题问答)
+
+分析 `trace_export.json`（9871 行）中 rag_agent 处理复合问题的完整思考链：识别出 6 个问题（多子问题合并检索、答案重复生成、Dify 验证低效、知识库数据缺失、ParentCommand 异常、信息衰减），总耗时 45.8s / 8,267 tokens。
+
+**输出文件**：`problem_document/problem_record_3.md`
+
+---
 ## 2026-05-27 (更新智能体工作流说明文档)
 
 同步当前代码变更到 `智能体工作流说明.md`：Supervisor agents 改为 [rag, data]、补充最多两次转发规则、doc_agent 仅直调不路由、新增 index_page 三种模式调用路径表。
