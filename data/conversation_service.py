@@ -6,6 +6,16 @@ from datetime import datetime
 from core.database import get_db
 
 
+def _fix_utc(row: dict) -> dict:
+    """将 SQLite CURRENT_TIMESTAMP（UTC 无时区）补上 Z 后缀，
+    使前端 new Date() 正确识别为 UTC 时间而非本地时间。"""
+    for key in ('created_at', 'updated_at'):
+        val = row.get(key)
+        if val and isinstance(val, str) and not val.endswith('Z') and '+' not in val:
+            row[key] = val + 'Z'
+    return row
+
+
 def create_conversation(user_id: int, title: str = "新对话") -> int:
     """创建新对话，返回 conversation_id"""
     conn = get_db()
@@ -32,7 +42,7 @@ def get_conversations(user_id: int, limit: int = 50, offset: int = 0) -> list:
                LIMIT ? OFFSET ?""",
             (user_id, limit, offset)
         ).fetchall()
-        return [dict(row) for row in rows]
+        return [_fix_utc(dict(row)) for row in rows]
     finally:
         conn.close()
 
@@ -45,7 +55,7 @@ def get_conversation(conversation_id: int, user_id: int) -> dict | None:
             "SELECT id, title, created_at, updated_at FROM conversations WHERE id = ? AND user_id = ?",
             (conversation_id, user_id)
         ).fetchone()
-        return dict(row) if row else None
+        return _fix_utc(dict(row)) if row else None
     finally:
         conn.close()
 

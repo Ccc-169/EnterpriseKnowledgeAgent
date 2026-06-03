@@ -129,7 +129,10 @@ def _build_messages_with_history(user_input: str, thread_id: str, user_id: int =
         if msg["role"] == "user":
             messages.append(HumanMessage(content=msg["content"]))
         elif msg["role"] == "assistant":
-            messages.append(AIMessage(content=msg["content"]))
+            # 语义降权：历史回复中的数据和结论是基于当时的查询结果，
+            # 不代表当前文件状态，避免 LLM 把旧结论当作已验证事实
+            tagged = f"[历史回复，其中的数据和结论为当时查询结果，不代表当前真实状态]{msg['content']}"
+            messages.append(AIMessage(content=tagged))
     
     # 追加当前用户输入
     messages.append(HumanMessage(content=user_input))

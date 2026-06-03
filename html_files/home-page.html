@@ -1228,6 +1228,7 @@
   };
 
   function switchMode(mode, btn) {
+    const modeChanged = (currentMode !== mode);
     currentMode = mode;
     document.querySelectorAll('.mode-tab').forEach(t => t.classList.remove('active'));
     btn.classList.add('active');
@@ -1245,6 +1246,10 @@
       chatInputWrap.style.display    = '';
       docPanel.style.display         = 'none';
       document.getElementById('chat-input').placeholder = modePlaceholder[mode];
+    }
+
+    if (modeChanged && mode !== 'write') {
+      newConversation();
     }
   }
 
@@ -1286,27 +1291,25 @@
     });
   }
 
-  // ── 新建对话 ──────────────────────────────────────────
-  async function newConversation() {
-    try {
-      const res = await fetch(`${API_BASE}/api/conversations`, {
-        method: 'POST', headers: authHeaders(),
-      });
-      if (res.status === 401) { handleUnauth(); return; }
-      const data = await res.json();
-      const conv = { id: data.id, title: data.title, updated_at: new Date().toISOString() };
-      conversations.unshift(conv);
-      activeConvId = conv.id;
+  // ── 新建对话（延迟创建：仅清空前端状态，首条消息时由后端自动创建）──
+  function newConversation() {
+    const msgBox = document.getElementById('chat-messages');
+    const hasMessages = msgBox.querySelectorAll('.msg-row').length > 0;
 
-      const msgBox = document.getElementById('chat-messages');
-      msgBox.innerHTML = '';
-      msgBox.classList.add('visible');
-      document.getElementById('current-conv-label').textContent = conv.title;
-      document.getElementById('current-conv-label').classList.add('visible');
-
-      renderConversations();
+    // 当前对话为空且无活跃对话 → 无需操作
+    if (!hasMessages && !activeConvId) {
       document.getElementById('chat-input').focus();
-    } catch(e) { console.error('新建对话失败', e); }
+      return;
+    }
+
+    // 清空前端状态，不调后端创建对话
+    activeConvId = null;
+    msgBox.innerHTML = '';
+    updateChatMessagesVisibility();
+    document.getElementById('current-conv-label').textContent = '新对话';
+    document.getElementById('current-conv-label').classList.remove('visible');
+    renderConversations();
+    document.getElementById('chat-input').focus();
   }
 
   // ── 切换对话 ──────────────────────────────────────────
@@ -1320,7 +1323,7 @@
 
     const msgBox = document.getElementById('chat-messages');
     msgBox.innerHTML = '<div style="text-align:center;padding:20px;color:#b0bcd0;font-size:13px;">加载中...</div>';
-    msgBox.classList.add('visible');
+    updateChatMessagesVisibility();
     renderConversations();
 
     try {
@@ -1355,7 +1358,9 @@
       conversations = conversations.filter(c => c.id !== id);
       if (activeConvId === id) {
         activeConvId = null;
-        document.getElementById('chat-messages').classList.remove('visible');
+        const msgBox = document.getElementById('chat-messages');
+        msgBox.innerHTML = '';
+        updateChatMessagesVisibility();
         document.getElementById('current-conv-label').classList.remove('visible');
       }
       renderConversations();
@@ -1363,10 +1368,9 @@
   }
 
   // ── 功能卡片点击（带模式预选）────────────────────────
-  async function startWithMode(mode) {
+  function startWithMode(mode) {
     const tab = document.querySelector(`.mode-tab[data-mode="${mode}"]`);
     if (tab) switchMode(mode, tab);
-    if (mode !== 'write') await newConversation();
   }
 
   // ── 发送消息（SSE 流式）──────────────────────────────
@@ -1428,7 +1432,7 @@
             if (conv) conv.title = event.title;
             document.getElementById('current-conv-label').textContent = event.title;
             document.getElementById('current-conv-label').classList.add('visible');
-            document.getElementById('chat-messages').classList.add('visible');
+            updateChatMessagesVisibility();
             renderConversations();
 
           } else if (event.type === 'step') {
@@ -1489,6 +1493,7 @@
       </div>`;
     box.appendChild(row);
     box.scrollTop = box.scrollHeight;
+    updateChatMessagesVisibility();
   }
 
   function appendTyping() {
@@ -1503,11 +1508,22 @@
       </div>`;
     box.appendChild(row);
     box.scrollTop = box.scrollHeight;
+    updateChatMessagesVisibility();
   }
 
   function removeTyping() {
     const el = document.getElementById('typing-indicator');
     if (el) el.remove();
+    updateChatMessagesVisibility();
+  }
+
+  function updateChatMessagesVisibility() {
+    const box = document.getElementById('chat-messages');
+    if (box.children.length > 0) {
+      box.classList.add('visible');
+    } else {
+      box.classList.remove('visible');
+    }
   }
 
   // ── Suggestion chips ──────────────────────────────────
