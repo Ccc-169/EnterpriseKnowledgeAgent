@@ -16,6 +16,7 @@ REM 清理占用端口的残留进程
 echo 清理残留进程...
 for /f "tokens=5" %%p in ('netstat -ano ^| findstr ":8000 " ^| findstr "LISTENING"') do taskkill /PID %%p /F >nul 2>&1
 for /f "tokens=5" %%p in ('netstat -ano ^| findstr ":8001 " ^| findstr "LISTENING"') do taskkill /PID %%p /F >nul 2>&1
+for /f "tokens=5" %%p in ('netstat -ano ^| findstr ":8002 " ^| findstr "LISTENING"') do taskkill /PID %%p /F >nul 2>&1
 
 REM 初始化数据库
 python scripts/init_db.py
@@ -27,6 +28,9 @@ timeout /t 1 /nobreak > nul
 
 echo 启动业务 API 服务（端口 8000）...
 start /b venv\Scripts\python -m uvicorn api:app --port 8000
+
+echo 启动接口后端服务（端口 8002）...
+start /b venv\Scripts\python -m uvicorn alarm_api:app --port 8002
 
 timeout /t 1 /nobreak > nul
 

@@ -1,6 +1,47 @@
 ﻿# 开发日志列表
 :
 
+## 2026-06-03 (用户头像功能)
+
+**功能**：用户设置页新增"更换头像"弹窗，支持上传图片或选择预置色块头像，保存后侧边栏实时同步。
+
+**方案**：头像以 base64 data URL 存入 SQLite `users.avatar` 列，不引入文件系统依赖。
+
+**后端**：
+- `core/database.py`：`init_db` 新增 `ALTER TABLE users ADD COLUMN avatar TEXT` 幂等迁移。
+- `auth/auth_service.py`：`authenticate_user` 返回值补充 `avatar` 字段；新增 `update_avatar(user_id, avatar_data)` 函数（限 400KB，校验 data URL 前缀）。
+- `api.py`：`LoginResponse` 加 `avatar: str | None`；登录接口返回 avatar；新增 `PUT /api/user/avatar` 端点（校验 `data:` 前缀，写审计日志）；导入 `update_avatar`。
+
+**前端**：
+- `setting-page.html`：新增 avatar modal —— 上传区（Canvas 压缩到 200×200 JPEG 0.82）、6 个预置渐变色块（对应系统配色）、实时预览环；`initPage` 调用 `renderBigAvatar` / `renderSidebarAvatar` 初始化头像显示；保存后同步 localStorage + 所有头像 DOM。
+- `home-page.html`：侧边栏 `.user-avatar` 加 `id`、`overflow:hidden`；新增 `renderSidebarAvatar()`；登录初始化和 `visibilitychange`（从 setting 页返回时）双触发同步。
+- `login-page.html`：登录成功写 localStorage 时补存 `avatar` 字段。
+
+**修改文件**：`core/database.py`、`auth/auth_service.py`、`api.py`、`html_files/setting-page.html`、`html_files/home-page.html`、`html_files/login-page.html`
+
+**时间**：2026-06-03
+
+---
+
+## 2026-06-03 (api_agent：HTTP 接口查询智能体)
+
+**功能**：新增 `api_agent`，通过调用已配置的 HTTP 接口获取实时数据并回答用户问题，对接 `interface_config.html` 中管理的接口配置。
+
+**方案**：
+- `agents/api_agent.py`（新建）：ReAct Agent，包含两个工具：
+  - `list_interfaces`：读取 `project_documents/interface_configs.json`，列出所有已启用接口的 ID、名称、HTTP 方法、URL 及参数（区分默认/可选）。
+  - `call_interface`：按接口 ID 发起 HTTP 请求（支持 GET/POST/PUT/PATCH/DELETE），自动携带配置中已启用的默认参数，支持通过 `extra_params`（JSON 字符串）覆盖或追加参数；处理 Bearer/API Key 认证、自定义请求头、JSON/Form body；超时 15s，错误信息直接返回给 LLM。
+  - 使用 `requests.Session` 复用连接，配置文件每次工具调用时实时读取（支持热更新）。
+- `agents/registry.py`：AGENT_REGISTRY 新增 `api_agent` 条目（`required_role: [user, admin]`）。
+- `agent.py`：导入并实例化 `api_agent`；`chat_direct()` 的 `agent_map` 新增 `"api_agent"` 键。
+- `api.py`：`ChatRequest.mode` 注释补充 `"api"` 选项；`chat_stream` 的 `mode_calls` 新增 `"api"` → `chat_direct("api_agent", ...)`。
+
+**修改文件**：`agents/api_agent.py`（新建）、`agents/registry.py`、`agent.py`、`api.py`
+
+**时间**：2026-06-03
+
+---
+
 <<<<<<< HEAD
 ## 2026-06-02 (记忆系统博客优化)
 

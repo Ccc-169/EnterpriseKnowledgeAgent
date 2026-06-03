@@ -57,6 +57,10 @@ _MIGRATE_MESSAGES_QUESTION_VEC = """
 ALTER TABLE messages ADD COLUMN question_vec TEXT;
 """
 
+_MIGRATE_USERS_AVATAR = """
+ALTER TABLE users ADD COLUMN avatar TEXT;
+"""
+
 _CREATE_DOCUMENT_HISTORY_TABLE = """
 CREATE TABLE IF NOT EXISTS document_history (
     id                  INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -97,6 +101,10 @@ def init_db() -> None:
         # 迁移：为已有 messages 表添加 question_vec 列（列已存在则跳过）
         try:
             conn.execute(_MIGRATE_MESSAGES_QUESTION_VEC)
+        except Exception:
+            pass  # 列已存在，忽略
+        try:
+            conn.execute(_MIGRATE_USERS_AVATAR)
         except Exception:
             pass  # 列已存在，忽略
         conn.commit()
