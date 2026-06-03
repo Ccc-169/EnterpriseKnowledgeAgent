@@ -1,7 +1,7 @@
 # pages/chat_page.py — 主对话页（支持多对话记录）
 import streamlit as st
-from datetime import datetime
 from agent import chat
+from core.time_utils import calc_rel_time
 from agents.registry import can_use_agent
 from auth.session import get_current_user, require_login, require_role, logout_session
 from auth.session import is_logged_in
@@ -51,6 +51,9 @@ def render():
 
         # 新建对话按钮
         if st.button("+ 新建对话", use_container_width=True, type="primary"):
+            from pages.doc_page import reset_doc_state
+            reset_doc_state()
+            st.session_state.agent_mode = "knowledge_qa"
             new_conv_id = create_conversation(user["user_id"])
             st.session_state.current_conversation_id = new_conv_id
             st.session_state.messages = []
@@ -68,26 +71,8 @@ def render():
             title = conv["title"]
             updated_at = conv["updated_at"]
 
-            # 计算相对时间
-            try:
-                dt = datetime.fromisoformat(updated_at.replace("Z", "+00:00"))
-                now = datetime.now()
-                delta = now - dt
-                if delta.days == 0:
-                    if delta.seconds < 60:
-                        rel_time = "刚刚"
-                    elif delta.seconds < 3600:
-                        rel_time = f"{delta.seconds // 60}分钟前"
-                    else:
-                        rel_time = f"{delta.seconds // 3600}小时前"
-                elif delta.days == 1:
-                    rel_time = "昨天"
-                elif delta.days < 7:
-                    rel_time = f"{delta.days}天前"
-                else:
-                    rel_time = updated_at[:10]
-            except Exception:
-                rel_time = updated_at[:10] if updated_at else ""
+            # 计算相对时间（UTC 基准，统一使用 core/time_utils）
+            rel_time = calc_rel_time(updated_at)
 
             # 对话项
             col1, col2 = st.columns([4, 1])
@@ -115,6 +100,8 @@ def render():
 
         # 文档编写入口
         if st.button("📝 文档编写", use_container_width=True):
+            from pages.doc_page import reset_doc_state
+            reset_doc_state()
             st.session_state.current_page = "文档编写"
             st.rerun()
 
@@ -145,18 +132,23 @@ def render():
         _render_user_settings(user)
         return
 
-    st.title("企业知识库智能体")
-    st.caption("支持文档问答 · 数据统计 · 文档编写 · 内容仿写")
+    render_chat_main(user)
 
-    # 如果没有选中任何对话，显示提示
-    if not st.session_state.current_conversation_id:
-        st.info("请在左侧侧边栏新建对话或选择已有对话")
-        return
 
-    # 显示当前对话标题
-    current_conv = get_conversation(st.session_state.current_conversation_id, user["user_id"])
-    if current_conv:
-        st.subheader(current_conv["title"])
+def render_chat_main(user: dict, use_direct_agent: str = None) -> None:
+    """
+    渲染主聊天区（供 index_page 等其他页面复用）。
+
+    Args:
+        user: 当前用户信息
+        use_direct_agent: 非 None 时直接调用指定智能体（"rag_agent"/"data_agent"），
+                          None 时使用自动路由 supervisor。
+    """
+    # 显示当前对话标题（仅在已有对话时）
+    if st.session_state.current_conversation_id:
+        current_conv = get_conversation(st.session_state.current_conversation_id, user["user_id"])
+        if current_conv:
+            st.subheader(current_conv["title"])
 
     # 渲染历史消息
     for msg in st.session_state.messages:
@@ -183,35 +175,49 @@ def render():
         with st.chat_message("user"):
             st.markdown(user_input)
 
+        # 如果还没有对话，仅当用户真正发送消息时才创建
+        if not st.session_state.current_conversation_id:
+            new_conv_id = create_conversation(user["user_id"])
+            st.session_state.current_conversation_id = new_conv_id
+            st.session_state._reload_conversations = True
+            # 立即用用户问题生成对话标题
+            new_title = generate_title_from_message(user_input)
+            update_conversation_title(new_conv_id, user["user_id"], new_title)
+        else:
+            # 如果对话标题还是默认的"新对话"，用第一条用户消息更新标题
+            current_conv = get_conversation(st.session_state.current_conversation_id, user["user_id"])
+            if current_conv and current_conv.get("title") == "新对话":
+                new_title = generate_title_from_message(user_input)
+                update_conversation_title(st.session_state.current_conversation_id, user["user_id"], new_title)
+
         # 保存到数据库（用户消息）
-        save_message(
+        user_msg_id = save_message(
             conversation_id=st.session_state.current_conversation_id,
             role="user",
             content=user_input
         )
 
-        # 如果是第一条消息，用用户问题生成对话标题
-        if current_conv and current_conv["title"] == "新对话":
-            new_title = generate_title_from_message(user_input)
-            update_conversation_title(
-                st.session_state.current_conversation_id,
-                user["user_id"],
-                new_title
-            )
-            st.session_state._reload_conversations = True
-
         with st.chat_message("assistant"):
             with st.spinner("思考中..."):
                 response, steps, agent_used = "抱歉，处理您的问题时发生了错误，请稍后重试。", None, None
                 try:
-                    # 生成 thread_id（基于 conversation_id）
                     thread_id = f"conversation-{st.session_state.current_conversation_id}"
 
-                    response, steps, agent_used = chat(
-                        user_input,
-                        thread_id,
-                        user_context=user_context,
-                    )
+                    # 根据模式选择调用方式
+                    if use_direct_agent:
+                        from agent import chat_direct
+                        response, steps, agent_used = chat_direct(
+                            use_direct_agent,
+                            user_input,
+                            thread_id,
+                            user_context=user_context,
+                        )
+                    else:
+                        response, steps, agent_used = chat(
+                            user_input,
+                            thread_id,
+                            user_context=user_context,
+                        )
 
                     # 折叠显示思考过程
                     if steps:
@@ -219,7 +225,7 @@ def render():
                             for step in steps:
                                 st.markdown(step)
 
-                    # 无答案时显示橙色警告框（Phase 3 新增）
+                    # 无答案时显示橙色警告框
                     if "未能找到" in response:
                         st.warning(response)
                     else:
@@ -259,6 +265,17 @@ def render():
 
                 # 更新对话时间戳
                 update_conversation_timestamp(st.session_state.current_conversation_id)
+
+                # 经验记忆：保存用户问题的向量嵌入（异步，异常不阻塞）
+                if user_msg_id and agent_used == "rag_agent":
+                    try:
+                        from data.cache_service import embed_text, save_embedding, _should_cache
+                        if _should_cache(user_input):
+                            vec = embed_text(user_input)
+                            if vec:
+                                save_embedding(user_msg_id, vec)
+                    except Exception as e:
+                        print(f"[QACache] 嵌入保存失败（不影响主流程）: {e}")
 
         # 添加助手回复到 session_state
         st.session_state.messages.append({

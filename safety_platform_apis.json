@@ -1,0 +1,125 @@
+{
+  "groups": [
+    { "id": "g-alarm",    "name": "报警管理", "open": true },
+    { "id": "g-device",   "name": "设备管理", "open": true },
+    { "id": "g-hazard",   "name": "安全隐患", "open": true },
+    { "id": "g-monitor",  "name": "实时监测", "open": true },
+    { "id": "g-workorder","name": "工单管理", "open": true }
+  ],
+  "interfaces": [
+    {
+      "id": "i-alarm-count",
+      "groupId": "g-alarm",
+      "name": "报警数量统计",
+      "method": "GET",
+      "url": "http://localhost:8002/api/alarms/count",
+      "enabled": true,
+      "params": [
+        { "key": "start_date", "value": "2025-01-01", "enabled": true },
+        { "key": "end_date",   "value": "2025-06-30", "enabled": true },
+        { "key": "level",      "value": "1",           "enabled": false }
+      ],
+      "headers": [],
+      "bodyType": "none",
+      "body": "",
+      "bodyText": "",
+      "formRows": [],
+      "authType": "none",
+      "authValue": "",
+      "authKeyName": "X-API-Key",
+      "authUser": "",
+      "authPass": ""
+    },
+    {
+      "id": "i-device-status",
+      "groupId": "g-device",
+      "name": "设备状态查询",
+      "method": "GET",
+      "url": "http://localhost:8002/api/devices/status",
+      "enabled": true,
+      "params": [
+        { "key": "area",      "value": "A区", "enabled": false },
+        { "key": "status",    "value": "warning", "enabled": false },
+        { "key": "page",      "value": "1",   "enabled": true },
+        { "key": "page_size", "value": "10",  "enabled": true }
+      ],
+      "headers": [],
+      "bodyType": "none",
+      "body": "",
+      "bodyText": "",
+      "formRows": [],
+      "authType": "none",
+      "authValue": "",
+      "authKeyName": "X-API-Key",
+      "authUser": "",
+      "authPass": ""
+    },
+    {
+      "id": "i-hazard-report",
+      "groupId": "g-hazard",
+      "name": "安全隐患上报",
+      "method": "POST",
+      "url": "http://localhost:8002/api/hazard/report",
+      "enabled": true,
+      "params": [],
+      "headers": [
+        { "key": "Content-Type", "value": "application/json", "enabled": true }
+      ],
+      "bodyType": "json",
+      "body": "{\n  \"location\": \"C区-化工车间3号房\",\n  \"description\": \"地面有油渍，存在滑倒风险\",\n  \"level\": 1,\n  \"reporter\": \"张三\",\n  \"area\": \"C区-化工车间\"\n}",
+      "bodyText": "",
+      "formRows": [],
+      "authType": "none",
+      "authValue": "",
+      "authKeyName": "X-API-Key",
+      "authUser": "",
+      "authPass": ""
+    },
+    {
+      "id": "i-monitor-realtime",
+      "groupId": "g-monitor",
+      "name": "传感器实时监测数据",
+      "method": "GET",
+      "url": "http://localhost:8002/api/monitor/realtime",
+      "enabled": true,
+      "params": [
+        { "key": "area",   "value": "C区", "enabled": false },
+        { "key": "metric", "value": "co",  "enabled": false },
+        { "key": "state",  "value": "warning", "enabled": false }
+      ],
+      "headers": [],
+      "bodyType": "none",
+      "body": "",
+      "bodyText": "",
+      "formRows": [],
+      "authType": "none",
+      "authValue": "",
+      "authKeyName": "X-API-Key",
+      "authUser": "",
+      "authPass": ""
+    },
+    {
+      "id": "i-workorder-stats",
+      "groupId": "g-workorder",
+      "name": "工单统计",
+      "method": "GET",
+      "url": "http://localhost:8002/api/workorder/stats",
+      "enabled": true,
+      "params": [
+        { "key": "start_date", "value": "2025-01-01",    "enabled": true },
+        { "key": "end_date",   "value": "2025-06-30",    "enabled": true },
+        { "key": "type",       "value": "maintenance",   "enabled": false }
+      ],
+      "headers": [],
+      "bodyType": "none",
+      "body": "",
+      "bodyText": "",
+      "formRows": [],
+      "authType": "none",
+      "authValue": "",
+      "authKeyName": "X-API-Key",
+      "authUser": "",
+      "authPass": ""
+    }
+  ]
+}

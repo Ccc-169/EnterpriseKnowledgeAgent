@@ -1,5 +1,430 @@
-# 开发日志列表
+﻿# 开发日志列表
 :
+
+<<<<<<< HEAD
+## 2026-06-02 (记忆系统博客优化)
+
+**内容**：优化 `blog/blog_05_记忆系统_长短期与混合记忆.md`，补全三层存储模型（STM/LTM/Hybrid），新增经验记忆缓存（cache_service）分析、语义降权标签说明、完整消息保存时间线、两周长期记忆（Dify RAG + Q&A向量匹配）对比。
+
+---
+
+## 2026-05-29 (经验记忆缓存：相似问题向量匹配)
+
+**功能**：新增经验记忆缓存——提问时先与历史问题做向量相似度匹配，命中则将历史Q&A作为上下文参考注入LLM回答。
+
+**方案**：
+- database.py：messages表新增question_vec列，init_db兼容已有数据库迁移
+- cache_service.py（新建）：embed_text（Qwen embedding）、cosine_similarity、search_cache、save_embedding、_should_cache（噪音过滤）
+- rag_agent.py：rag_search内Step0先查缓存，命中附加历史Q&A到上下文（标注仅供参考）
+- chat_page.py：回答后异步计算用户问题向量写入messages表（异常不影响主流程）
+
+**修改文件**：core/database.py、agents/rag_agent.py、pages/chat_page.py；新建data/cache_service.py
+
+**时间**：2026-05-29 16:30
+=======
+## 2026-06-02 (接口配置页面)
+
+**新增**：`more-features-page.html` 增加第 5 张功能卡"接口配置"（青绿色图标），点击"立即使用"跳转 `interface_config.html`。
+
+**新增** `html_files/interface_config.html`：类 Apifox 的接口管理与调试页面，功能包括：
+- 左栏接口列表：分组折叠/展开/删除，接口启用开关，悬停删除
+- 右栏编辑器：接口名称、所属分组、HTTP 方法（颜色跟随方法变化）、URL
+- 配置 Tabs：Params（Query 参数）/ Headers / Body（JSON·Form·Text·无）/ Auth（Bearer·API Key·Basic）
+- Tab 计数徽章：有效键值对数量实时显示
+- 在线调试：浏览器 `fetch` 发送请求，响应体 JSON 语法高亮，响应头独立 Tab，状态码颜色区分（2xx/4xx/5xx）
+- 导入/导出：一键导出全部配置为 JSON 文件，支持拖拽或点击导入并合并
+- 持久化：全部存 `localStorage`（key: `hngd_iface_configs`），无后端依赖
+
+**新增** `alarm_api.py`：示例 FastAPI 后端（端口 8002），提供 `GET /api/alarms/count` 接口，传入 `start_date`/`end_date`（必填）和 `level`（选填 0/1/2），返回模拟报警数量，用于接口配置页面的功能验证。
+
+**修改文件**：`html_files/more-features-page.html`（新增第 5 张功能卡 + CSS `feat-icon-wrap.api`）、`html_files/interface_config.html`（新增）、`alarm_api.py`（新增）
+
+**时间**：2026-06-02
+
+---
+
+## 2026-06-02 (管理员界面新增本地数据文件块)
+
+**新增**：`admin-page.html` 的"知识库管理"大块内部，Dify 知识库列表下方新增"本地数据文件"子块，展示 `DATA_DIR` 环境变量目录下的文件列表，支持分页浏览。
+
+**实现要点**：
+- 后端 `api.py` 新增 `GET /api/admin/data-files`（需管理员权限），读取 `DATA_DIR` 环境变量，列举目录下一级文件，返回文件名、扩展名、大小（KB）；目录未配置或不存在返回 503，与 KB 接口错误处理方式保持一致。
+- 前端分页采用**纯前端分页**：数据一次性请求后存入 `lfState.files`，翻页和切换每页数量（5/10 条）均在本地完成，不重复请求接口。
+- 文件类型徽章：xlsx/xls → 绿色，csv → 蓝色，其他 → 灰色，复用已有 `.action-badge` 色系。
+- 分页控件样式复用已有 `.doc-pagination` + `.btn-page`，布局与知识库文档列表保持一致。
+
+**修改文件**：`api.py`（新增 `admin_list_data_files` 端点）、`html_files/admin-page.html`（CSS 新增文件类型徽章、HTML 新增子块和分页控件、JS 新增 `loadLocalFiles` / `renderLocalFiles` / `lfGoPage` / `lfChangePageSize`）
+
+**时间**：2026-06-02
+
+---
+
+## 2026-06-01 (home-page 使用指南悬浮弹窗)
+
+**新增**：点击 topbar 右侧"使用指南"按钮，在其正下方弹出包含 5 条核心使用说明的悬浮卡片，点击页面任意处关闭。
+
+**实现要点**：
+- 弹窗采用 `position: fixed` + JS `getBoundingClientRect()` 动态定位，规避 `body` / `.main-content` 的 `overflow: hidden` 裁切问题。
+- 定位策略：`left = max(8, rect.right - 300)`，即弹窗右边缘与按钮右边缘对齐，向左展开，保证不超出右侧视口。
+- 开合动画：`opacity` + `translateY(-10px)` + `scale(0.98)` 三属性联动，过渡曲线 `cubic-bezier(0.34, 1.18, 0.64, 1)` 带轻微弹性，时长 0.22–0.28s。
+- 关闭逻辑：`document` 全局 click 关闭，弹窗内部 `stopPropagation()` 防误触。
+
+**修改文件**：`html_files/home-page.html`（CSS 新增弹窗样式、HTML 增加弹窗结构、JS 新增 `toggleGuide` 与全局关闭监听）。
+
+**时间**：2026-06-01
+
+---
+
+>>>>>>> 5a3215f4d5106b08473a6401e8f819cbfbac4dbd
+## 2026-06-01 (Streamlit → HTML 前端迁移)
+
+将原 Streamlit 多页面应用迁移为独立 HTML + REST API 架构，涵盖四个模块：
+
+- **登录模块**：`login-page.html`，JWT 登录/注销，`/api/auth/login` & `/api/auth/logout`。
+- **对话模块**：`home-page.html`，多会话 SSE 流式对话，`/api/conversations` & `/api/chat/stream`；文件管理入口 `more-features-page.html`。
+- **文档编写模块**：`home-page.html` 内嵌文档区，两步流程（生成大纲 → 确认 → 生成正文），`/api/doc/*`。
+- **用户设置模块**：`setting-page.html`，修改显示名称 & 密码，`PUT /api/user/display-name` & `PUT /api/user/password`。
+- **管理员模块**：`admin-page.html`，用户管理/审计日志/知识库管理三 Tab，新增 8 个 `/api/admin/*` 接口，底层复用原有 service 函数不改动业务逻辑。
+
+各模块均编写接口对照说明文档（`project_documents/接口对照说明_*.md`）。
+
+**时间**：2026-06-01
+
+---
+
+## 2026-05-31 (data_schema.json 列名单位标注)
+
+**优化**：考勤模板 columns 中新增单位后缀（`工作时长(小时)`），同时将原来无单位的假期列（事假/调休/年假/病假等）统一改为带单位标注，消除 LLM 自行推断和换算单位的动机，避免生成派生列导致 groupby.agg 找不到原始列而失败。
+
+**修改文件**：`project_documents/data_schema.json` — 考勤 columns 各时长/假期列补全单位括号后缀。
+
+**时间**：2026-05-31
+
+---
+
+## 2026-05-31 (data_agent 新增 lookup_schema 工具)
+
+**优化**：新增 `lookup_schema` 工具，优先读取 `project_documents/data_schema.json` 中已登记的文件模板。命中模板后可直接调用 `execute_data_query`，跳过 `list_files` 和 `inspect_file`，减少 2 次工具调用和约 20s 等待；未命中时回退到原流程。同时修复 data_schema.json 中 `采购_硬件` notes 字段含未转义双引号导致 JSON 解析失败的 bug（将 `"元"` 改为 `'元'`）。
+
+**根因**（JSON bug）：notes 字段内容为 `设备价格字段含单位"元"，...`，双引号未转义，导致 `lookup_schema` 读取时抛 `Expecting ',' delimiter` 错误，降级走 list_files 全流程，无优化效果。
+
+**修改文件**：`agents/data_agent.py`（新增 `lookup_schema` 工具、更新 tools 列表和 prompt 优先流程）、`project_documents/data_schema.json`（修复 JSON 语法）。
+
+**时间**：2026-05-31
+
+---
+
+## 2026-05-29 (生成文档标题去除"文档标题："前缀)
+
+**优化**：提取 outline 中的 h1 标题时自动去掉 LLM 自动生成的"文档标题："前缀，只保留 `# 标题名`。
+
+**修改文件**：`agents/doc_agent.py` — 标题提取行增加 `replace("文档标题：", "")` 清理。
+
+**时间**：2026-05-29 11:13
+
+---
+
+## 2026-05-29 (新建对话时重置文档编写状态)
+
+**问题**：文档撰写模式生成文章后，点击"新建对话"再切回文档撰写时仍显示旧文档；只有点击"新建文档"按钮才能开始新文档。
+
+**方案**：`doc_page.py` 新增 `reset_doc_state()` 辅助函数，`index_page.py` 和 `chat_page.py` 的"新建对话"按钮及"文档编写/撰写"入口按钮均调用该函数，确保进入文档编写时始终是新文档。
+
+**修改文件**：`pages/doc_page.py`（新增 `reset_doc_state()`）、`pages/chat_page.py`（2处）、`pages/index_page.py`（2处）
+
+**时间**：2026-05-29 11:29
+
+---
+
+## 2026-05-29 (生成文档补齐标题)
+
+**优化**：提取 outline 中的 h1 标题时自动去掉 LLM 自动生成的"文档标题："前缀，只保留 `# 标题名`。
+
+**修改文件**：`agents/doc_agent.py` — 标题提取行增加 `replace("文档标题：", "")` 清理。
+
+**时间**：2026-05-29 11:13
+
+---
+
+## 2026-05-29 (生成文档补齐标题)
+
+**优化**：逐章生成文档时从 outline 中提取 `# 文档标题`（h1）并置于正文最前面，之前缺少标题行。
+
+**修改文件**：`agents/doc_agent.py` — `generate_document_content` 中逐章生成前先解析 outline 首行 h1 标题，拼入 `full_doc_parts` 首部。
+
+**时间**：2026-05-29 10:56
+
+---
+
+## 2026-05-29 (文档生成 APIConnectionError 兜底恢复)
+
+**问题**：文档生成时 Agent 工具调用（逐章生成）成功，但最后 Agent 将大型文档回传 LLM 做收尾决策时 Qwen API 断开连接（`Server disconnected without sending a response`），导致已生成的完整文档被丢弃。
+
+**方案**：`agent.py` 的 `chat_direct()` stream 循环包裹 try/except，捕获连接错误后优先从 `ToolMessage`（工具返回）提取已生成文档，避免前功尽弃。
+
+**修改文件**：`agent.py` — stream 循环加 APIConnectionError 捕获，`ToolMessage` 导入，答案提取改为先查 tool 返回再 AIMessage。
+
+**时间**：2026-05-29 10:02
+
+---
+
+
+## 2026-05-28 (修复 SqliteSaver 导入错误 - venv 安装遗漏)
+
+**问题**：`ModuleNotFoundError: No module named 'langgraph.checkpoint.sqlite'`，上次 `pip install` 装到了全局 Python 而非项目 venv。
+
+**修复**：用 venv 路径 `venv\Scripts\pip.exe install langgraph-checkpoint-sqlite` 重新安装，并调整 `SqliteSaver` 初始化方式——`from_conn_string()` 是 context manager，模块级使用改用 `sqlite3.connect() + SqliteSaver(conn) + .setup()`。
+
+**修改文件**：`agent.py`
+
+---
+
+## 2026-05-28 (修复多轮对话上下文记忆丢失 - 第二轮)
+
+**问题**：同一对话中追问"那第二呢"时，LLM 仍无法理解上下文。
+
+**根因分析（两个问题叠加）**：
+1. **致命 Bug**：`_build_messages_with_history()` 调用 `get_messages(conv_id)` 缺少必需的 `user_id` 参数 → 触发 TypeError → 历史消息永远无法加载
+2. **设计缺陷**：使用 `MemorySaver`（纯内存字典），Streamlit rerun 或服务重启后运行时状态必然丢失
+
+**修复方案（双重保障）**：
+1. **修复 Bug**：`_build_messages_with_history()` 新增 `user_id` 参数，从 `user_context["user_id"]` 提取并正确传递给 `get_messages(conv_id, user_id)`
+2. **持久化 Checkpointer**：将 `MemorySaver` 替换为 `SqliteSaver`，checkpoint 数据写入 `data/checkpoints.sqlite` 文件，重启不丢失
+3. **保留手动注入**：即使 SqliteSaver 已生效，仍保留 SQLite 历史消息注入作为 Streamlit rerun 场景下的额外保险
+
+**修改文件**：`agent.py`, `requirements.txt`
+**新增依赖**：`langgraph-checkpoint-sqlite>=2.0.0`
+
+---
+
+## 2026-05-28 (LangSmith 思考链分析 — data_agent 4轮迭代查询 135s)
+
+分析 `trace_export.json`（28,907 行）中 data_agent 处理经费统计问题的完整思考链：诊断出 3 个核心问题（4 轮迭代查询、列名含空格括号识别失败、LLM 代码生成耗时过重），总耗时 135s（data_agent 占 96.9%），给出 5 条优化建议，预期降至 15-20s。
+
+**输出文件**：`problem_document/problem_record_4.md`
+
+## 2026-05-28 (LangSmith 思考链分析 — rag_agent 三子问题问答)
+
+分析 `trace_export.json`（9871 行）中 rag_agent 处理复合问题的完整思考链：识别出 6 个问题（多子问题合并检索、答案重复生成、Dify 验证低效、知识库数据缺失、ParentCommand 异常、信息衰减），总耗时 45.8s / 8,267 tokens。
+
+**输出文件**：`problem_document/problem_record_3.md`
+
+---
+## 2026-05-27 (更新智能体工作流说明文档)
+
+同步当前代码变更到 `智能体工作流说明.md`：Supervisor agents 改为 [rag, data]、补充最多两次转发规则、doc_agent 仅直调不路由、新增 index_page 三种模式调用路径表。
+
+**修改文件**：`project_documents/智能体工作流说明.md`
+
+---
+
+## 2026-05-27 (修复 GraphRecursionError 无限循环)
+
+**问题**：Supervisor 收到子 Agent "未找到"类回答后，会尝试重新路由到另一个 Agent，形成死循环触发 recursion_limit=50。
+
+**修复**：优化 Supervisor prompt，明确最多两次转发、达到上限后即使未找到也必须结束，同时 rag_agent 职责补充"咨询建议类问题"。
+
+**修改文件**：`agent.py`
+
+---
+
+## 2026-05-27 (修复历史对话标题始终显示"新对话")
+
+**问题**：点击"新建对话"时已设置 `current_conversation_id`，导致发送消息后标题更新逻辑被跳过，标题永远为"新对话"。
+
+**修复**：在 `chat_page.py` 中新增 else 分支，检查对话标题是否为默认"新对话"，若是则用第一条用户消息更新标题。
+
+**修改文件**：`pages/chat_page.py`
+
+---
+
+## 2026-05-27 (知识库问答模式移除 doc_agent 路由)
+
+**问题**：知识库问答模式下 Supervisor 可能将写作类问题路由到 doc_agent，导致生成目录等不符合聊天 UI 的输出。
+
+**修复**：Supervisor agents 列表从 `[rag, data, doc]` 改为 `[rag, data]`，写作类文本需求由 rag_agent 直接回答。doc_agent 仍通过文档撰写页 chat_direct 调用，不受影响。
+
+**修改文件**：`agent.py`
+
+**时间**：2026-05-27
+
+---
+
+## 2026-05-27 (项目概述重写)
+
+重写 `项目概述.md`（约 450 字），涵盖系统定位、核心架构（Supervisor + 3 Agent）、功能亮点、技术栈和部署方式，聚焦宏观全局视角。
+
+---
+
+## 2026-05-27 (项目架构图全面重绘)
+
+基于实际代码重绘 `项目架构图(文字+符号).md`：五层架构明确（展示层→网关层→业务逻辑层→基础设施层→数据层），新增 doc_agent 工具链、规则引擎三阶段工作流、Agent 注册表、核心数据流路径、系统启动流程、数据库表结构等完整图示。
+
+---
+
+## 2026-05-27 (功能点清单全面梳理更新)
+
+全面梳理项目核心功能点，基于实际代码更新 `function_point.md`：从 10 个章节扩展为 14 个章节，新增规则引擎、LLM 与可观测性、Agent 注册与权限、文件解析四大章节；RAG/数据分析/文档编写/代码沙箱/对话功能等章节大幅补充实现细节（查询改写、答案验证、代码缓存、进程池预热、逐章生成等）。
+
+---
+
+## 2026-05-26 (三智能体工作流文档整理)
+
+新增 `project_documents/智能体工作流说明.md`，详细记录 rag_agent/data_agent/doc_agent 的工作流、关键机制和共享架构。
+
+---
+
+## 2026-05-26 (仅保存有实际消息的对话 + 文档生成记录融入侧边栏)
+
+**问题1**：进入任意模式即自动创建空对话（即使用户未输入）。
+
+**修复1**：`chat_page.py` 去掉 `render_chat_main()` 的自动创建逻辑，改为仅在用户真正发送消息时创建对话并生成标题。
+
+**问题2**：文档生成历史仅在 doc_page 底部独立展示，不在侧边栏统一显示。
+
+**修复2**：`_auto_save_document()` 同步创建 conversations 记录（用户消息=需求，助手消息=文档内容），侧边栏自动刷新；移除 doc_page 底部独立历史区域和废弃函数。
+
+**修改文件**：`pages/chat_page.py`、`pages/doc_page.py`
+
+**时间**：2026-05-26 18:04
+
+---
+
+## 2026-05-26 (修复模式切换 no-op 错误 + 历史对话无响应)
+
+**问题1**：点击文档撰写出现 "Calling st.rerun() within a callback is a no-op"。
+
+**根因**：Streamlit `st.button(on_click=...)` 回调内部不允许调用 `st.rerun()`。
+
+**修复1**：回退为 `if st.button(...):` 模式，在按钮判断体内调用 `st.rerun()`。
+
+**问题2**：文档撰写模式下点击侧边栏历史对话无响应。
+
+**根因**：只设置了 `current_conversation_id`/`messages`，未切换 `agent_mode`，页面仍渲染文档撰写。
+
+**修复2**：点击历史对话时同步设置 `agent_mode = "knowledge_qa"`。
+
+**补充**：`doc_page.render(embedded=True)` 只是跳过独立标题（index_page 已统一渲染），侧边栏由 index_page 统一管理，无需额外统一。
+
+**修改文件**：`pages/index_page.py`
+
+**时间**：2026-05-26 17:42
+
+**问题**：在首页切换"知识库问答"→"数据统计"时，对话状态不清空，用户仍在上一模式的对话中继续。
+
+**方案**：`_render_agent_selector()` 三个模式按钮改用 `st.button(on_click=_switch_mode)` 回调，切换时自动清除 `current_conversation_id` 和 `messages`。
+
+**修改文件**：`pages/index_page.py`
+
+**时间**：2026-05-26 17:25
+
+---
+
+## 2026-05-26 (修复相对时间显示 8 小时偏差)
+
+**问题**：对话和文档历史的相对时间（"X小时前"）始终比实际多约 8 小时。
+
+**根因**：SQLite `CURRENT_TIMESTAMP` 返回 UTC 时间，而 `datetime.now()` 返回本地时间（UTC+8），导致 8 小时偏差。
+
+**方案**：创建 `core/time_utils.py` 统一工具函数，使用 `datetime.now(timezone.utc)` 与数据库 UTC 时间戳对齐；所有页面统一调用 `calc_rel_time()`，消除重复代码。
+
+**修改文件**：`core/time_utils.py`（新增）、`pages/index_page.py`、`pages/chat_page.py`、`pages/doc_page.py`
+
+**时间**：2026-05-26 17:08
+
+---
+
+## 2026-05-26 (文档撰写接入 Agent 框架 + 完整 LangSmith Trace)
+
+**问题**：`doc_page.py` 绕过 `doc_agent`，直接 `llm.invoke()` 调用 LLM，LangSmith trace 中看不到 Agent 调用链和 KB 检索步骤。
+
+**方案**：`doc_page.py` 保持三步 UI，每步通过 `chat_direct("doc_agent", ...)` 调用 doc_agent；doc_agent 新增 `search_knowledge_base` 工具（直调 Dify 语义检索），KB 检索纳入 Agent trace。
+
+**改动1**：`agents/doc_agent.py` — 新增 `search_knowledge_base` 工具，`generate_document_outline/content` 增加 `reference_context` 参数，prompt 改为单阶段调用。
+**改动2**：`agent.py` — `chat_direct()` 的 `agent_map` 新增 `doc_agent`。
+**改动3**：`pages/doc_page.py` — 删除重复的 `OUTLINE_PROMPT`/`SECTION_PROMPT`/`_parse_sections`/`_invoke_with_retry`；附件解析保留，KB 检索移入 doc_agent；Step 1/2 改用 `chat_direct("doc_agent", ...)` + 展示 steps_log。
+
+**工作流**：用户需求+附件 → doc_page 解析附件 → chat_direct("doc_agent") → search_knowledge_base（检索 Dify KB）→ generate_document_outline（生成目录）→ 用户确认 → generate_document_content（逐章生成文档）→ 完整 LangSmith trace。
+
+**修改文件**：`agents/doc_agent.py`、`agent.py`、`pages/doc_page.py`
+
+**时间**：2026-05-26 16:17
+
+---
+
+## 2026-05-25 (页面布局统一与侧边导航优化)
+
+**优化5**：三种模式内容区统一显示"当前智能体：XXX"标签，文档撰写模式与问答/统计模式保持一致。
+
+**修改文件**：`pages/index_page.py`
+
+**时间**：2026-05-25 18:59
+
+---
+
+## 2026-05-25 (页面布局统一与侧边导航优化)
+
+**优化1**：创建 `.streamlit/config.toml` 设置 `showSidebarNavigation = false`，隐藏 Streamlit 自动生成的左侧页面导航列表。
+
+**优化2**：首页 `_render_agent_selector()` 改为公共母版样式，所有模式统一显示"企业知识库智能体"标题 + "支持文档问答·数据统计·文档编写·内容仿写"副标题 + 三个模式切换按钮。
+
+**优化3**：`render_chat_main()` 移除标题/副标题（已上移至母版），知识库问答和数据统计模式下方直接显示对话输入框。
+
+**优化4**：`doc_page.render()` 新增 `embedded` 参数，嵌入首页时跳过自有标题/副标题，由母版统一展示，保持三步流程不变。
+
+**修改文件**：`.streamlit/config.toml`(新增)、`pages/index_page.py`、`pages/chat_page.py`、`pages/doc_page.py`
+
+**时间**：2026-05-25 18:52
+
+---
+
+## 2026-05-25 (登录与交互流程优化)
+
+**优化1**：登录页改为身份标签切换（管理员/普通用户），选择身份后输入账号密码登录，验证角色匹配，登录后直入首页。
+
+**优化2**：首页智能体标题从"使用不同智能体开始对话"改为动态"当前智能体：{模式名}"，随切换实时更新。
+
+**优化3**：知识库问答/数据统计模式下自动创建对话，直接显示聊天输入框，无需手动点击"新建对话"。
+
+**优化4**："新建对话"按钮同步重置 `agent_mode` 为知识库问答，确保每次新建对话均回到初始模式。
+
+**修改文件**：`app.py`、`pages/index_page.py`、`pages/chat_page.py`
+
+**时间**：2026-05-25 18:36
+
+---
+
+## 2026-05-25 (首页重构收尾修复)
+
+**修复**：恢复 `app.py` 中 `init_db()` 调用（之前被误注释），确保启动时自动补建缺失的数据库表。
+
+**修复**：首页文档撰写模式下隐藏智能体选择器标题，避免与 doc_page 标题重复。
+
+**修复**：doc_page 中"← 返回首页"按钮同步重置 `agent_mode` 为 `knowledge_qa`，确保从文档撰写模式返回时正确切换到知识库问答模式。
+
+**修改文件**：`app.py`、`pages/index_page.py`、`pages/doc_page.py`
+
+**时间**：2026-05-25 18:30
+
+---
+
+## 2026-05-25 (UI重构：首页 + 三种智能体模式切换)
+
+**新增**：创建首页 `pages/index_page.py`，左侧导航栏（新建对话/历史对话/后台管理/账号管理/退出登录），右侧三种智能体模式切换按钮（知识库问答/数据统计/文档撰写）。
+
+**新增**：`agent.py` 新增 `chat_direct()` 函数，支持直接调用指定智能体（数据统计模式使用 data_agent 直调，不经过 Supervisor 自动路由）。
+
+**修改**：`pages/chat_page.py` — 提取 `render_chat_main(user, use_direct_agent)` 独立函数供首页复用，支持自动路由模式和指定智能体直调模式。
+
+**修改**：`app.py` — 登录后默认路由到"首页"；保留旧路由"对话"/"文档编写"向后兼容。
+
+**修改**：`pages/admin_page.py` — 侧边栏添加"← 返回首页"按钮。
+
+**修改**：`pages/doc_page.py` — "返回对话"按钮改为"← 返回首页"，跳转目标同步更新。
+
+**时间**：2026-05-25 18:00
+
+---
 
 ## 2026-05-25 (历史文档列表改为单行布局)
 
@@ -184,7 +609,9 @@
 
 **效果**：预热后单次代码执行 9-10ms（对比 subprocess 冷启动 ~1.5-2s，提升 150x+）；data_agent 连接复用后消除 ~2s TCP 建连开销。
 
-**时间**：2026-05-20 20:42:
+**时间**：2026-05-20 20:42
+
+---
 
 ## 2026-05-20 (多文件查询 + 规则7优化)
 

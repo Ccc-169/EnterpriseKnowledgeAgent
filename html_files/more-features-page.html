@@ -1,0 +1,622 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>HNGD 智能知识助手系统 - 更多功能</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    font-family: 'PingFang SC', 'Microsoft YaHei', '微软雅黑', sans-serif;
+    background: #f2f6fa;
+    overflow: hidden;
+    height: 100vh;
+    width: 100vw;
+  }
+
+  #more-page {
+    width: 100%;
+    height: 100vh;
+    display: flex;
+    flex-direction: row;
+  }
+
+  /* ========== SIDEBAR ========== */
+  .sidebar {
+    width: 220px;
+    min-width: 220px;
+    height: 100vh;
+    background: linear-gradient(180deg, #0f2a5e 0%, #1a3a7e 40%, #0d2050 100%);
+    display: flex;
+    flex-direction: column;
+    position: relative;
+    z-index: 10;
+    box-shadow: 2px 0 16px rgba(10,30,80,0.18);
+  }
+
+  .sidebar-logo {
+    padding: 20px 18px 16px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    border-bottom: 1px solid rgba(255,255,255,0.08);
+    flex-shrink: 0;
+  }
+
+  .sidebar-logo-icon {
+    width: 36px; height: 36px;
+    background: rgba(255,255,255,0.15);
+    border-radius: 8px;
+    display: flex; align-items: center; justify-content: center;
+    border: 1.5px solid rgba(255,255,255,0.25);
+    flex-shrink: 0;
+  }
+  .sidebar-logo-icon svg { width: 20px; height: 20px; fill: white; }
+
+  .sidebar-logo-text h2 { font-size: 14px; font-weight: 700; color: white; letter-spacing: 1px; }
+  .sidebar-logo-text p { font-size: 10px; color: rgba(255,255,255,0.55); margin-top: 2px; }
+
+  .nav-menu { flex: 0 0 auto; padding: 10px 10px 6px; }
+
+  .nav-item {
+    display: flex; align-items: center; gap: 10px;
+    padding: 9px 12px; border-radius: 8px; cursor: pointer;
+    margin-bottom: 2px;
+    color: rgba(255,255,255,0.6);
+    font-size: 13px; font-weight: 500;
+    transition: all 0.2s; text-decoration: none;
+  }
+  .nav-item:hover { background: rgba(255,255,255,0.08); color: rgba(255,255,255,0.9); }
+  .nav-item.active { background: rgba(255,255,255,0.15); color: white; }
+  .nav-item svg { width: 16px; height: 16px; flex-shrink: 0; }
+
+  .sidebar-user {
+    padding: 12px 14px;
+    border-top: 1px solid rgba(255,255,255,0.08);
+    display: flex; align-items: center; gap: 10px; cursor: pointer;
+    flex-shrink: 0; transition: background 0.15s;
+  }
+  .sidebar-user:hover { background: rgba(255,255,255,0.05); }
+
+  .user-avatar {
+    width: 32px; height: 32px; border-radius: 50%;
+    background: rgba(255,255,255,0.18);
+    display: flex; align-items: center; justify-content: center;
+    flex-shrink: 0; border: 1.5px solid rgba(255,255,255,0.28);
+  }
+  .user-avatar svg { width: 16px; height: 16px; fill: rgba(255,255,255,0.8); }
+  .user-info { flex: 1; min-width: 0; }
+  .user-info .name { font-size: 12.5px; font-weight: 600; color: white; }
+  .user-info .role { font-size: 10.5px; color: rgba(255,255,255,0.48); margin-top: 1px; }
+  .user-chevron { color: rgba(255,255,255,0.35); font-size: 11px; }
+  .logout-btn {
+    display: block; width: calc(100% - 20px); margin: 0 10px 10px;
+    padding: 7px; background: transparent;
+    border: 1px solid rgba(255,255,255,0.1); border-radius: 6px;
+    color: rgba(255,255,255,0.38); font-size: 12px; cursor: pointer;
+    font-family: inherit; text-align: center; transition: all 0.15s; flex-shrink: 0;
+  }
+  .logout-btn:hover { background: rgba(210,50,50,0.15); border-color: rgba(210,80,80,0.28); color: rgba(255,150,150,0.9); }
+
+  /* ========== MAIN CONTENT ========== */
+  .main-content {
+    flex: 1; height: 100vh; overflow-y: auto; background: #f2f6fa;
+  }
+
+  /* ========== TOPBAR ========== */
+  .topbar {
+    position: sticky; top: 0; z-index: 5;
+    background: rgba(242,246,250,0.95);
+    backdrop-filter: blur(8px);
+    padding: 0 32px; height: 56px;
+    display: flex; align-items: center; justify-content: flex-end;
+    gap: 20px; border-bottom: 1px solid rgba(200,215,230,0.5);
+  }
+  .topbar-item { display: flex; align-items: center; gap: 6px; font-size: 12.5px; color: #5a6a8a; cursor: pointer; }
+  .topbar-divider { width: 1px; height: 18px; background: #d0dae8; }
+  .topbar-bell {
+    width: 32px; height: 32px; display: flex; align-items: center; justify-content: center;
+    cursor: pointer; color: #5a6a8a; border-radius: 6px; transition: background 0.15s;
+  }
+  .topbar-bell:hover { background: rgba(42,90,168,0.08); }
+  .topbar-bell svg { width: 18px; height: 18px; }
+
+  /* ========== PAGE BODY ========== */
+  .page-body {
+    padding: 32px 32px 40px;
+    position: relative;
+  }
+
+  /* Watermark star */
+  .page-body::before {
+    content: '★';
+    position: absolute;
+    right: -30px; top: -20px;
+    font-size: 420px;
+    color: rgba(42,90,168,0.04);
+    pointer-events: none;
+    line-height: 1;
+    user-select: none;
+  }
+
+  .page-header { margin-bottom: 28px; position: relative; z-index: 1; }
+  .page-header h2 { font-size: 22px; font-weight: 700; color: #1a2a4a; margin-bottom: 5px; }
+  .page-header p { font-size: 13.5px; color: #7a8aaa; }
+
+  /* ========== FEATURE CARDS ROW ========== */
+  .feature-cards {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 18px;
+    margin-bottom: 20px;
+    position: relative; z-index: 1;
+  }
+
+  .feature-card {
+    background: white;
+    border-radius: 14px;
+    padding: 32px 24px 24px;
+    box-shadow: 0 1px 6px rgba(30,60,120,0.06), 0 2px 14px rgba(30,60,120,0.04);
+    border: 1px solid rgba(220,230,245,0.7);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+    cursor: pointer;
+    transition: box-shadow 0.2s, transform 0.2s;
+  }
+  .feature-card:hover {
+    box-shadow: 0 4px 20px rgba(30,60,120,0.12);
+    transform: translateY(-2px);
+  }
+
+  /* Icon containers */
+  .feat-icon-wrap {
+    width: 88px; height: 88px;
+    border-radius: 20px;
+    display: flex; align-items: center; justify-content: center;
+    margin-bottom: 22px;
+    position: relative;
+  }
+
+  /* Knowledge upload - blue gradient */
+  .feat-icon-wrap.upload {
+    background: linear-gradient(135deg, #dce8fc 0%, #c4d8f8 100%);
+  }
+  /* Knowledge graph - green */
+  .feat-icon-wrap.graph {
+    background: linear-gradient(135deg, #e0f5ec 0%, #c8eddb 100%);
+  }
+  /* Skill - purple */
+  .feat-icon-wrap.skill {
+    background: linear-gradient(135deg, #ede8fc 0%, #ddd0f8 100%);
+  }
+  /* MCP - orange/peach */
+  .feat-icon-wrap.mcp {
+    background: linear-gradient(135deg, #fceee0 0%, #f8dfc8 100%);
+  }
+
+  .feat-icon-wrap svg { width: 44px; height: 44px; }
+  .feat-icon-wrap img { width: 52px; height: 52px; object-fit: contain; }
+
+  /* Upload icon with stacked doc style */
+  .upload-icon-inner {
+    position: relative;
+    width: 46px; height: 52px;
+  }
+  .upload-icon-inner .doc-back {
+    position: absolute;
+    bottom: 0; left: 4px;
+    width: 36px; height: 44px;
+    background: #5a9af5;
+    border-radius: 5px 5px 5px 5px;
+  }
+  .upload-icon-inner .doc-front {
+    position: absolute;
+    bottom: 0; left: 0;
+    width: 38px; height: 46px;
+    background: linear-gradient(160deg, #4a8ae8 0%, #3a6fd4 100%);
+    border-radius: 6px;
+    display: flex; flex-direction: column;
+    align-items: center; justify-content: center; gap: 4px;
+  }
+  .doc-line {
+    width: 22px; height: 3px;
+    background: rgba(255,255,255,0.7);
+    border-radius: 2px;
+  }
+  .doc-line.short { width: 15px; }
+  .upload-arrow {
+    position: absolute;
+    bottom: -2px; right: -6px;
+    width: 22px; height: 22px;
+    background: #2a5aa8;
+    border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    border: 2px solid white;
+  }
+  .upload-arrow svg { width: 12px; height: 12px; fill: white; }
+
+  /* Graph icon - nodes and edges */
+  .graph-icon-svg { color: #1a9e6b; }
+
+  /* Skill icon - code brackets */
+  .skill-icon-wrap-inner {
+    width: 52px; height: 52px;
+    background: linear-gradient(135deg, #7c3aed, #9b5cf8);
+    border-radius: 12px;
+    display: flex; align-items: center; justify-content: center;
+  }
+  .skill-icon-wrap-inner svg { width: 30px; height: 30px; fill: white; }
+
+  /* MCP icon - robot/connector */
+  .mcp-icon-svg { color: #e07a1a; }
+
+  .feature-card h3 {
+    font-size: 16px; font-weight: 700; color: #1a2a4a;
+    margin-bottom: 12px;
+  }
+
+  .feature-card p {
+    font-size: 13px; color: #7a8aaa; line-height: 1.7;
+    margin-bottom: 24px; flex: 1;
+  }
+
+  .use-btn {
+    display: flex; align-items: center; gap: 8px;
+    padding: 9px 22px;
+    border: 1.5px solid #d8e4f4;
+    border-radius: 20px;
+    background: white;
+    font-size: 13.5px; font-weight: 500; color: #3a5a9a;
+    cursor: pointer; transition: all 0.18s;
+    font-family: 'PingFang SC', 'Microsoft YaHei', sans-serif;
+  }
+  .use-btn:hover {
+    border-color: #2a5aa8;
+    background: #f0f5ff;
+    color: #1a3a7e;
+  }
+  .use-btn .arrow { font-size: 15px; }
+
+  /* Teal - API config */
+  .feat-icon-wrap.api {
+    background: linear-gradient(135deg, #daf4f4 0%, #c0ecec 100%);
+  }
+
+  /* ========== COMING SOON BANNER ========== */
+  .coming-soon-banner {
+    background: white;
+    border-radius: 14px;
+    padding: 52px 32px 48px;
+    box-shadow: 0 1px 6px rgba(30,60,120,0.06), 0 2px 14px rgba(30,60,120,0.04);
+    border: 1px solid rgba(220,230,245,0.7);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+    position: relative; z-index: 1;
+  }
+
+  /* Animated open box illustration */
+  .box-illustration {
+    width: 140px; height: 140px;
+    position: relative;
+    margin-bottom: 24px;
+  }
+
+  /* Box body */
+  .box-body {
+    position: absolute;
+    bottom: 0; left: 50%; transform: translateX(-50%);
+    width: 80px; height: 60px;
+    background: linear-gradient(160deg, #c8d8f4 0%, #a8bce8 100%);
+    border-radius: 4px 4px 8px 8px;
+    display: flex; align-items: center; justify-content: center;
+  }
+
+  .box-star {
+    font-size: 22px; color: rgba(255,255,255,0.75);
+  }
+
+  /* Box lid */
+  .box-lid {
+    position: absolute;
+    bottom: 54px; left: 50%; transform: translateX(-50%) rotate(-8deg);
+    width: 88px; height: 24px;
+    background: linear-gradient(160deg, #dae6fc 0%, #b8cef0 100%);
+    border-radius: 4px;
+    transform-origin: bottom left;
+  }
+
+  /* Floating dots / sparkles */
+  .sparkle {
+    position: absolute;
+    border-radius: 50%;
+    background: rgba(120,160,220,0.35);
+    animation: float 3s ease-in-out infinite;
+  }
+  .sparkle:nth-child(1) { width: 10px; height: 10px; top: 18px; left: 38px; animation-delay: 0s; }
+  .sparkle:nth-child(2) { width: 7px; height: 7px; top: 8px; left: 68px; animation-delay: 0.5s; }
+  .sparkle:nth-child(3) { width: 12px; height: 12px; top: 22px; right: 28px; animation-delay: 1s; }
+  .sparkle:nth-child(4) { width: 6px; height: 6px; top: 40px; right: 18px; animation-delay: 1.5s; }
+  .sparkle:nth-child(5) { width: 8px; height: 8px; top: 6px; right: 48px; animation-delay: 0.8s; }
+
+  @keyframes float {
+    0%, 100% { transform: translateY(0); opacity: 0.5; }
+    50% { transform: translateY(-10px); opacity: 1; }
+  }
+
+  .coming-soon-banner h3 {
+    font-size: 18px; font-weight: 700; color: #1a2a4a;
+    margin-bottom: 10px;
+  }
+  .coming-soon-banner p {
+    font-size: 13.5px; color: #9aaac0; line-height: 1.7;
+  }
+
+  /* ========== FOOTER ========== */
+  .footer-note {
+    text-align: center; font-size: 12px; color: #9aaac0;
+    margin-top: 28px;
+    display: flex; align-items: center; justify-content: center; gap: 5px;
+    position: relative; z-index: 1;
+  }
+</style>
+</head>
+<body>
+
+<div id="more-page">
+  <!-- ========== SIDEBAR ========== -->
+  <div class="sidebar">
+    <div class="sidebar-logo">
+      <div class="sidebar-logo-icon">
+        <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+          <path d="M12 2L3 7v5c0 5.25 3.75 10.15 9 11.35C17.25 22.15 21 17.25 21 12V7L12 2zm0 2.18l7 3.9V12c0 4.35-2.98 8.4-7 9.63C7.98 20.4 5 16.35 5 12V8.08l7-3.9z"/>
+          <path d="M10 12l-2-2-1.4 1.4L10 14.8l6-6L14.6 7.4z"/>
+        </svg>
+      </div>
+      <div class="sidebar-logo-text">
+        <h2>HNGD</h2>
+        <p>智能知识助手系统</p>
+      </div>
+    </div>
+
+    <nav class="nav-menu">
+      <a class="nav-item" href="home-page.html">
+        <svg viewBox="0 0 24 24" fill="currentColor"><path d="M20 2H4c-1.1 0-2 .9-2 2v18l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2z"/></svg>
+        对话
+      </a>
+      <a class="nav-item" href="javascript:void(0)">
+        <svg viewBox="0 0 24 24" fill="currentColor"><path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-5 14H7v-2h7v2zm3-4H7v-2h10v2zm0-4H7V7h10v2z"/></svg>
+        知识库
+      </a>
+      <a class="nav-item" href="javascript:void(0)">
+        <svg viewBox="0 0 24 24" fill="currentColor"><path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zM9 17H7v-7h2v7zm4 0h-2V7h2v10zm4 0h-2v-4h2v4z"/></svg>
+        数据分析
+      </a>
+      <a class="nav-item active" href="javascript:void(0)">
+        <svg viewBox="0 0 24 24" fill="currentColor"><path d="M4 8h4V4H4v4zm6 12h4v-4h-4v4zm-6 0h4v-4H4v4zm0-6h4v-4H4v4zm6 0h4v-4h-4v4zm6-10v4h4V4h-4zm-6 4h4V4h-4v4zm6 6h4v-4h-4v4zm0 6h4v-4h-4v4z"/></svg>
+        更多功能
+      </a>
+      <a class="nav-item" href="setting-page.html">
+        <svg viewBox="0 0 24 24" fill="currentColor"><path d="M19.14 12.94c.04-.3.06-.61.06-.94 0-.32-.02-.64-.07-.94l2.03-1.58c.18-.14.23-.41.12-.61l-1.92-3.32c-.12-.22-.37-.29-.59-.22l-2.39.96c-.5-.38-1.03-.7-1.62-.94l-.36-2.54c-.04-.24-.24-.41-.48-.41h-3.84c-.24 0-.43.17-.47.41l-.36 2.54c-.59.24-1.13.57-1.62.94l-2.39-.96c-.22-.08-.47 0-.59.22L2.74 8.87c-.12.21-.08.47.12.61l2.03 1.58c-.05.3-.09.63-.09.94s.02.64.07.94l-2.03 1.58c-.18.14-.23.41-.12.61l1.92 3.32c.12.22.37.29.59.22l2.39-.96c.5.38 1.03.7 1.62.94l.36 2.54c.05.24.24.41.48.41h3.84c.24 0 .44-.17.47-.41l.36-2.54c.59-.24 1.13-.56 1.62-.94l2.39.96c.22.08.47 0 .59-.22l1.92-3.32c.12-.22.07-.47-.12-.61l-2.01-1.58zM12 15.6c-1.98 0-3.6-1.62-3.6-3.6s1.62-3.6 3.6-3.6 3.6 1.62 3.6 3.6-1.62 3.6-3.6 3.6z"/></svg>
+        系统设置
+      </a>
+      <a class="nav-item" id="nav-admin-item" href="admin-page.html" style="display:none">
+        <svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 1L3 5v6c0 5.55 3.84 10.74 9 12 5.16-1.26 9-6.45 9-12V5l-9-4zm-1 14l-3-3 1.41-1.41L11 12.17l4.59-4.58L17 9l-6 6z"/></svg>
+        管理员界面
+      </a>
+    </nav>
+
+    <div style="flex: 1;"></div>
+
+    <div class="sidebar-user" onclick="window.location.href='setting-page.html'" title="账号设置">
+      <div class="user-avatar">
+        <svg viewBox="0 0 24 24"><path d="M12 12c2.7 0 5-2.3 5-5s-2.3-5-5-5-5 2.3-5 5 2.3 5 5 5zm0 2c-3.3 0-10 1.7-10 5v2h20v-2c0-3.3-6.7-5-10-5z"/></svg>
+      </div>
+      <div class="user-info">
+        <div class="name" id="sidebar-username">加载中...</div>
+        <div class="role" id="sidebar-role">—</div>
+      </div>
+      <span class="user-chevron">›</span>
+    </div>
+    <button class="logout-btn" onclick="logout()">退出登录</button>
+  </div>
+
+  <!-- ========== MAIN CONTENT ========== -->
+  <div class="main-content">
+    <!-- Topbar -->
+    <div class="topbar">
+      <div class="topbar-item">
+        <svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor"><path d="M11.99 2C6.47 2 2 6.48 2 12s4.47 10 9.99 10C17.52 22 22 17.52 22 12S17.52 2 11.99 2zM12 20c-4.42 0-8-3.58-8-8s3.58-8 8-8 8 3.58 8 8-3.58 8-8 8zm.5-13H11v6l5.25 3.15.75-1.23-4.5-2.67V7z"/></svg>
+        使用指南
+      </div>
+      <div class="topbar-divider"></div>
+      <div class="topbar-item">
+        <svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor"><path d="M11.99 2C6.47 2 2 6.48 2 12s4.47 10 9.99 10C17.52 22 22 17.52 22 12S17.52 2 11.99 2zM12 20c-4.42 0-8-3.58-8-8s3.58-8 8-8 8 3.58 8 8-3.58 8-8 8zm.5-13H11v6l5.25 3.15.75-1.23-4.5-2.67V7z"/></svg>
+        <span id="topbar-clock">2024-05-20 15:30:45</span>
+      </div>
+      <div class="topbar-bell">
+        <svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 22c1.1 0 2-.9 2-2h-4c0 1.1.9 2 2 2zm6-6v-5c0-3.07-1.64-5.64-4.5-6.32V4c0-.83-.67-1.5-1.5-1.5s-1.5.67-1.5 1.5v.68C7.63 5.36 6 7.92 6 11v5l-2 2v1h16v-1l-2-2z"/></svg>
+      </div>
+    </div>
+
+    <!-- Page Body -->
+    <div class="page-body">
+      <div class="page-header">
+        <h2>更多功能</h2>
+        <p>探索更多智能化功能与扩展能力</p>
+      </div>
+
+      <!-- Feature Cards -->
+      <div class="feature-cards">
+
+        <!-- Card 1: 知识库文档上传 -->
+        <div class="feature-card">
+          <div class="feat-icon-wrap upload">
+            <div class="upload-icon-inner">
+              <div class="doc-back"></div>
+              <div class="doc-front">
+                <div class="doc-line"></div>
+                <div class="doc-line"></div>
+                <div class="doc-line short"></div>
+              </div>
+              <div class="upload-arrow">
+                <svg viewBox="0 0 24 24"><path d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"/></svg>
+              </div>
+            </div>
+          </div>
+          <h3>知识库文档上传</h3>
+          <p>支持多种格式文档上传，构建企业专属知识库，智能解析与管理。</p>
+          <button class="use-btn">立即使用 <span class="arrow">→</span></button>
+        </div>
+
+        <!-- Card 2: 知识图谱 -->
+        <div class="feature-card">
+          <div class="feat-icon-wrap graph">
+            <svg class="graph-icon-svg" viewBox="0 0 80 80" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <!-- nodes -->
+              <circle cx="40" cy="20" r="7" fill="#1a9e6b"/>
+              <circle cx="16" cy="52" r="7" fill="#1a9e6b"/>
+              <circle cx="64" cy="52" r="7" fill="#1a9e6b"/>
+              <circle cx="40" cy="60" r="5" fill="#34c98a"/>
+              <!-- edges -->
+              <line x1="40" y1="27" x2="16" y2="45" stroke="#1a9e6b" stroke-width="2.5" stroke-linecap="round"/>
+              <line x1="40" y1="27" x2="64" y2="45" stroke="#1a9e6b" stroke-width="2.5" stroke-linecap="round"/>
+              <line x1="23" y1="55" x2="35" y2="58" stroke="#34c98a" stroke-width="2" stroke-linecap="round"/>
+              <line x1="57" y1="55" x2="45" y2="58" stroke="#34c98a" stroke-width="2" stroke-linecap="round"/>
+            </svg>
+          </div>
+          <h3>知识图谱</h3>
+          <p>可视化知识结构，发现知识关联，提升知识理解与检索效率。</p>
+          <button class="use-btn">立即使用 <span class="arrow">→</span></button>
+        </div>
+
+        <!-- Card 3: 技能 (Skill) -->
+        <div class="feature-card">
+          <div class="feat-icon-wrap skill">
+            <div class="skill-icon-wrap-inner">
+              <svg viewBox="0 0 24 24" fill="white"><path d="M9.4 16.6L4.8 12l4.6-4.6L8 6l-6 6 6 6 1.4-1.4zm5.2 0l4.6-4.6-4.6-4.6L16 6l6 6-6 6-1.4-1.4z"/></svg>
+            </div>
+          </div>
+          <h3>技能（Skill）</h3>
+          <p>创建和管理智能技能，扩展助手能力，满足个性化业务需求。</p>
+          <button class="use-btn">立即使用 <span class="arrow">→</span></button>
+        </div>
+
+        <!-- Card 4: MCP 接入 -->
+        <div class="feature-card">
+          <div class="feat-icon-wrap mcp">
+            <svg class="mcp-icon-svg" viewBox="0 0 80 80" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <!-- Robot / connector body -->
+              <!-- head -->
+              <rect x="24" y="14" width="32" height="24" rx="8" fill="#e07a1a"/>
+              <!-- eyes -->
+              <circle cx="33" cy="25" r="4" fill="white"/>
+              <circle cx="47" cy="25" r="4" fill="white"/>
+              <circle cx="33" cy="25" r="2" fill="#e07a1a"/>
+              <circle cx="47" cy="25" r="2" fill="#e07a1a"/>
+              <!-- antenna -->
+              <line x1="40" y1="14" x2="40" y2="8" stroke="#e07a1a" stroke-width="3" stroke-linecap="round"/>
+              <circle cx="40" cy="6" r="3" fill="#f5a352"/>
+              <!-- body -->
+              <rect x="28" y="40" width="24" height="20" rx="5" fill="#f5a352"/>
+              <!-- arms -->
+              <rect x="14" y="42" width="12" height="6" rx="3" fill="#e07a1a"/>
+              <rect x="54" y="42" width="12" height="6" rx="3" fill="#e07a1a"/>
+              <!-- legs -->
+              <rect x="30" y="62" width="8" height="10" rx="4" fill="#e07a1a"/>
+              <rect x="42" y="62" width="8" height="10" rx="4" fill="#e07a1a"/>
+            </svg>
+          </div>
+          <h3>MCP 接入</h3>
+          <p>接入 Model Context Protocol 服务，打通外部系统与数据源。</p>
+          <button class="use-btn">立即使用 <span class="arrow">→</span></button>
+        </div>
+
+        <!-- Card 5: 接口配置 -->
+        <div class="feature-card">
+          <div class="feat-icon-wrap api">
+            <svg viewBox="0 0 80 80" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <!-- left plug -->
+              <rect x="8" y="33" width="22" height="14" rx="5" fill="#1a9e8a"/>
+              <rect x="13" y="26" width="5" height="8" rx="2.5" fill="#1a9e8a"/>
+              <rect x="22" y="26" width="5" height="8" rx="2.5" fill="#1a9e8a"/>
+              <rect x="13" y="46" width="5" height="8" rx="2.5" fill="#1a9e8a"/>
+              <rect x="22" y="46" width="5" height="8" rx="2.5" fill="#1a9e8a"/>
+              <!-- connector line -->
+              <line x1="30" y1="40" x2="50" y2="40" stroke="#34c8b8" stroke-width="3.5" stroke-linecap="round" stroke-dasharray="5 3"/>
+              <!-- right socket -->
+              <rect x="50" y="33" width="22" height="14" rx="5" fill="#34c8b8"/>
+              <circle cx="57" cy="40" r="2.5" fill="white"/>
+              <circle cx="65" cy="40" r="2.5" fill="white"/>
+            </svg>
+          </div>
+          <h3>接口配置</h3>
+          <p>管理系统外部服务连接配置，包括 LLM、知识库、代码沙箱等接口参数。</p>
+          <button class="use-btn" onclick="window.location.href='interface_config.html'">立即使用 <span class="arrow">→</span></button>
+        </div>
+
+      </div>
+
+      <!-- Coming Soon Banner -->
+      <div class="coming-soon-banner">
+        <!-- Animated box illustration -->
+        <div class="box-illustration">
+          <div class="sparkle"></div>
+          <div class="sparkle"></div>
+          <div class="sparkle"></div>
+          <div class="sparkle"></div>
+          <div class="sparkle"></div>
+          <div class="box-lid"></div>
+          <div class="box-body">
+            <span class="box-star">★</span>
+          </div>
+        </div>
+        <h3>更多功能敬请期待</h3>
+        <p>我们正在持续开发更多智能化功能，助力您的业务增长与创新。</p>
+      </div>
+
+      <div class="footer-note">
+        <svg viewBox="0 0 24 24" width="13" height="13" fill="currentColor" style="color:#9aaac0"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-6h2v6zm0-8h-2V7h2v2z"/></svg>
+        内容由AI生成，仅供参考，请以官方信息为准
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+  function updateClock() {
+    const now = new Date(), pad = n => String(n).padStart(2, '0');
+    document.getElementById('topbar-clock').textContent =
+      `${now.getFullYear()}-${pad(now.getMonth()+1)}-${pad(now.getDate())} ${pad(now.getHours())}:${pad(now.getMinutes())}:${pad(now.getSeconds())}`;
+  }
+  updateClock();
+  setInterval(updateClock, 1000);
+
+  function initSidebar() {
+    let user = null;
+    try { user = JSON.parse(localStorage.getItem('user') || 'null'); } catch(e) {}
+    if (!user || !localStorage.getItem('token')) { window.location.href = 'login-page.html'; return; }
+    const roleMap = { admin: '系统管理员', user: '普通用户', visitor: '访客' };
+    document.getElementById('sidebar-username').textContent = user.display_name || user.username;
+    document.getElementById('sidebar-role').textContent = roleMap[user.role] || user.role;
+    if (user.role === 'admin') {
+      const adminItem = document.getElementById('nav-admin-item');
+      if (adminItem) adminItem.style.display = '';
+    }
+  }
+
+  async function logout() {
+    try { await fetch('http://localhost:8000/api/auth/logout', { method: 'POST', headers: { 'Authorization': 'Bearer ' + localStorage.getItem('token') } }); } catch(e) {}
+    localStorage.clear();
+    window.location.href = 'login-page.html';
+  }
+
+  window.addEventListener('load', initSidebar);
+</script>
+
+</body>
+</html>

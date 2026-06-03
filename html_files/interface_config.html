@@ -1,0 +1,970 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>HNGD 智能知识助手系统 - 接口配置</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { font-family: 'PingFang SC', 'Microsoft YaHei', '微软雅黑', sans-serif; background: #f2f6fa; overflow: hidden; height: 100vh; width: 100vw; }
+  #iface-page { width: 100%; height: 100vh; display: flex; flex-direction: row; }
+
+  /* ========== SIDEBAR ========== */
+  .sidebar { width: 220px; min-width: 220px; height: 100vh; background: linear-gradient(180deg, #0f2a5e 0%, #1a3a7e 40%, #0d2050 100%); display: flex; flex-direction: column; position: relative; z-index: 10; box-shadow: 2px 0 16px rgba(10,30,80,0.18); }
+  .sidebar-logo { padding: 20px 18px 16px; display: flex; align-items: center; gap: 10px; border-bottom: 1px solid rgba(255,255,255,0.08); flex-shrink: 0; }
+  .sidebar-logo-icon { width: 36px; height: 36px; background: rgba(255,255,255,0.15); border-radius: 8px; display: flex; align-items: center; justify-content: center; border: 1.5px solid rgba(255,255,255,0.25); flex-shrink: 0; }
+  .sidebar-logo-icon svg { width: 20px; height: 20px; fill: white; }
+  .sidebar-logo-text h2 { font-size: 14px; font-weight: 700; color: white; letter-spacing: 1px; }
+  .sidebar-logo-text p { font-size: 10px; color: rgba(255,255,255,0.55); margin-top: 2px; }
+  .nav-menu { flex: 0 0 auto; padding: 10px 10px 6px; }
+  .nav-item { display: flex; align-items: center; gap: 10px; padding: 9px 12px; border-radius: 8px; cursor: pointer; margin-bottom: 2px; color: rgba(255,255,255,0.6); font-size: 13px; font-weight: 500; transition: all 0.2s; text-decoration: none; }
+  .nav-item:hover { background: rgba(255,255,255,0.08); color: rgba(255,255,255,0.9); }
+  .nav-item.active { background: rgba(255,255,255,0.15); color: white; }
+  .nav-item svg { width: 16px; height: 16px; flex-shrink: 0; }
+  .sidebar-user { padding: 12px 14px; border-top: 1px solid rgba(255,255,255,0.08); display: flex; align-items: center; gap: 10px; cursor: pointer; flex-shrink: 0; transition: background 0.15s; }
+  .sidebar-user:hover { background: rgba(255,255,255,0.05); }
+  .user-avatar { width: 32px; height: 32px; border-radius: 50%; background: rgba(255,255,255,0.18); display: flex; align-items: center; justify-content: center; flex-shrink: 0; border: 1.5px solid rgba(255,255,255,0.28); }
+  .user-avatar svg { width: 16px; height: 16px; fill: rgba(255,255,255,0.8); }
+  .user-info { flex: 1; min-width: 0; }
+  .user-info .name { font-size: 12.5px; font-weight: 600; color: white; }
+  .user-info .role { font-size: 10.5px; color: rgba(255,255,255,0.48); margin-top: 1px; }
+  .user-chevron { color: rgba(255,255,255,0.35); font-size: 11px; }
+  .logout-btn { display: block; width: calc(100% - 20px); margin: 0 10px 10px; padding: 7px; background: transparent; border: 1px solid rgba(255,255,255,0.1); border-radius: 6px; color: rgba(255,255,255,0.38); font-size: 12px; cursor: pointer; font-family: inherit; text-align: center; transition: all 0.15s; flex-shrink: 0; }
+  .logout-btn:hover { background: rgba(210,50,50,0.15); border-color: rgba(210,80,80,0.28); color: rgba(255,150,150,0.9); }
+
+  /* ========== MAIN ========== */
+  .iface-main { flex: 1; height: 100vh; display: flex; flex-direction: column; overflow: hidden; }
+
+  /* ========== TOPBAR ========== */
+  .topbar { flex-shrink: 0; background: rgba(242,246,250,0.98); backdrop-filter: blur(8px); padding: 0 20px; height: 56px; display: flex; align-items: center; gap: 10px; border-bottom: 1px solid rgba(200,215,230,0.5); z-index: 5; }
+  .back-btn { display: flex; align-items: center; gap: 6px; padding: 6px 13px; border: 1px solid #d0dae8; border-radius: 7px; background: white; color: #5a6a8a; font-size: 13px; font-weight: 500; cursor: pointer; font-family: inherit; transition: all 0.15s; text-decoration: none; white-space: nowrap; }
+  .back-btn:hover { border-color: #2a5aa8; color: #2a5aa8; background: #f0f5ff; }
+  .back-btn svg { width: 14px; height: 14px; }
+  .topbar-title { font-size: 14px; font-weight: 600; color: #1a2a4a; margin-right: auto; }
+  .topbar-btn { display: flex; align-items: center; gap: 5px; padding: 6px 13px; border: 1px solid #d0dae8; border-radius: 7px; background: white; color: #5a6a8a; font-size: 13px; font-weight: 500; cursor: pointer; font-family: inherit; transition: all 0.15s; }
+  .topbar-btn:hover { border-color: #2a5aa8; color: #2a5aa8; background: #f0f5ff; }
+  .topbar-btn svg { width: 14px; height: 14px; }
+  .topbar-divider { width: 1px; height: 18px; background: #d0dae8; }
+
+  /* ========== WORKSPACE ========== */
+  .iface-workspace { flex: 1; display: flex; overflow: hidden; }
+
+  /* ========== LEFT PANEL ========== */
+  .iface-left { width: 260px; min-width: 260px; height: 100%; background: white; border-right: 1px solid #e8eff8; display: flex; flex-direction: column; overflow: hidden; }
+  .left-header { padding: 12px 12px 10px; border-bottom: 1px solid #f0f4f8; flex-shrink: 0; }
+  .left-header-row { display: flex; align-items: center; justify-content: space-between; margin-bottom: 9px; }
+  .left-header-title { font-size: 13px; font-weight: 600; color: #1a2a4a; }
+  .left-actions { display: flex; gap: 5px; }
+  .icon-btn { width: 28px; height: 28px; display: flex; align-items: center; justify-content: center; border-radius: 6px; cursor: pointer; border: 1px solid #d8e4f4; background: white; color: #5a6a8a; transition: all 0.15s; flex-shrink: 0; }
+  .icon-btn:hover { background: #f0f5ff; border-color: #2a5aa8; color: #2a5aa8; }
+  .icon-btn svg { width: 14px; height: 14px; }
+  .add-iface-btn { display: flex; align-items: center; justify-content: center; gap: 5px; width: 100%; padding: 7px; border: 1.5px dashed #c8d8f0; border-radius: 7px; background: transparent; color: #6a8ac0; font-size: 12.5px; font-weight: 500; cursor: pointer; font-family: inherit; transition: all 0.15s; }
+  .add-iface-btn:hover { border-color: #2a5aa8; color: #2a5aa8; background: #f4f8ff; }
+  .iface-list { flex: 1; overflow-y: auto; padding: 6px 0; }
+
+  /* Group */
+  .group-header { display: flex; align-items: center; gap: 6px; padding: 7px 12px; cursor: pointer; user-select: none; transition: background 0.12s; }
+  .group-header:hover { background: #f8fafd; }
+  .group-chevron { font-size: 11px; color: #9aaac0; transition: transform 0.18s; flex-shrink: 0; display: inline-block; line-height: 1; }
+  .group-chevron.open { transform: rotate(90deg); }
+  .group-name { font-size: 12.5px; font-weight: 600; color: #5a6a8a; flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .group-count { font-size: 11px; color: #b0bdd0; flex-shrink: 0; }
+  .group-del-btn { opacity: 0; width: 18px; height: 18px; display: flex; align-items: center; justify-content: center; border-radius: 4px; cursor: pointer; color: #c0392b; flex-shrink: 0; transition: opacity 0.15s; }
+  .group-header:hover .group-del-btn { opacity: 1; }
+  .group-del-btn svg { width: 12px; height: 12px; }
+
+  /* Interface row */
+  .iface-row { display: flex; align-items: center; gap: 7px; padding: 7px 12px 7px 24px; cursor: pointer; transition: background 0.12s; border-left: 3px solid transparent; }
+  .iface-row:hover { background: #f4f8ff; }
+  .iface-row.active { background: #eef4ff; border-left-color: #2a5aa8; }
+  .iface-row-del { opacity: 0; width: 18px; height: 18px; display: flex; align-items: center; justify-content: center; border-radius: 4px; cursor: pointer; color: #c0392b; flex-shrink: 0; transition: opacity 0.15s; }
+  .iface-row:hover .iface-row-del { opacity: 1; }
+  .iface-row-del svg { width: 12px; height: 12px; }
+
+  /* Method badges */
+  .method-badge { font-size: 10px; font-weight: 700; padding: 2px 5px; border-radius: 4px; flex-shrink: 0; font-family: 'SFMono-Regular', Consolas, monospace; min-width: 40px; text-align: center; }
+  .method-badge.GET    { background: #e8f0fc; color: #2a5aa8; }
+  .method-badge.POST   { background: #e6f7f0; color: #1a9e6b; }
+  .method-badge.PUT    { background: #fff3e8; color: #e07a1a; }
+  .method-badge.DELETE { background: #fff0f0; color: #c0392b; }
+  .method-badge.PATCH  { background: #f0eafc; color: #7c3aed; }
+  .method-badge.HEAD   { background: #f0f4f8; color: #5a6a8a; }
+
+  .iface-row-name { flex: 1; font-size: 12.5px; color: #2a3a5a; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .iface-row-name.disabled { color: #b0bdd0; }
+
+  /* Mini toggle */
+  .mini-toggle { position: relative; width: 32px; height: 18px; flex-shrink: 0; }
+  .mini-toggle input { opacity: 0; width: 0; height: 0; }
+  .mini-slider { position: absolute; inset: 0; background: #d0dae8; border-radius: 18px; cursor: pointer; transition: background 0.2s; }
+  .mini-slider::before { content: ''; position: absolute; width: 13px; height: 13px; left: 2.5px; top: 2.5px; background: white; border-radius: 50%; transition: transform 0.2s; box-shadow: 0 1px 2px rgba(0,0,0,0.18); }
+  .mini-toggle input:checked + .mini-slider { background: #2a5aa8; }
+  .mini-toggle input:checked + .mini-slider::before { transform: translateX(14px); }
+
+  .ungrouped-label { padding: 8px 12px 4px; font-size: 11.5px; font-weight: 600; color: #c0ccd8; letter-spacing: 0.5px; }
+  .list-empty { text-align: center; padding: 36px 16px; color: #c0ccd8; font-size: 13px; }
+
+  /* ========== RIGHT PANEL ========== */
+  .iface-right { flex: 1; height: 100%; display: flex; flex-direction: column; overflow: hidden; background: #f8fafd; }
+
+  /* Empty state */
+  .right-empty { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 14px; color: #c0ccd8; }
+  .right-empty svg { width: 64px; height: 64px; opacity: 0.25; }
+  .right-empty-title { font-size: 15px; font-weight: 600; color: #b0bdd0; }
+  .right-empty-sub { font-size: 13px; color: #c8d4e0; }
+
+  /* Editor */
+  .right-editor { flex: 1; display: flex; flex-direction: column; overflow: hidden; }
+  .editor-topbar { background: white; border-bottom: 1px solid #e8eff8; padding: 11px 18px; display: flex; align-items: center; gap: 10px; flex-shrink: 0; }
+  .editor-name-input { flex: 1; border: none; outline: none; font-size: 15px; font-weight: 600; color: #1a2a4a; background: transparent; font-family: 'PingFang SC', 'Microsoft YaHei', sans-serif; min-width: 0; }
+  .editor-name-input::placeholder { color: #c8d4e0; font-weight: 400; }
+  .group-select-inline { border: 1px solid #d8e4f4; border-radius: 6px; padding: 5px 22px 5px 9px; font-size: 12.5px; color: #5a6a8a; background: white; cursor: pointer; outline: none; font-family: inherit; appearance: none; -webkit-appearance: none; background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='11' height='11' viewBox='0 0 24 24' fill='%235a7aaa'%3E%3Cpath d='M7 10l5 5 5-5z'/%3E%3C/svg%3E"); background-repeat: no-repeat; background-position: right 5px center; max-width: 130px; }
+  .group-select-inline:focus { border-color: #2a5aa8; }
+  .save-btn { padding: 6px 16px; border: 1.5px solid #d0dae8; border-radius: 7px; background: white; color: #5a6a8a; font-size: 13px; font-weight: 500; cursor: pointer; font-family: inherit; transition: all 0.15s; white-space: nowrap; }
+  .save-btn:hover { border-color: #2a5aa8; color: #2a5aa8; background: #f0f5ff; }
+  .del-iface-btn { padding: 6px 10px; border: 1px solid #f5c6c6; border-radius: 7px; background: white; color: #c0392b; font-size: 13px; cursor: pointer; font-family: inherit; transition: all 0.15s; }
+  .del-iface-btn:hover { background: #fff0f0; border-color: #e08080; }
+
+  /* URL bar */
+  .url-bar { background: white; border-bottom: 1px solid #e8eff8; padding: 10px 18px; display: flex; align-items: center; gap: 8px; flex-shrink: 0; }
+  .method-select { border: 1.5px solid #d8e4f4; border-radius: 7px; padding: 7px 22px 7px 10px; font-size: 13px; font-weight: 700; color: #2a5aa8; background: #eef4ff; cursor: pointer; outline: none; font-family: 'SFMono-Regular', Consolas, monospace; appearance: none; -webkit-appearance: none; background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='%232a5aa8'%3E%3Cpath d='M7 10l5 5 5-5z'/%3E%3C/svg%3E"); background-repeat: no-repeat; background-position: right 5px center; min-width: 88px; transition: all 0.15s; }
+  .url-input { flex: 1; border: 1.5px solid #d8e4f4; border-radius: 7px; padding: 7px 13px; font-size: 13px; color: #1a2a4a; font-family: 'SFMono-Regular', Consolas, 'Microsoft YaHei', monospace; outline: none; background: white; transition: border-color 0.15s; }
+  .url-input:focus { border-color: #2a5aa8; box-shadow: 0 0 0 3px rgba(42,90,168,0.08); }
+  .url-input::placeholder { color: #c0ccd8; font-family: 'PingFang SC', 'Microsoft YaHei', sans-serif; }
+  .send-btn { padding: 7px 22px; background: #2a5aa8; color: white; border: none; border-radius: 7px; font-size: 13px; font-weight: 600; cursor: pointer; font-family: inherit; white-space: nowrap; transition: background 0.15s; min-width: 72px; }
+  .send-btn:hover:not(:disabled) { background: #1e4a8a; }
+  .send-btn:disabled { background: #a0b4d0; cursor: not-allowed; }
+
+  /* Param tabs */
+  .params-tabs { background: white; border-bottom: 1px solid #e8eff8; padding: 0 18px; display: flex; align-items: center; flex-shrink: 0; }
+  .params-tab { padding: 10px 14px; font-size: 13px; color: #7a8aaa; cursor: pointer; border-bottom: 2px solid transparent; transition: all 0.15s; user-select: none; white-space: nowrap; display: flex; align-items: center; gap: 5px; }
+  .params-tab:hover { color: #2a5aa8; }
+  .params-tab.active { color: #2a5aa8; border-bottom-color: #2a5aa8; font-weight: 500; }
+  .tab-count { font-size: 11px; background: #e8f0fc; color: #2a5aa8; padding: 1px 6px; border-radius: 8px; font-weight: 500; }
+
+  /* Tab panels */
+  .params-panel { flex: 1; overflow-y: auto; background: #f8fafd; }
+  .tab-content { display: none; padding: 16px 18px; flex-direction: column; gap: 12px; }
+  .tab-content.active { display: flex; }
+
+  /* KV rows */
+  .kv-header-row { display: grid; grid-template-columns: 18px 1fr 1fr 26px; gap: 8px; padding: 0 2px 4px; }
+  .kv-header-cell { font-size: 11.5px; color: #9aaac0; font-weight: 500; }
+  .kv-row { display: grid; grid-template-columns: 18px 1fr 1fr 26px; gap: 8px; align-items: center; }
+  .kv-checkbox { width: 14px; height: 14px; cursor: pointer; accent-color: #2a5aa8; }
+  .kv-input { border: 1px solid #d8e4f4; border-radius: 6px; padding: 6px 9px; font-size: 12.5px; color: #1a2a4a; font-family: 'SFMono-Regular', Consolas, 'Microsoft YaHei', monospace; outline: none; background: white; transition: border-color 0.15s; width: 100%; }
+  .kv-input:focus { border-color: #2a5aa8; }
+  .kv-input::placeholder { color: #c8d4e0; font-family: 'PingFang SC', 'Microsoft YaHei', sans-serif; }
+  .kv-del-btn { width: 24px; height: 24px; display: flex; align-items: center; justify-content: center; border-radius: 5px; cursor: pointer; color: #b0bdd0; border: none; background: none; transition: all 0.12s; }
+  .kv-del-btn:hover { background: #fff0f0; color: #c0392b; }
+  .kv-del-btn svg { width: 13px; height: 13px; }
+  .kv-add-btn { display: inline-flex; align-items: center; gap: 5px; padding: 5px 10px; border-radius: 6px; border: 1px dashed #c8d8f0; background: transparent; color: #6a8ac0; font-size: 12.5px; cursor: pointer; font-family: inherit; transition: all 0.15s; align-self: flex-start; white-space: nowrap; }
+  .kv-add-btn:hover { border-color: #2a5aa8; color: #2a5aa8; background: #f4f8ff; }
+  .kv-add-btn svg { width: 12px; height: 12px; flex-shrink: 0; }
+
+  /* Body */
+  .body-type-row { display: flex; gap: 0; border: 1px solid #d8e4f4; border-radius: 7px; overflow: hidden; background: #f6f8fc; align-self: flex-start; }
+  .body-type-btn { padding: 5px 13px; font-size: 12.5px; color: #7a8aaa; cursor: pointer; border: none; background: transparent; font-family: inherit; transition: all 0.12s; }
+  .body-type-btn.active { background: white; color: #2a5aa8; font-weight: 500; box-shadow: 0 1px 3px rgba(30,60,120,0.08); }
+  .body-textarea { width: 100%; border: 1.5px solid #d8e4f4; border-radius: 8px; padding: 12px; font-size: 12.5px; color: #1a2a4a; font-family: 'SFMono-Regular', Consolas, 'Microsoft YaHei', monospace; outline: none; resize: vertical; min-height: 130px; background: white; transition: border-color 0.15s; line-height: 1.65; }
+  .body-textarea:focus { border-color: #2a5aa8; box-shadow: 0 0 0 3px rgba(42,90,168,0.08); }
+  .body-none-tip { color: #b0bdd0; font-size: 13px; text-align: center; padding: 28px 0; }
+
+  /* Auth */
+  .auth-select { border: 1.5px solid #d8e4f4; border-radius: 7px; padding: 7px 28px 7px 11px; font-size: 13px; color: #1a2a4a; background: white; cursor: pointer; outline: none; font-family: inherit; width: 200px; appearance: none; -webkit-appearance: none; background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='%235a7aaa'%3E%3Cpath d='M7 10l5 5 5-5z'/%3E%3C/svg%3E"); background-repeat: no-repeat; background-position: right 8px center; transition: border-color 0.15s; }
+  .auth-select:focus { border-color: #2a5aa8; }
+  .auth-field { display: flex; flex-direction: column; gap: 5px; }
+  .auth-label { font-size: 12px; color: #7a8aaa; font-weight: 500; }
+  .auth-input { border: 1.5px solid #d8e4f4; border-radius: 7px; padding: 7px 11px; font-size: 13px; color: #1a2a4a; font-family: 'SFMono-Regular', Consolas, 'Microsoft YaHei', monospace; outline: none; background: white; transition: border-color 0.15s; }
+  .auth-input:focus { border-color: #2a5aa8; }
+  .auth-input::placeholder { color: #c8d4e0; font-family: 'PingFang SC', 'Microsoft YaHei', sans-serif; }
+
+  /* ========== RESPONSE ========== */
+  .response-area { height: 260px; min-height: 140px; border-top: 2px solid #e8eff8; background: white; display: flex; flex-direction: column; flex-shrink: 0; overflow: hidden; }
+  .response-header { display: flex; align-items: center; gap: 10px; padding: 9px 18px; border-bottom: 1px solid #f0f4f8; flex-shrink: 0; }
+  .response-title { font-size: 13px; font-weight: 600; color: #1a2a4a; margin-right: 4px; }
+  .resp-status { font-size: 12px; font-weight: 600; padding: 2px 8px; border-radius: 6px; font-family: 'SFMono-Regular', Consolas, monospace; display: none; }
+  .resp-status.s2xx { background: #e6f7f0; color: #1a9e6b; }
+  .resp-status.s3xx { background: #e8f0fc; color: #2a5aa8; }
+  .resp-status.s4xx { background: #fff3e8; color: #e07a1a; }
+  .resp-status.s5xx { background: #fff0f0; color: #c0392b; }
+  .resp-status.serr { background: #fff0f0; color: #c0392b; }
+  .resp-time { font-size: 12px; color: #9aaac0; }
+  .resp-tabs { display: flex; gap: 2px; margin-left: auto; }
+  .resp-tab { padding: 4px 11px; font-size: 12px; cursor: pointer; border-radius: 5px; color: #7a8aaa; transition: all 0.12s; border: 1px solid transparent; }
+  .resp-tab.active { background: #f0f5ff; color: #2a5aa8; border-color: #d0e0f8; }
+  .response-body { flex: 1; overflow-y: auto; padding: 12px 18px; }
+  .response-empty-state { height: 100%; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 8px; color: #c8d4e0; font-size: 13px; }
+  .response-empty-state svg { width: 28px; height: 28px; opacity: 0.3; }
+  .response-pre { font-family: 'SFMono-Regular', Consolas, 'Microsoft YaHei', monospace; font-size: 12.5px; line-height: 1.7; white-space: pre-wrap; word-break: break-all; color: #2a3a5a; }
+  .json-key  { color: #2a5aa8; }
+  .json-str  { color: #1a9e6b; }
+  .json-num  { color: #e07a1a; }
+  .json-bool { color: #7c3aed; }
+  .json-null { color: #9aaac0; }
+  .resp-hdr-table { width: 100%; border-collapse: collapse; font-size: 12.5px; }
+  .resp-hdr-table td { padding: 6px 10px; border-bottom: 1px solid #f0f4f8; vertical-align: top; }
+  .resp-hdr-table tr:last-child td { border-bottom: none; }
+  .resp-hdr-k { color: #2a5aa8; font-family: monospace; white-space: nowrap; width: 38%; }
+  .resp-hdr-v { color: #1a2a4a; font-family: monospace; word-break: break-all; }
+
+  /* ========== MODALS ========== */
+  .modal-overlay { position: fixed; inset: 0; background: rgba(10,30,80,0.28); backdrop-filter: blur(3px); z-index: 1000; display: flex; align-items: center; justify-content: center; opacity: 0; pointer-events: none; transition: opacity 0.2s; }
+  .modal-overlay.open { opacity: 1; pointer-events: auto; }
+  .modal { background: white; border-radius: 14px; box-shadow: 0 8px 40px rgba(10,30,80,0.16); border: 1px solid rgba(220,230,245,0.8); width: 420px; max-width: calc(100vw - 40px); transform: translateY(-12px); transition: transform 0.2s; }
+  .modal-overlay.open .modal { transform: translateY(0); }
+  .modal-lg { width: 560px; }
+  .modal-header { padding: 18px 22px 14px; border-bottom: 1px solid #f0f4f8; display: flex; align-items: center; justify-content: space-between; }
+  .modal-header h3 { font-size: 15px; font-weight: 700; color: #1a2a4a; }
+  .modal-close { width: 26px; height: 26px; display: flex; align-items: center; justify-content: center; border-radius: 6px; cursor: pointer; color: #7a8aaa; font-size: 16px; border: none; background: none; font-family: inherit; transition: background 0.12s; }
+  .modal-close:hover { background: #f0f4f8; }
+  .modal-body { padding: 18px 22px; }
+  .modal-footer { padding: 10px 22px 18px; display: flex; gap: 8px; justify-content: flex-end; }
+  .modal-input { width: 100%; border: 1.5px solid #d8e4f4; border-radius: 7px; padding: 8px 12px; font-size: 13.5px; color: #1a2a4a; font-family: 'PingFang SC', 'Microsoft YaHei', sans-serif; outline: none; background: white; transition: border-color 0.15s; }
+  .modal-input:focus { border-color: #2a5aa8; box-shadow: 0 0 0 3px rgba(42,90,168,0.08); }
+  .modal-label { font-size: 12.5px; color: #5a6a8a; font-weight: 500; margin-bottom: 7px; display: block; }
+  .btn-cancel { padding: 7px 16px; border: 1.5px solid #d0dae8; border-radius: 7px; color: #5a6a8a; font-size: 13px; font-weight: 500; background: white; cursor: pointer; font-family: inherit; transition: all 0.12s; }
+  .btn-cancel:hover { border-color: #b0bcd0; background: #f6f8fc; }
+  .btn-primary { padding: 7px 18px; border: none; border-radius: 7px; background: #2a5aa8; color: white; font-size: 13px; font-weight: 600; cursor: pointer; font-family: inherit; transition: background 0.12s; }
+  .btn-primary:hover { background: #1e4a8a; }
+
+  /* Import drop zone */
+  .import-drop { border: 2px dashed #c8d8f0; border-radius: 10px; padding: 36px 24px; text-align: center; cursor: pointer; transition: all 0.15s; color: #9aaac0; }
+  .import-drop:hover, .import-drop.drag-over { border-color: #2a5aa8; background: #f4f8ff; color: #2a5aa8; }
+  .import-drop svg { width: 36px; height: 36px; margin-bottom: 10px; }
+  .import-drop p { font-size: 13.5px; margin-bottom: 5px; }
+  .import-drop span { font-size: 12px; color: #b0bdd0; }
+
+  @keyframes spin { to { transform: rotate(360deg); } }
+  .spinning { display: inline-block; animation: spin 0.65s linear infinite; }
+</style>
+</head>
+<body>
+<div id="iface-page">
+
+  <!-- ========== SIDEBAR ========== -->
+  <div class="sidebar">
+    <div class="sidebar-logo">
+      <div class="sidebar-logo-icon">
+        <svg viewBox="0 0 24 24"><path d="M12 2L3 7v5c0 5.25 3.75 10.15 9 11.35C17.25 22.15 21 17.25 21 12V7L12 2zm0 2.18l7 3.9V12c0 4.35-2.98 8.4-7 9.63C7.98 20.4 5 16.35 5 12V8.08l7-3.9z"/><path d="M10 12l-2-2-1.4 1.4L10 14.8l6-6L14.6 7.4z"/></svg>
+      </div>
+      <div class="sidebar-logo-text"><h2>HNGD</h2><p>智能知识助手系统</p></div>
+    </div>
+    <nav class="nav-menu">
+      <a class="nav-item" href="home-page.html"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M20 2H4c-1.1 0-2 .9-2 2v18l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2z"/></svg>对话</a>
+      <a class="nav-item" href="javascript:void(0)"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-5 14H7v-2h7v2zm3-4H7v-2h10v2zm0-4H7V7h10v2z"/></svg>知识库</a>
+      <a class="nav-item" href="javascript:void(0)"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zM9 17H7v-7h2v7zm4 0h-2V7h2v10zm4 0h-2v-4h2v4z"/></svg>数据分析</a>
+      <a class="nav-item active" href="more-features-page.html"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M4 8h4V4H4v4zm6 12h4v-4h-4v4zm-6 0h4v-4H4v4zm0-6h4v-4H4v4zm6 0h4v-4h-4v4zm6-10v4h4V4h-4zm-6 4h4V4h-4v4zm6 6h4v-4h-4v4zm0 6h4v-4h-4v4z"/></svg>更多功能</a>
+      <a class="nav-item" href="setting-page.html"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M19.14 12.94c.04-.3.06-.61.06-.94 0-.32-.02-.64-.07-.94l2.03-1.58c.18-.14.23-.41.12-.61l-1.92-3.32c-.12-.22-.37-.29-.59-.22l-2.39.96c-.5-.38-1.03-.7-1.62-.94l-.36-2.54c-.04-.24-.24-.41-.48-.41h-3.84c-.24 0-.43.17-.47.41l-.36 2.54c-.59.24-1.13.57-1.62.94l-2.39-.96c-.22-.08-.47 0-.59.22L2.74 8.87c-.12.21-.08.47.12.61l2.03 1.58c-.05.3-.09.63-.09.94s.02.64.07.94l-2.03 1.58c-.18.14-.23.41-.12.61l1.92 3.32c.12.22.37.29.59.22l2.39-.96c.5.38 1.03.7 1.62.94l.36 2.54c.05.24.24.41.48.41h3.84c.24 0 .44-.17.47-.41l.36-2.54c.59-.24 1.13-.56 1.62-.94l2.39.96c.22.08.47 0 .59-.22l1.92-3.32c.12-.22.07-.47-.12-.61l-2.01-1.58zM12 15.6c-1.98 0-3.6-1.62-3.6-3.6s1.62-3.6 3.6-3.6 3.6 1.62 3.6 3.6-1.62 3.6-3.6 3.6z"/></svg>系统设置</a>
+      <a class="nav-item" id="nav-admin-item" href="admin-page.html" style="display:none"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 1L3 5v6c0 5.55 3.84 10.74 9 12 5.16-1.26 9-6.45 9-12V5l-9-4zm-1 14l-3-3 1.41-1.41L11 12.17l4.59-4.58L17 9l-6 6z"/></svg>管理员界面</a>
+    </nav>
+    <div style="flex:1"></div>
+    <div class="sidebar-user" onclick="window.location.href='setting-page.html'" title="账号设置">
+      <div class="user-avatar"><svg viewBox="0 0 24 24"><path d="M12 12c2.7 0 5-2.3 5-5s-2.3-5-5-5-5 2.3-5 5 2.3 5 5 5zm0 2c-3.3 0-10 1.7-10 5v2h20v-2c0-3.3-6.7-5-10-5z"/></svg></div>
+      <div class="user-info">
+        <div class="name" id="sidebar-username">加载中...</div>
+        <div class="role" id="sidebar-role">—</div>
+      </div>
+      <span class="user-chevron">›</span>
+    </div>
+    <button class="logout-btn" onclick="logout()">退出登录</button>
+  </div>
+
+  <!-- ========== MAIN ========== -->
+  <div class="iface-main">
+
+    <!-- Topbar -->
+    <div class="topbar">
+      <a class="back-btn" href="more-features-page.html">
+        <svg viewBox="0 0 24 24" fill="currentColor"><path d="M20 11H7.83l5.59-5.59L12 4l-8 8 8 8 1.41-1.41L7.83 13H20v-2z"/></svg>
+        返回更多功能
+      </a>
+      <span class="topbar-title">接口配置</span>
+      <button class="topbar-btn" onclick="openImportModal()">
+        <svg viewBox="0 0 24 24" fill="currentColor"><path d="M9 16h6v-6h4l-7-7-7 7h4zm-4 2h14v2H5z"/></svg>
+        导入
+      </button>
+      <button class="topbar-btn" onclick="exportData()">
+        <svg viewBox="0 0 24 24" fill="currentColor"><path d="M19 9h-4V3H9v6H5l7 7 7-7zM5 18v2h14v-2H5z"/></svg>
+        导出
+      </button>
+    </div>
+
+    <!-- Workspace -->
+    <div class="iface-workspace">
+
+      <!-- Left Panel -->
+      <div class="iface-left">
+        <div class="left-header">
+          <div class="left-header-row">
+            <span class="left-header-title">接口列表</span>
+            <div class="left-actions">
+              <button class="icon-btn" onclick="openGroupModal()" title="新建分组">
+                <svg viewBox="0 0 24 24" fill="currentColor"><path d="M20 6h-2.18c.07-.44.18-.88.18-1.36C18 2.53 15.47 0 12.36 0c-1.73 0-3.27.75-4.36 1.96C6.91.75 5.37 0 3.64 0 .53 0-2 2.53-2 4.64c0 .48.11.92.18 1.36H-2v2h22V6zm-7.64 0h-4.72C6.18 4.9 5.64 4.18 5.64 4.64c0-1.65 1.35-3 3-3 .78 0 1.49.31 2.02.8L9.5 3.7l1.06 1.06.44-.44c.48.6.77 1.35.77 2.16 0 .17 0 .33-.02.52H12.36zM2 8v14h20V8H2zm9 11H9v-2h2v2zm0-4H9v-2h2v2zm4 4h-2v-2h2v2zm0-4h-2v-2h2v2z"/></svg>
+              </button>
+              <button class="icon-btn" onclick="createInterface(null)" title="新建接口">
+                <svg viewBox="0 0 24 24" fill="currentColor"><path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z"/></svg>
+              </button>
+            </div>
+          </div>
+          <button class="add-iface-btn" onclick="createInterface(null)">
+            <svg viewBox="0 0 24 24" fill="currentColor" width="13" height="13"><path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z"/></svg>
+            新建接口
+          </button>
+        </div>
+        <div class="iface-list" id="iface-list"></div>
+      </div>
+
+      <!-- Right Panel -->
+      <div class="iface-right">
+        <!-- Empty state -->
+        <div class="right-empty" id="right-empty">
+          <svg viewBox="0 0 24 24" fill="currentColor"><path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-5 14H7v-2h7v2zm3-4H7v-2h10v2zm0-4H7V7h10v2z"/></svg>
+          <div class="right-empty-title">选择或新建接口</div>
+          <div class="right-empty-sub">从左侧列表选择接口，或点击「新建接口」开始配置</div>
+        </div>
+
+        <!-- Editor -->
+        <div class="right-editor" id="right-editor" style="display:none">
+
+          <!-- Name + group + actions -->
+          <div class="editor-topbar">
+            <input class="editor-name-input" id="iface-name" placeholder="输入接口名称">
+            <select class="group-select-inline" id="iface-group-select" title="所属分组"></select>
+            <button class="save-btn" onclick="saveCurrentInterface()">保存</button>
+            <button class="del-iface-btn" onclick="deleteCurrentInterface()" title="删除接口">
+              <svg viewBox="0 0 24 24" fill="currentColor" width="14" height="14"><path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/></svg>
+            </button>
+          </div>
+
+          <!-- URL bar -->
+          <div class="url-bar">
+            <select class="method-select" id="iface-method" onchange="onMethodChange()">
+              <option>GET</option><option>POST</option><option>PUT</option>
+              <option>DELETE</option><option>PATCH</option><option>HEAD</option>
+            </select>
+            <input class="url-input" id="iface-url" placeholder="https://api.example.com/endpoint">
+            <button class="send-btn" id="send-btn-el" onclick="sendRequest()">发送</button>
+          </div>
+
+          <!-- Param tabs -->
+          <div class="params-tabs">
+            <div class="params-tab active" data-tab="params" onclick="switchParamTab('params')">Params <span class="tab-count" id="count-params" style="display:none"></span></div>
+            <div class="params-tab" data-tab="headers" onclick="switchParamTab('headers')">Headers <span class="tab-count" id="count-headers" style="display:none"></span></div>
+            <div class="params-tab" data-tab="body" onclick="switchParamTab('body')" id="tab-btn-body">Body</div>
+            <div class="params-tab" data-tab="auth" onclick="switchParamTab('auth')">Auth</div>
+          </div>
+
+          <!-- Tab panels -->
+          <div class="params-panel">
+
+            <!-- Params -->
+            <div class="tab-content active" id="tab-params">
+              <div>
+                <div class="kv-header-row"><div></div><div class="kv-header-cell">参数名</div><div class="kv-header-cell">参数值</div><div></div></div>
+                <div id="params-kv"></div>
+              </div>
+              <button class="kv-add-btn" onclick="addKvRow('params-kv')">
+                <svg viewBox="0 0 24 24" fill="currentColor"><path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z"/></svg>
+                添加参数
+              </button>
+            </div>
+
+            <!-- Headers -->
+            <div class="tab-content" id="tab-headers">
+              <div>
+                <div class="kv-header-row"><div></div><div class="kv-header-cell">Header 名</div><div class="kv-header-cell">Header 值</div><div></div></div>
+                <div id="headers-kv"></div>
+              </div>
+              <button class="kv-add-btn" onclick="addKvRow('headers-kv')">
+                <svg viewBox="0 0 24 24" fill="currentColor"><path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z"/></svg>
+                添加请求头
+              </button>
+            </div>
+
+            <!-- Body -->
+            <div class="tab-content" id="tab-body">
+              <div class="body-type-row">
+                <button class="body-type-btn active" data-btype="none"  onclick="switchBodyType('none')">无</button>
+                <button class="body-type-btn"        data-btype="json"  onclick="switchBodyType('json')">JSON</button>
+                <button class="body-type-btn"        data-btype="form"  onclick="switchBodyType('form')">Form</button>
+                <button class="body-type-btn"        data-btype="text"  onclick="switchBodyType('text')">Text</button>
+              </div>
+              <div id="body-none-area"><p class="body-none-tip">该请求无请求体</p></div>
+              <div id="body-json-area" style="display:none"><textarea class="body-textarea" id="iface-body" placeholder='{\n  "key": "value"\n}'></textarea></div>
+              <div id="body-form-area" style="display:none">
+                <div class="kv-header-row"><div></div><div class="kv-header-cell">字段名</div><div class="kv-header-cell">字段值</div><div></div></div>
+                <div id="form-kv"></div>
+                <button class="kv-add-btn" onclick="addKvRow('form-kv')" style="margin-top:8px">
+                  <svg viewBox="0 0 24 24" fill="currentColor"><path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z"/></svg>添加字段
+                </button>
+              </div>
+              <div id="body-text-area" style="display:none"><textarea class="body-textarea" id="iface-body-text" placeholder="纯文本内容..."></textarea></div>
+            </div>
+
+            <!-- Auth -->
+            <div class="tab-content" id="tab-auth">
+              <div class="auth-field">
+                <span class="auth-label">认证方式</span>
+                <select class="auth-select" id="auth-type" onchange="onAuthTypeChange()">
+                  <option value="none">无认证</option>
+                  <option value="bearer">Bearer Token</option>
+                  <option value="apikey">API Key</option>
+                  <option value="basic">Basic Auth</option>
+                </select>
+              </div>
+              <div id="auth-bearer-area" style="display:none">
+                <div class="auth-field">
+                  <span class="auth-label">Token</span>
+                  <input class="auth-input" id="auth-bearer-value" placeholder="输入 Bearer Token" style="width:100%">
+                </div>
+              </div>
+              <div id="auth-apikey-area" style="display:none">
+                <div class="auth-field" style="margin-bottom:10px">
+                  <span class="auth-label">Header 名称</span>
+                  <input class="auth-input" id="auth-apikey-name" placeholder="X-API-Key" style="width:200px">
+                </div>
+                <div class="auth-field">
+                  <span class="auth-label">API Key 值</span>
+                  <input class="auth-input" id="auth-apikey-value" placeholder="输入 API Key 值" style="width:100%">
+                </div>
+              </div>
+              <div id="auth-basic-area" style="display:none">
+                <div class="auth-field" style="margin-bottom:10px">
+                  <span class="auth-label">用户名</span>
+                  <input class="auth-input" id="auth-basic-user" placeholder="用户名" style="width:280px">
+                </div>
+                <div class="auth-field">
+                  <span class="auth-label">密码</span>
+                  <input class="auth-input" id="auth-basic-pass" type="password" placeholder="密码" style="width:280px">
+                </div>
+              </div>
+            </div>
+
+          </div><!-- /params-panel -->
+
+          <!-- Response area -->
+          <div class="response-area">
+            <div class="response-header">
+              <span class="response-title">响应</span>
+              <span class="resp-status" id="resp-status"></span>
+              <span class="resp-time" id="resp-time"></span>
+              <div class="resp-tabs">
+                <div class="resp-tab active" data-rtab="body" onclick="switchRespTab('body')">响应体</div>
+                <div class="resp-tab" data-rtab="headers" onclick="switchRespTab('headers')">响应头</div>
+              </div>
+            </div>
+            <div class="response-body" id="response-body">
+              <div class="response-empty-state">
+                <svg viewBox="0 0 24 24" fill="currentColor"><path d="M20 4H4c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2zm0 14H4V8l8 5 8-5v10zm-8-7L4 6h16l-8 5z"/></svg>
+                <span>点击「发送」查看响应结果</span>
+              </div>
+            </div>
+          </div>
+
+        </div><!-- /right-editor -->
+      </div><!-- /iface-right -->
+
+    </div><!-- /iface-workspace -->
+  </div><!-- /iface-main -->
+</div><!-- /iface-page -->
+
+<!-- Modal: 新建分组 -->
+<div class="modal-overlay" id="modal-new-group">
+  <div class="modal">
+    <div class="modal-header">
+      <h3>新建分组</h3>
+      <button class="modal-close" onclick="closeModal('modal-new-group')">✕</button>
+    </div>
+    <div class="modal-body">
+      <label class="modal-label">分组名称</label>
+      <input class="modal-input" id="group-name-input" placeholder="例如：用户接口、订单接口">
+    </div>
+    <div class="modal-footer">
+      <button class="btn-cancel" onclick="closeModal('modal-new-group')">取消</button>
+      <button class="btn-primary" onclick="createGroup()">创建</button>
+    </div>
+  </div>
+</div>
+
+<!-- Modal: 导入 -->
+<div class="modal-overlay" id="modal-import">
+  <div class="modal modal-lg">
+    <div class="modal-header">
+      <h3>导入接口配置</h3>
+      <button class="modal-close" onclick="closeModal('modal-import')">✕</button>
+    </div>
+    <div class="modal-body">
+      <div class="import-drop" id="import-drop-area"
+        ondragover="event.preventDefault();this.classList.add('drag-over')"
+        ondragleave="this.classList.remove('drag-over')"
+        ondrop="onImportDrop(event)"
+        onclick="document.getElementById('import-file-input').click()">
+        <svg viewBox="0 0 24 24" fill="currentColor" style="color:#9aaac0"><path d="M9 16h6v-6h4l-7-7-7 7h4zm-4 2h14v2H5z"/></svg>
+        <p>点击或拖拽 JSON 文件到此处</p>
+        <span>支持由本页面导出的 JSON 格式文件</span>
+      </div>
+      <input type="file" id="import-file-input" accept=".json" style="display:none" onchange="handleImportFileInput(this)">
+      <p style="font-size:12px;color:#9aaac0;margin-top:10px">导入将合并到现有配置，不会删除已有接口</p>
+    </div>
+    <div class="modal-footer">
+      <button class="btn-cancel" onclick="closeModal('modal-import')">关闭</button>
+    </div>
+  </div>
+</div>
+
+<script>
+  const API_BASE = 'http://localhost:8000';
+  let data = { groups: [], interfaces: [] };
+  let currentId   = null;
+  let curParamTab = 'params';
+  let curBodyType = 'none';
+  let curRespTab  = 'body';
+  let isSending   = false;
+  let lastRespData    = null;
+  let lastRespHeaders = [];
+
+  // ── utils ──────────────────────────────────────────
+  function uid() { return Date.now().toString(36) + Math.random().toString(36).slice(2, 5); }
+  function esc(s) { return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+  function authHeaders() { return { 'Authorization': 'Bearer ' + localStorage.getItem('token') }; }
+
+  // ── data ───────────────────────────────────────────
+  async function loadData() {
+    try {
+      const r = await fetch(`${API_BASE}/api/interface-configs`, { headers: authHeaders() });
+      if (r.ok) data = await r.json();
+    } catch(e) {}
+    if (!data.groups)     data.groups = [];
+    if (!data.interfaces) data.interfaces = [];
+  }
+  function saveData() {
+    fetch(`${API_BASE}/api/interface-configs`, {
+      method: 'POST',
+      headers: { ...authHeaders(), 'Content-Type': 'application/json' },
+      body: JSON.stringify(data),
+    }).catch(() => {});
+  }
+
+  // ── left panel ─────────────────────────────────────
+  function renderLeft() {
+    const el = document.getElementById('iface-list');
+    const byGroup = {};
+    data.groups.forEach(g => { byGroup[g.id] = []; });
+    byGroup['__none__'] = [];
+    data.interfaces.forEach(i => {
+      const gid = i.groupId && byGroup[i.groupId] ? i.groupId : '__none__';
+      byGroup[gid].push(i);
+    });
+    let html = '';
+    data.groups.forEach(g => {
+      const list = byGroup[g.id] || [];
+      const open = g.open !== false;
+      html += `<div>
+        <div class="group-header" onclick="toggleGroup('${g.id}')">
+          <span class="group-chevron ${open?'open':''}" id="gchev-${g.id}">›</span>
+          <span class="group-name">${esc(g.name)}</span>
+          <span class="group-count">${list.length}</span>
+          <span class="group-del-btn" onclick="event.stopPropagation();confirmDeleteGroup('${g.id}')" title="删除分组">
+            <svg viewBox="0 0 24 24" fill="currentColor"><path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/></svg>
+          </span>
+        </div>
+        <div id="gfaces-${g.id}" style="${open?'':'display:none'}">${list.map(rowHtml).join('')}</div>
+      </div>`;
+    });
+    const ungrouped = byGroup['__none__'];
+    if (data.groups.length > 0 && ungrouped.length > 0)
+      html += `<div class="ungrouped-label">未分组</div>`;
+    html += ungrouped.map(rowHtml).join('');
+    if (!data.interfaces.length)
+      html += `<div class="list-empty">暂无接口，点击「新建接口」开始</div>`;
+    el.innerHTML = html;
+    rebuildGroupSelect();
+  }
+
+  function rowHtml(i) {
+    const active = i.id === currentId ? ' active' : '';
+    const dis    = i.enabled ? '' : ' disabled';
+    return `<div class="iface-row${active}" id="irow-${i.id}" onclick="selectInterface('${i.id}')">
+      <span class="method-badge ${i.method||'GET'}">${i.method||'GET'}</span>
+      <span class="iface-row-name${dis}" title="${esc(i.name||'未命名接口')}">${esc(i.name||'未命名接口')}</span>
+      <label class="mini-toggle" onclick="event.stopPropagation()">
+        <input type="checkbox" ${i.enabled?'checked':''} onchange="toggleIface('${i.id}',this.checked)">
+        <span class="mini-slider"></span>
+      </label>
+      <span class="iface-row-del" onclick="event.stopPropagation();confirmDeleteIface('${i.id}')" title="删除">
+        <svg viewBox="0 0 24 24" fill="currentColor"><path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+      </span>
+    </div>`;
+  }
+
+  // ── groups ─────────────────────────────────────────
+  function toggleGroup(gid) {
+    const g = data.groups.find(g => g.id === gid);
+    if (!g) return;
+    g.open = !g.open; saveData();
+    document.getElementById(`gfaces-${gid}`).style.display = g.open ? '' : 'none';
+    document.getElementById(`gchev-${gid}`).classList.toggle('open', g.open);
+  }
+  function openGroupModal() {
+    document.getElementById('group-name-input').value = '';
+    openModal('modal-new-group');
+    setTimeout(() => document.getElementById('group-name-input').focus(), 200);
+  }
+  function createGroup() {
+    const name = document.getElementById('group-name-input').value.trim();
+    if (!name) return;
+    data.groups.push({ id: uid(), name, open: true });
+    saveData(); renderLeft(); closeModal('modal-new-group');
+  }
+  function confirmDeleteGroup(gid) {
+    if (!confirm('删除分组后，该分组下的接口将移至未分组，确认？')) return;
+    data.interfaces.forEach(i => { if (i.groupId === gid) i.groupId = null; });
+    data.groups = data.groups.filter(g => g.id !== gid);
+    saveData(); renderLeft();
+  }
+
+  // ── interfaces ─────────────────────────────────────
+  function createInterface(groupId) {
+    const i = { id: uid(), groupId: groupId||null, name: '', method: 'GET', url: '', enabled: true,
+      params: [], headers: [], bodyType: 'none', body: '', bodyText: '', formRows: [],
+      authType: 'none', authValue: '', authKeyName: 'X-API-Key', authUser: '', authPass: '' };
+    data.interfaces.push(i); saveData(); renderLeft(); selectInterface(i.id);
+    setTimeout(() => document.getElementById('iface-name').focus(), 100);
+  }
+  function toggleIface(id, enabled) {
+    const i = data.interfaces.find(i => i.id === id);
+    if (!i) return; i.enabled = enabled; saveData();
+    const nm = document.querySelector(`#irow-${id} .iface-row-name`);
+    if (nm) nm.classList.toggle('disabled', !enabled);
+  }
+  function confirmDeleteIface(id) {
+    if (!confirm('确认删除该接口？')) return;
+    data.interfaces = data.interfaces.filter(i => i.id !== id);
+    if (currentId === id) { currentId = null; showEmpty(); }
+    saveData(); renderLeft();
+  }
+  function deleteCurrentInterface() { if (currentId) confirmDeleteIface(currentId); }
+
+  // ── select & populate ──────────────────────────────
+  function selectInterface(id) {
+    if (currentId && currentId !== id) autoSave();
+    currentId = id;
+    const i = data.interfaces.find(i => i.id === id);
+    if (!i) return;
+    document.querySelectorAll('.iface-row').forEach(el => el.classList.remove('active'));
+    const row = document.getElementById(`irow-${id}`);
+    if (row) row.classList.add('active');
+    document.getElementById('right-empty').style.display = 'none';
+    document.getElementById('right-editor').style.display = 'flex';
+
+    document.getElementById('iface-name').value = i.name || '';
+    document.getElementById('iface-method').value = i.method || 'GET';
+    document.getElementById('iface-url').value = i.url || '';
+    document.getElementById('iface-group-select').value = i.groupId || '';
+
+    populateKv('params-kv', i.params || []);
+    populateKv('headers-kv', i.headers || []);
+    populateKv('form-kv', i.formRows || []);
+
+    document.getElementById('iface-body').value = i.body || '';
+    document.getElementById('iface-body-text').value = i.bodyText || '';
+    switchBodyType(i.bodyType || 'none');
+
+    document.getElementById('auth-type').value = i.authType || 'none';
+    document.getElementById('auth-bearer-value').value = i.authType === 'bearer' ? (i.authValue||'') : '';
+    document.getElementById('auth-apikey-name').value  = i.authKeyName || 'X-API-Key';
+    document.getElementById('auth-apikey-value').value = i.authType === 'apikey' ? (i.authValue||'') : '';
+    document.getElementById('auth-basic-user').value   = i.authUser || '';
+    document.getElementById('auth-basic-pass').value   = i.authPass || '';
+    onAuthTypeChange();
+    onMethodChange();
+    switchParamTab(curParamTab);
+    updateTabCounts();
+    resetResponse();
+  }
+  function showEmpty() {
+    document.getElementById('right-empty').style.display = 'flex';
+    document.getElementById('right-editor').style.display = 'none';
+  }
+
+  // ── save ───────────────────────────────────────────
+  function autoSave() {
+    if (!currentId) return;
+    const i = data.interfaces.find(i => i.id === currentId);
+    if (i) { Object.assign(i, collectForm()); saveData(); }
+  }
+  function saveCurrentInterface() {
+    if (!currentId) return;
+    const i = data.interfaces.find(i => i.id === currentId);
+    if (!i) return;
+    Object.assign(i, collectForm()); saveData(); renderLeft();
+    const btn = document.querySelector('.save-btn');
+    btn.textContent = '已保存 ✓'; btn.style.color = '#1a9e6b';
+    setTimeout(() => { btn.textContent = '保存'; btn.style.color = ''; }, 1400);
+  }
+  function collectForm() {
+    return {
+      name:       document.getElementById('iface-name').value.trim() || '未命名接口',
+      method:     document.getElementById('iface-method').value,
+      url:        document.getElementById('iface-url').value.trim(),
+      groupId:    document.getElementById('iface-group-select').value || null,
+      params:     getKvRows('params-kv'),
+      headers:    getKvRows('headers-kv'),
+      bodyType:   curBodyType,
+      body:       document.getElementById('iface-body').value,
+      bodyText:   document.getElementById('iface-body-text').value,
+      formRows:   getKvRows('form-kv'),
+      authType:   document.getElementById('auth-type').value,
+      authValue:  document.getElementById('auth-type').value === 'apikey'
+                    ? document.getElementById('auth-apikey-value').value
+                    : document.getElementById('auth-bearer-value').value,
+      authKeyName: document.getElementById('auth-apikey-name').value || 'X-API-Key',
+      authUser:   document.getElementById('auth-basic-user').value,
+      authPass:   document.getElementById('auth-basic-pass').value,
+    };
+  }
+
+  // ── KV rows ────────────────────────────────────────
+  function addKvRow(containerId, row) {
+    const c = document.getElementById(containerId);
+    const div = document.createElement('div');
+    div.className = 'kv-row';
+    div.style.marginBottom = '6px';
+    div.innerHTML = `
+      <input type="checkbox" class="kv-checkbox" ${(row?.enabled!==false)?'checked':''} onchange="updateTabCounts()">
+      <input type="text" class="kv-input" placeholder="Key"   value="${esc(row?.key||'')}" oninput="updateTabCounts()">
+      <input type="text" class="kv-input" placeholder="Value" value="${esc(row?.value||'')}">
+      <button class="kv-del-btn" onclick="this.closest('.kv-row').remove();updateTabCounts()" title="删除">
+        <svg viewBox="0 0 24 24" fill="currentColor"><path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+      </button>`;
+    c.appendChild(div);
+  }
+  function populateKv(containerId, rows) {
+    document.getElementById(containerId).innerHTML = '';
+    rows.forEach(r => addKvRow(containerId, r));
+  }
+  function getKvRows(containerId) {
+    return Array.from(document.querySelectorAll(`#${containerId} .kv-row`)).map(row => {
+      const inputs = row.querySelectorAll('.kv-input');
+      return { key: inputs[0]?.value||'', value: inputs[1]?.value||'', enabled: row.querySelector('.kv-checkbox')?.checked!==false };
+    });
+  }
+
+  // ── tab switching ──────────────────────────────────
+  function switchParamTab(tab) {
+    curParamTab = tab;
+    document.querySelectorAll('.params-tab').forEach(el => el.classList.toggle('active', el.dataset.tab === tab));
+    document.querySelectorAll('.tab-content').forEach(el => el.classList.toggle('active', el.id === `tab-${tab}`));
+  }
+  function switchBodyType(type) {
+    curBodyType = type;
+    ['none','json','form','text'].forEach(t => {
+      document.getElementById(`body-${t}-area`).style.display = t===type ? '' : 'none';
+      document.querySelector(`.body-type-btn[data-btype="${t}"]`).classList.toggle('active', t===type);
+    });
+  }
+  function switchRespTab(tab) {
+    curRespTab = tab;
+    document.querySelectorAll('.resp-tab').forEach(el => el.classList.toggle('active', el.dataset.rtab===tab));
+    renderRespContent();
+  }
+  function onMethodChange() {
+    const m = document.getElementById('iface-method').value;
+    const sel = document.getElementById('iface-method');
+    const colors = { GET:'#2a5aa8', POST:'#1a9e6b', PUT:'#e07a1a', DELETE:'#c0392b', PATCH:'#7c3aed', HEAD:'#5a6a8a' };
+    const bgs    = { GET:'#eef4ff', POST:'#edfaf3', PUT:'#fff8f0', DELETE:'#fff4f4', PATCH:'#f5f0ff', HEAD:'#f0f4f8' };
+    sel.style.color = colors[m]||'#1a2a4a';
+    sel.style.background = bgs[m]||'#f6f8fc';
+    sel.style.setProperty('--arrow-color', colors[m]||'#1a2a4a');
+    const bodyBtn = document.getElementById('tab-btn-body');
+    if (bodyBtn) bodyBtn.style.opacity = ['GET','HEAD'].includes(m) ? '0.4' : '1';
+    if (['GET','HEAD'].includes(m) && curParamTab === 'body') switchParamTab('params');
+  }
+  function onAuthTypeChange() {
+    const t = document.getElementById('auth-type').value;
+    ['bearer','apikey','basic'].forEach(k => {
+      document.getElementById(`auth-${k}-area`).style.display = k===t ? '' : 'none';
+    });
+  }
+  function updateTabCounts() {
+    const pc = getKvRows('params-kv').filter(r=>r.key&&r.enabled).length;
+    const hc = getKvRows('headers-kv').filter(r=>r.key&&r.enabled).length;
+    const pel = document.getElementById('count-params');
+    const hel = document.getElementById('count-headers');
+    if (pc) { pel.textContent = pc; pel.style.display = ''; } else { pel.style.display = 'none'; }
+    if (hc) { hel.textContent = hc; hel.style.display = ''; } else { hel.style.display = 'none'; }
+  }
+  function rebuildGroupSelect() {
+    const sel = document.getElementById('iface-group-select');
+    if (!sel) return;
+    const val = sel.value;
+    sel.innerHTML = `<option value="">未分组</option>` +
+      data.groups.map(g=>`<option value="${g.id}">${esc(g.name)}</option>`).join('');
+    if (val) sel.value = val;
+  }
+
+  // ── send request ───────────────────────────────────
+  async function sendRequest() {
+    if (isSending) return;
+    const f = collectForm();
+    if (!f.url) { alert('请先输入请求 URL'); return; }
+    isSending = true;
+    const btn = document.getElementById('send-btn-el');
+    btn.disabled = true;
+    btn.innerHTML = '<span class="spinning">↻</span>';
+
+    let url = f.url;
+    const qp = f.params.filter(p=>p.enabled&&p.key);
+    if (qp.length) url += (url.includes('?')?'&':'?') + new URLSearchParams(qp.map(p=>[p.key,p.value]));
+
+    const headers = {};
+    f.headers.filter(h=>h.enabled&&h.key).forEach(h=>{ headers[h.key]=h.value; });
+    if (f.authType==='bearer'&&f.authValue) headers['Authorization']=`Bearer ${f.authValue}`;
+    else if (f.authType==='apikey'&&f.authValue) headers[f.authKeyName||'X-API-Key']=f.authValue;
+    else if (f.authType==='basic') headers['Authorization']='Basic '+btoa(`${f.authUser}:${f.authPass}`);
+
+    let body = undefined;
+    if (!['GET','HEAD'].includes(f.method)) {
+      if (f.bodyType==='json'&&f.body) { body=f.body; if (!headers['Content-Type']) headers['Content-Type']='application/json'; }
+      else if (f.bodyType==='form') {
+        const fd = new FormData();
+        f.formRows.filter(r=>r.enabled&&r.key).forEach(r=>fd.append(r.key,r.value));
+        body = fd;
+      } else if (f.bodyType==='text'&&f.bodyText) { body=f.bodyText; if (!headers['Content-Type']) headers['Content-Type']='text/plain'; }
+    }
+
+    const t0 = Date.now();
+    try {
+      const resp = await fetch(url, { method: f.method, headers, body });
+      const elapsed = Date.now()-t0;
+      const text = await resp.text();
+      lastRespHeaders = [];
+      resp.headers.forEach((v,k)=>lastRespHeaders.push({key:k,value:v}));
+      lastRespData = { status: resp.status, statusText: resp.statusText, time: elapsed, body: text };
+    } catch(err) {
+      lastRespData = { error: err.message };
+      lastRespHeaders = [];
+    } finally {
+      isSending = false; btn.disabled = false; btn.textContent = '发送';
+    }
+    renderRespStatus(); renderRespContent();
+  }
+
+  function renderRespStatus() {
+    const sel = document.getElementById('resp-status');
+    const tim = document.getElementById('resp-time');
+    if (!lastRespData) return;
+    sel.style.display = '';
+    if (lastRespData.error) {
+      sel.className = 'resp-status serr'; sel.textContent = '网络错误'; tim.textContent = '';
+    } else {
+      const s = lastRespData.status;
+      sel.className = `resp-status ${s<300?'s2xx':s<400?'s3xx':s<500?'s4xx':'s5xx'}`;
+      sel.textContent = `${s} ${lastRespData.statusText}`;
+      tim.textContent = `${lastRespData.time} ms`;
+    }
+  }
+  function renderRespContent() {
+    const el = document.getElementById('response-body');
+    if (!lastRespData) { resetResponse(); return; }
+    if (lastRespData.error) {
+      el.innerHTML = `<pre class="response-pre" style="color:#c0392b">网络错误：${esc(lastRespData.error)}\n\n提示：可能是目标服务的 CORS 限制，请确认目标服务允许跨域请求。</pre>`;
+      return;
+    }
+    if (curRespTab === 'headers') {
+      if (!lastRespHeaders.length) { el.innerHTML = '<div class="response-empty-state"><span>暂无响应头</span></div>'; return; }
+      el.innerHTML = `<table class="resp-hdr-table">${lastRespHeaders.map(h=>`<tr><td class="resp-hdr-k">${esc(h.key)}</td><td class="resp-hdr-v">${esc(h.value)}</td></tr>`).join('')}</table>`;
+    } else {
+      let txt = lastRespData.body || '';
+      try {
+        const parsed = JSON.parse(txt);
+        txt = JSON.stringify(parsed, null, 2);
+        el.innerHTML = `<pre class="response-pre">${hlJson(esc(txt))}</pre>`;
+      } catch { el.innerHTML = `<pre class="response-pre">${esc(txt)}</pre>`; }
+    }
+  }
+  function resetResponse() {
+    lastRespData = null; lastRespHeaders = [];
+    document.getElementById('resp-status').style.display = 'none';
+    document.getElementById('resp-status').textContent = '';
+    document.getElementById('resp-time').textContent = '';
+    document.getElementById('response-body').innerHTML =
+      `<div class="response-empty-state">
+        <svg viewBox="0 0 24 24" fill="currentColor"><path d="M20 4H4c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2zm0 14H4V8l8 5 8-5v10zm-8-7L4 6h16l-8 5z"/></svg>
+        <span>点击「发送」查看响应结果</span>
+      </div>`;
+  }
+  function hlJson(s) {
+    return s.replace(/("(\\u[a-fA-F0-9]{4}|\\[^u]|[^\\"])*"(\s*:)?|\b(true|false|null)\b|-?\d+\.?\d*(?:[eE][+-]?\d+)?)/g, m => {
+      if (/^"/.test(m)) return /:$/.test(m) ? `<span class="json-key">${m}</span>` : `<span class="json-str">${m}</span>`;
+      if (/true|false/.test(m)) return `<span class="json-bool">${m}</span>`;
+      if (/null/.test(m)) return `<span class="json-null">${m}</span>`;
+      return `<span class="json-num">${m}</span>`;
+    });
+  }
+
+  // ── import / export ────────────────────────────────
+  function exportData() {
+    const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+    const a = Object.assign(document.createElement('a'), { href: URL.createObjectURL(blob), download: `iface_configs_${new Date().toISOString().slice(0,10)}.json` });
+    a.click(); URL.revokeObjectURL(a.href);
+  }
+  function openImportModal() { openModal('modal-import'); }
+  function onImportDrop(e) {
+    e.preventDefault();
+    document.getElementById('import-drop-area').classList.remove('drag-over');
+    importFile(e.dataTransfer.files[0]);
+  }
+  function handleImportFileInput(input) { importFile(input.files[0]); input.value = ''; }
+  function importFile(file) {
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = ev => {
+      try {
+        const imp = JSON.parse(ev.target.result);
+        if (!imp.interfaces) throw new Error('JSON 格式不正确');
+        const existGids = new Set(data.groups.map(g=>g.id));
+        const existIds  = new Set(data.interfaces.map(i=>i.id));
+        (imp.groups||[]).forEach(g => { if (!existGids.has(g.id)) data.groups.push(g); });
+        (imp.interfaces||[]).forEach(i => { if (!existIds.has(i.id)) data.interfaces.push(i); });
+        saveData(); renderLeft(); closeModal('modal-import');
+        alert(`导入成功：${imp.interfaces.length} 个接口，${(imp.groups||[]).length} 个分组`);
+      } catch(err) { alert('导入失败：' + err.message); }
+    };
+    reader.readAsText(file);
+  }
+
+  // ── modal helpers ──────────────────────────────────
+  function openModal(id)  { document.getElementById(id).classList.add('open'); }
+  function closeModal(id) { document.getElementById(id).classList.remove('open'); }
+
+  // ── init ───────────────────────────────────────────
+  async function initPage() {
+    let user = null;
+    try { user = JSON.parse(localStorage.getItem('user')||'null'); } catch(e) {}
+    if (!user || !localStorage.getItem('token')) { window.location.href = 'login-page.html'; return; }
+    const rm = { admin:'系统管理员', user:'普通用户', visitor:'访客' };
+    document.getElementById('sidebar-username').textContent = user.display_name || user.username;
+    document.getElementById('sidebar-role').textContent     = rm[user.role] || user.role;
+    if (user.role === 'admin') { const a = document.getElementById('nav-admin-item'); if(a) a.style.display=''; }
+    await loadData();
+    renderLeft();
+  }
+  async function logout() {
+    try { await fetch(`${API_BASE}/api/auth/logout`,{method:'POST',headers:{'Authorization':'Bearer '+localStorage.getItem('token')}}); } catch(e) {}
+    localStorage.removeItem('token');
+    localStorage.removeItem('user');
+    window.location.href = 'login-page.html';
+  }
+  document.addEventListener('DOMContentLoaded', () => {
+    document.querySelectorAll('.modal-overlay').forEach(o => o.addEventListener('click', e => { if(e.target===o) o.classList.remove('open'); }));
+    document.addEventListener('keydown', e => {
+      if (e.key==='Escape') document.querySelectorAll('.modal-overlay.open').forEach(o=>o.classList.remove('open'));
+      if (e.key==='Enter' && document.getElementById('modal-new-group').classList.contains('open')) createGroup();
+    });
+  });
+  window.addEventListener('load', initPage);
+</script>
+</body>
+</html>

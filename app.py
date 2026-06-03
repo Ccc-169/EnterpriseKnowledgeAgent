@@ -5,7 +5,7 @@ load_dotenv()
 
 # 确保数据库表结构最新（幂等，已存在不重复创建）
 from core.database import init_db
-# init_db()
+init_db()
 
 from auth.session import is_logged_in, get_current_user, login_session, logout_session
 from auth.auth_service import authenticate_user
@@ -16,7 +16,10 @@ st.set_page_config(page_title="企业知识库智能体", layout="wide")
 # ── 未登录：显示登录表单 ──────────────────────────────────
 if not is_logged_in():
     st.title("企业知识库智能体")
-    st.caption("请登录后使用")
+
+    # 身份选择
+    identity = st.radio("选择登录身份", ["管理员", "普通用户"], horizontal=True)
+    selected_role = "admin" if identity == "管理员" else "user"
 
     with st.form("login_form"):
         username = st.text_input("用户名")
@@ -27,6 +30,9 @@ if not is_logged_in():
             user = authenticate_user(username, password)
             if user is None:
                 st.error("用户名或密码错误")
+            elif user["role"] != selected_role:
+                # 管理员只能以管理员身份登录，用户只能以用户身份登录
+                st.error(f"该账号不是{'管理员' if selected_role == 'admin' else '普通用户'}账号，请切换登录身份")
             else:
                 login_session(user)
                 log_event(user["user_id"], user["username"], "login")
@@ -52,9 +58,12 @@ if user["role"] == "visitor":
 # ── 页面路由 ──────────────────────────────────────────────
 # 管理页面状态
 if "current_page" not in st.session_state:
-    st.session_state.current_page = "对话"
+    st.session_state.current_page = "首页"
 
-if st.session_state.current_page == "对话":
+if st.session_state.current_page == "首页":
+    from pages.index_page import render as render_index
+    render_index()
+elif st.session_state.current_page == "对话":
     from pages.chat_page import render as render_chat
     render_chat()
 elif st.session_state.current_page == "管理后台":
