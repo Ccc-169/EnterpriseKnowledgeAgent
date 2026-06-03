@@ -1,6 +1,7 @@
 ﻿# 开发日志列表
 :
 
+<<<<<<< HEAD
 ## 2026-06-02 (记忆系统博客优化)
 
 **内容**：优化 `blog/blog_05_记忆系统_长短期与混合记忆.md`，补全三层存储模型（STM/LTM/Hybrid），新增经验记忆缓存（cache_service）分析、语义降权标签说明、完整消息保存时间线、两周长期记忆（Dify RAG + Q&A向量匹配）对比。
@@ -20,6 +21,61 @@
 **修改文件**：core/database.py、agents/rag_agent.py、pages/chat_page.py；新建data/cache_service.py
 
 **时间**：2026-05-29 16:30
+=======
+## 2026-06-02 (接口配置页面)
+
+**新增**：`more-features-page.html` 增加第 5 张功能卡"接口配置"（青绿色图标），点击"立即使用"跳转 `interface_config.html`。
+
+**新增** `html_files/interface_config.html`：类 Apifox 的接口管理与调试页面，功能包括：
+- 左栏接口列表：分组折叠/展开/删除，接口启用开关，悬停删除
+- 右栏编辑器：接口名称、所属分组、HTTP 方法（颜色跟随方法变化）、URL
+- 配置 Tabs：Params（Query 参数）/ Headers / Body（JSON·Form·Text·无）/ Auth（Bearer·API Key·Basic）
+- Tab 计数徽章：有效键值对数量实时显示
+- 在线调试：浏览器 `fetch` 发送请求，响应体 JSON 语法高亮，响应头独立 Tab，状态码颜色区分（2xx/4xx/5xx）
+- 导入/导出：一键导出全部配置为 JSON 文件，支持拖拽或点击导入并合并
+- 持久化：全部存 `localStorage`（key: `hngd_iface_configs`），无后端依赖
+
+**新增** `alarm_api.py`：示例 FastAPI 后端（端口 8002），提供 `GET /api/alarms/count` 接口，传入 `start_date`/`end_date`（必填）和 `level`（选填 0/1/2），返回模拟报警数量，用于接口配置页面的功能验证。
+
+**修改文件**：`html_files/more-features-page.html`（新增第 5 张功能卡 + CSS `feat-icon-wrap.api`）、`html_files/interface_config.html`（新增）、`alarm_api.py`（新增）
+
+**时间**：2026-06-02
+
+---
+
+## 2026-06-02 (管理员界面新增本地数据文件块)
+
+**新增**：`admin-page.html` 的"知识库管理"大块内部，Dify 知识库列表下方新增"本地数据文件"子块，展示 `DATA_DIR` 环境变量目录下的文件列表，支持分页浏览。
+
+**实现要点**：
+- 后端 `api.py` 新增 `GET /api/admin/data-files`（需管理员权限），读取 `DATA_DIR` 环境变量，列举目录下一级文件，返回文件名、扩展名、大小（KB）；目录未配置或不存在返回 503，与 KB 接口错误处理方式保持一致。
+- 前端分页采用**纯前端分页**：数据一次性请求后存入 `lfState.files`，翻页和切换每页数量（5/10 条）均在本地完成，不重复请求接口。
+- 文件类型徽章：xlsx/xls → 绿色，csv → 蓝色，其他 → 灰色，复用已有 `.action-badge` 色系。
+- 分页控件样式复用已有 `.doc-pagination` + `.btn-page`，布局与知识库文档列表保持一致。
+
+**修改文件**：`api.py`（新增 `admin_list_data_files` 端点）、`html_files/admin-page.html`（CSS 新增文件类型徽章、HTML 新增子块和分页控件、JS 新增 `loadLocalFiles` / `renderLocalFiles` / `lfGoPage` / `lfChangePageSize`）
+
+**时间**：2026-06-02
+
+---
+
+## 2026-06-01 (home-page 使用指南悬浮弹窗)
+
+**新增**：点击 topbar 右侧"使用指南"按钮，在其正下方弹出包含 5 条核心使用说明的悬浮卡片，点击页面任意处关闭。
+
+**实现要点**：
+- 弹窗采用 `position: fixed` + JS `getBoundingClientRect()` 动态定位，规避 `body` / `.main-content` 的 `overflow: hidden` 裁切问题。
+- 定位策略：`left = max(8, rect.right - 300)`，即弹窗右边缘与按钮右边缘对齐，向左展开，保证不超出右侧视口。
+- 开合动画：`opacity` + `translateY(-10px)` + `scale(0.98)` 三属性联动，过渡曲线 `cubic-bezier(0.34, 1.18, 0.64, 1)` 带轻微弹性，时长 0.22–0.28s。
+- 关闭逻辑：`document` 全局 click 关闭，弹窗内部 `stopPropagation()` 防误触。
+
+**修改文件**：`html_files/home-page.html`（CSS 新增弹窗样式、HTML 增加弹窗结构、JS 新增 `toggleGuide` 与全局关闭监听）。
+
+**时间**：2026-06-01
+
+---
+
+>>>>>>> 5a3215f4d5106b08473a6401e8f819cbfbac4dbd
 ## 2026-06-01 (Streamlit → HTML 前端迁移)
 
 将原 Streamlit 多页面应用迁移为独立 HTML + REST API 架构，涵盖四个模块：

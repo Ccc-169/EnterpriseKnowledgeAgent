@@ -3,9 +3,10 @@
 import asyncio
 import json
 from datetime import datetime, timedelta
+from pathlib import Path
 
 from dotenv import load_dotenv
-from fastapi import Depends, FastAPI, File, Form, HTTPException, UploadFile
+from fastapi import Depends, FastAPI, File, Form, HTTPException, Request, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import StreamingResponse
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
@@ -565,3 +566,54 @@ async def admin_list_documents(
         return await asyncio.to_thread(list_documents, dataset_id, page, limit)
     except RuntimeError as e:
         raise HTTPException(status_code=502, detail=str(e))
+
+
+# ── 管理员接口 — 本地数据文件 ─────────────────────────────
+@app.get("/api/admin/data-files")
+def admin_list_data_files(user: dict = Depends(require_admin)):
+    """列出 DATA_DIR 目录下的数据文件，供管理员界面展示。"""
+    import os
+    from pathlib import Path
+
+    data_dir = os.environ.get("DATA_DIR", "").strip()
+    if not data_dir:
+        raise HTTPException(status_code=503, detail="未配置 DATA_DIR，请在 .env 文件中配置后重启服务")
+
+    dir_path = Path(data_dir)
+    if not dir_path.exists() or not dir_path.is_dir():
+        raise HTTPException(status_code=503, detail=f"DATA_DIR 目录不存在：{data_dir}")
+
+    files = []
+    for f in sorted(dir_path.iterdir()):
+        if f.is_file():
+            ext = f.suffix.lower().lstrip(".")
+            size_kb = round(f.stat().st_size / 1024, 1)
+            files.append({"name": f.name, "ext": ext or "—", "size_kb": size_kb})
+
+    return {"dir": str(data_dir), "files": files}
+
+
+# ── 接口配置存取 ──────────────────────────────────────────
+_IFACE_CONFIGS_PATH = Path(__file__).parent / "project_documents" / "interface_configs.json"
+
+
+@app.get("/api/interface-configs")
+def get_interface_configs(user: dict = Depends(verify_token)):
+    """读取接口配置文件，不存在时返回空结构。"""
+    if not _IFACE_CONFIGS_PATH.exists():
+        return {"groups": [], "interfaces": []}
+    try:
+        return json.loads(_IFACE_CONFIGS_PATH.read_text(encoding="utf-8"))
+    except Exception:
+        return {"groups": [], "interfaces": []}
+
+
+@app.post("/api/interface-configs")
+async def save_interface_configs(request: Request, user: dict = Depends(verify_token)):
+    """覆盖写入接口配置文件。"""
+    body = await request.json()
+    _IFACE_CONFIGS_PATH.write_text(
+        json.dumps(body, ensure_ascii=False, indent=2),
+        encoding="utf-8",
+    )
+    return {"ok": True}
