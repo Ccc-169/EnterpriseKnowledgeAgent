@@ -170,8 +170,8 @@ def login(req: LoginRequest):
     if user is None:
         raise HTTPException(status_code=401, detail="用户名或密码错误")
 
-    # 角色校验：管理员账号可用任意身份登录，普通账号必须与选择一致
-    if user["role"] != req.role and user["role"] != "admin":
+    # 角色校验：管理员只能以管理员身份登录，用户只能以用户身份登录
+    if user["role"] != req.role:
         role_label = "管理员" if req.role == "admin" else "普通用户"
         raise HTTPException(status_code=401, detail=f"该账号不是{role_label}账号，请切换登录身份")
 

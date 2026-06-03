@@ -30,8 +30,8 @@ if not is_logged_in():
             user = authenticate_user(username, password)
             if user is None:
                 st.error("用户名或密码错误")
-            elif user["role"] != selected_role and user["role"] != "admin":
-                # 管理员可以选择任意身份登录
+            elif user["role"] != selected_role:
+                # 管理员只能以管理员身份登录，用户只能以用户身份登录
                 st.error(f"该账号不是{'管理员' if selected_role == 'admin' else '普通用户'}账号，请切换登录身份")
             else:
                 login_session(user)
