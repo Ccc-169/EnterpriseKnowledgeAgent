@@ -4,6 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>HNGD 智能知识助手系统 - 接口配置</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='6' fill='%234f46e5'/><text x='16' y='23' font-size='18' text-anchor='middle' fill='white' font-family='sans-serif' font-weight='bold'>知</text></svg>">
 <style>
   * { margin: 0; padding: 0; box-sizing: border-box; }
   body { font-family: 'PingFang SC', 'Microsoft YaHei', '微软雅黑', sans-serif; background: #f2f6fa; overflow: hidden; height: 100vh; width: 100vw; }
@@ -23,7 +24,7 @@
   .nav-item svg { width: 16px; height: 16px; flex-shrink: 0; }
   .sidebar-user { padding: 12px 14px; border-top: 1px solid rgba(255,255,255,0.08); display: flex; align-items: center; gap: 10px; cursor: pointer; flex-shrink: 0; transition: background 0.15s; }
   .sidebar-user:hover { background: rgba(255,255,255,0.05); }
-  .user-avatar { width: 32px; height: 32px; border-radius: 50%; background: rgba(255,255,255,0.18); display: flex; align-items: center; justify-content: center; flex-shrink: 0; border: 1.5px solid rgba(255,255,255,0.28); }
+  .user-avatar { width: 32px; height: 32px; border-radius: 50%; background: rgba(255,255,255,0.18); display: flex; align-items: center; justify-content: center; flex-shrink: 0; border: 1.5px solid rgba(255,255,255,0.28); overflow: hidden; }
   .user-avatar svg { width: 16px; height: 16px; fill: rgba(255,255,255,0.8); }
   .user-info { flex: 1; min-width: 0; }
   .user-info .name { font-size: 12.5px; font-weight: 600; color: white; }
@@ -151,6 +152,9 @@
   .kv-header-row { display: grid; grid-template-columns: 18px 1fr 1fr 26px; gap: 8px; padding: 0 2px 4px; }
   .kv-header-cell { font-size: 11.5px; color: #9aaac0; font-weight: 500; }
   .kv-row { display: grid; grid-template-columns: 18px 1fr 1fr 26px; gap: 8px; align-items: center; }
+  .param-header-row { display: grid; grid-template-columns: 18px 1fr 1fr 1.4fr 26px; gap: 8px; padding: 0 2px 4px; }
+  .param-row { display: grid; grid-template-columns: 18px 1fr 1fr 1.4fr 26px; gap: 8px; align-items: center; }
+  .kv-desc { color: #7a8aaa; font-style: italic; }
   .kv-checkbox { width: 14px; height: 14px; cursor: pointer; accent-color: #2a5aa8; }
   .kv-input { border: 1px solid #d8e4f4; border-radius: 6px; padding: 6px 9px; font-size: 12.5px; color: #1a2a4a; font-family: 'SFMono-Regular', Consolas, 'Microsoft YaHei', monospace; outline: none; background: white; transition: border-color 0.15s; width: 100%; }
   .kv-input:focus { border-color: #2a5aa8; }
@@ -220,6 +224,7 @@
   .modal-close:hover { background: #f0f4f8; }
   .modal-body { padding: 18px 22px; }
   .modal-footer { padding: 10px 22px 18px; display: flex; gap: 8px; justify-content: flex-end; }
+  details[open] .fmt-arrow { transform: rotate(90deg); }
   .modal-input { width: 100%; border: 1.5px solid #d8e4f4; border-radius: 7px; padding: 8px 12px; font-size: 13.5px; color: #1a2a4a; font-family: 'PingFang SC', 'Microsoft YaHei', sans-serif; outline: none; background: white; transition: border-color 0.15s; }
   .modal-input:focus { border-color: #2a5aa8; box-shadow: 0 0 0 3px rgba(42,90,168,0.08); }
   .modal-label { font-size: 12.5px; color: #5a6a8a; font-weight: 500; margin-bottom: 7px; display: block; }
@@ -260,7 +265,7 @@
     </nav>
     <div style="flex:1"></div>
     <div class="sidebar-user" onclick="window.location.href='setting-page.html'" title="账号设置">
-      <div class="user-avatar"><svg viewBox="0 0 24 24"><path d="M12 12c2.7 0 5-2.3 5-5s-2.3-5-5-5-5 2.3-5 5 2.3 5 5 5zm0 2c-3.3 0-10 1.7-10 5v2h20v-2c0-3.3-6.7-5-10-5z"/></svg></div>
+      <div class="user-avatar" id="sidebar-avatar-el"><svg viewBox="0 0 24 24"><path d="M12 12c2.7 0 5-2.3 5-5s-2.3-5-5-5-5 2.3-5 5 2.3 5 5 5zm0 2c-3.3 0-10 1.7-10 5v2h20v-2c0-3.3-6.7-5-10-5z"/></svg></div>
       <div class="user-info">
         <div class="name" id="sidebar-username">加载中...</div>
         <div class="role" id="sidebar-role">—</div>
@@ -361,10 +366,10 @@
             <!-- Params -->
             <div class="tab-content active" id="tab-params">
               <div>
-                <div class="kv-header-row"><div></div><div class="kv-header-cell">参数名</div><div class="kv-header-cell">参数值</div><div></div></div>
+                <div class="param-header-row"><div></div><div class="kv-header-cell">参数名</div><div class="kv-header-cell">参数值</div><div class="kv-header-cell">参数说明（供 AI 理解）</div><div></div></div>
                 <div id="params-kv"></div>
               </div>
-              <button class="kv-add-btn" onclick="addKvRow('params-kv')">
+              <button class="kv-add-btn" onclick="addParamRow()">
                 <svg viewBox="0 0 24 24" fill="currentColor"><path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z"/></svg>
                 添加参数
               </button>
@@ -506,6 +511,27 @@
       </div>
       <input type="file" id="import-file-input" accept=".json" style="display:none" onchange="handleImportFileInput(this)">
       <p style="font-size:12px;color:#9aaac0;margin-top:10px">导入将合并到现有配置，不会删除已有接口</p>
+      <details style="margin-top:8px">
+        <summary style="font-size:11.5px;color:#9aaac0;cursor:pointer;user-select:none;list-style:none;display:flex;align-items:center;gap:4px">
+          <svg viewBox="0 0 16 16" style="width:11px;height:11px;fill:#9aaac0;flex-shrink:0;transition:transform .2s" class="fmt-arrow"><path d="M6 4l4 4-4 4"/></svg>
+          查看 JSON 格式示例
+        </summary>
+        <pre style="margin-top:6px;padding:10px 12px;background:#f7f9fc;border:1px solid #e2e8f0;border-radius:6px;font-size:11px;line-height:1.7;color:#4a5568;overflow-x:auto;white-space:pre">{
+  "groups": [
+    {
+      "name": "安全生产",
+      "apis": [
+        {
+          "name": "报警统计",
+          "method": "GET",
+          "url": "http://localhost:8002/api/alarms/count",
+          "desc": "获取各类报警数量"
+        }
+      ]
+    }
+  ]
+}</pre>
+      </details>
     </div>
     <div class="modal-footer">
       <button class="btn-cancel" onclick="closeModal('modal-import')">关闭</button>
@@ -663,7 +689,7 @@
     document.getElementById('iface-url').value = i.url || '';
     document.getElementById('iface-group-select').value = i.groupId || '';
 
-    populateKv('params-kv', i.params || []);
+    populateParams(i.params || []);
     populateKv('headers-kv', i.headers || []);
     populateKv('form-kv', i.formRows || []);
 
@@ -709,7 +735,7 @@
       method:     document.getElementById('iface-method').value,
       url:        document.getElementById('iface-url').value.trim(),
       groupId:    document.getElementById('iface-group-select').value || null,
-      params:     getKvRows('params-kv'),
+      params:     getParamRows(),
       headers:    getKvRows('headers-kv'),
       bodyType:   curBodyType,
       body:       document.getElementById('iface-body').value,
@@ -740,14 +766,39 @@
       </button>`;
     c.appendChild(div);
   }
+  function addParamRow(row) {
+    const c = document.getElementById('params-kv');
+    const div = document.createElement('div');
+    div.className = 'param-row';
+    div.style.marginBottom = '6px';
+    div.innerHTML = `
+      <input type="checkbox" class="kv-checkbox" ${(row?.enabled!==false)?'checked':''} onchange="updateTabCounts()">
+      <input type="text" class="kv-input" placeholder="Key"   value="${esc(row?.key||'')}" oninput="updateTabCounts()">
+      <input type="text" class="kv-input" placeholder="Value" value="${esc(row?.value||'')}">
+      <input type="text" class="kv-input kv-desc" placeholder="说明（可选，供 AI 理解参数含义）" value="${esc(row?.desc||'')}">
+      <button class="kv-del-btn" onclick="this.closest('.param-row').remove();updateTabCounts()" title="删除">
+        <svg viewBox="0 0 24 24" fill="currentColor"><path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+      </button>`;
+    c.appendChild(div);
+  }
   function populateKv(containerId, rows) {
     document.getElementById(containerId).innerHTML = '';
     rows.forEach(r => addKvRow(containerId, r));
+  }
+  function populateParams(rows) {
+    document.getElementById('params-kv').innerHTML = '';
+    rows.forEach(r => addParamRow(r));
   }
   function getKvRows(containerId) {
     return Array.from(document.querySelectorAll(`#${containerId} .kv-row`)).map(row => {
       const inputs = row.querySelectorAll('.kv-input');
       return { key: inputs[0]?.value||'', value: inputs[1]?.value||'', enabled: row.querySelector('.kv-checkbox')?.checked!==false };
+    });
+  }
+  function getParamRows() {
+    return Array.from(document.querySelectorAll('#params-kv .param-row')).map(row => {
+      const inputs = row.querySelectorAll('.kv-input');
+      return { key: inputs[0]?.value||'', value: inputs[1]?.value||'', desc: inputs[2]?.value||'', enabled: row.querySelector('.kv-checkbox')?.checked!==false };
     });
   }
 
@@ -788,7 +839,7 @@
     });
   }
   function updateTabCounts() {
-    const pc = getKvRows('params-kv').filter(r=>r.key&&r.enabled).length;
+    const pc = getParamRows().filter(r=>r.key&&r.enabled).length;
     const hc = getKvRows('headers-kv').filter(r=>r.key&&r.enabled).length;
     const pel = document.getElementById('count-params');
     const hel = document.getElementById('count-headers');
@@ -940,6 +991,15 @@
   function closeModal(id) { document.getElementById(id).classList.remove('open'); }
 
   // ── init ───────────────────────────────────────────
+  function renderSidebarAvatar(avatarData) {
+    const el = document.getElementById('sidebar-avatar-el');
+    if (!el) return;
+    const _path = "M12 12c2.7 0 5-2.3 5-5s-2.3-5-5-5-5 2.3-5 5 2.3 5 5 5zm0 2c-3.3 0-10 1.7-10 5v2h20v-2c0-3.3-6.7-5-10-5z";
+    el.innerHTML = avatarData
+      ? `<img src="${avatarData}" style="width:32px;height:32px;object-fit:cover">`
+      : `<svg viewBox="0 0 24 24"><path d="${_path}"/></svg>`;
+  }
+
   async function initPage() {
     let user = null;
     try { user = JSON.parse(localStorage.getItem('user')||'null'); } catch(e) {}
@@ -947,6 +1007,7 @@
     const rm = { admin:'系统管理员', user:'普通用户', visitor:'访客' };
     document.getElementById('sidebar-username').textContent = user.display_name || user.username;
     document.getElementById('sidebar-role').textContent     = rm[user.role] || user.role;
+    renderSidebarAvatar(user.avatar || null);
     if (user.role === 'admin') { const a = document.getElementById('nav-admin-item'); if(a) a.style.display=''; }
     await loadData();
     renderLeft();

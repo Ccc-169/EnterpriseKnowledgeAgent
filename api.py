@@ -21,7 +21,7 @@ init_db()
 
 from audit.audit_service import log_event
 from auth.auth_service import (
-    authenticate_user, update_display_name, update_password,
+    authenticate_user, update_display_name, update_password, update_avatar,
     create_user, list_users, update_user_role, toggle_user_active,
 )
 from audit.audit_service import get_logs, get_summary_stats
@@ -102,12 +102,13 @@ class LoginResponse(BaseModel):
     username:     str
     role:         str
     display_name: str
+    avatar:       str | None = None
 
 
 class ChatRequest(BaseModel):
     message:         str
     conversation_id: int | None = None
-    mode:            str = "rag"   # "rag" | "data" | "write"
+    mode:            str = "rag"   # "rag" | "data" | "write" | "api"
 
 
 class DocContentRequest(BaseModel):
@@ -118,6 +119,10 @@ class DocContentRequest(BaseModel):
 
 class UpdateDisplayNameRequest(BaseModel):
     display_name: str
+
+
+class UpdateAvatarRequest(BaseModel):
+    avatar: str
 
 
 class UpdatePasswordRequest(BaseModel):
@@ -183,6 +188,7 @@ def login(req: LoginRequest):
         username     = user["username"],
         role         = user["role"],
         display_name = user["display_name"],
+        avatar       = user.get("avatar"),
     )
 
 
@@ -274,6 +280,7 @@ async def chat_stream(req: ChatRequest, user: dict = Depends(verify_token)):
             "rag":   lambda: chat(req.message, thread_id, user_context=user_context),
             "data":  lambda: chat_direct("data_agent", req.message, thread_id, user_context=user_context),
             "write": lambda: chat_direct("rag_agent",  req.message, thread_id, user_context=user_context),
+            "api":   lambda: chat_direct("api_agent",  req.message, thread_id, user_context=user_context),
         }
         call_fn = mode_calls.get(req.mode, mode_calls["rag"])
 
@@ -331,6 +338,18 @@ def api_update_display_name(req: UpdateDisplayNameRequest, user: dict = Depends(
         raise HTTPException(status_code=400, detail=msg)
     log_event(user["user_id"], user["username"], "update_display_name")
     return {"ok": True, "display_name": req.display_name.strip()}
+
+
+@app.put("/api/user/avatar")
+def api_update_avatar(req: UpdateAvatarRequest, user: dict = Depends(verify_token)):
+    """更新当前用户的头像（base64 图片或 SVG data URL）。"""
+    if not req.avatar or not req.avatar.startswith("data:"):
+        raise HTTPException(status_code=400, detail="头像格式无效")
+    ok, msg = update_avatar(user["user_id"], req.avatar)
+    if not ok:
+        raise HTTPException(status_code=400, detail=msg)
+    log_event(user["user_id"], user["username"], "update_avatar")
+    return {"ok": True}
 
 
 @app.put("/api/user/password")

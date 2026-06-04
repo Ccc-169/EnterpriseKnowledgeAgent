@@ -4,6 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>HNGD 智能知识助手系统 - 管理员界面</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='6' fill='%234f46e5'/><text x='16' y='23' font-size='18' text-anchor='middle' fill='white' font-family='sans-serif' font-weight='bold'>知</text></svg>">
 <style>
   * { margin: 0; padding: 0; box-sizing: border-box; }
 
@@ -103,6 +104,7 @@
     display: flex; align-items: center; justify-content: center;
     flex-shrink: 0;
     border: 1.5px solid rgba(255,255,255,0.28);
+    overflow: hidden;
   }
   .user-avatar svg { width: 16px; height: 16px; fill: rgba(255,255,255,0.8); }
   .user-info { flex: 1; min-width: 0; }
@@ -668,7 +670,7 @@
     <div style="flex: 1;"></div>
 
     <div class="sidebar-user" onclick="window.location.href='setting-page.html'" title="账号设置">
-      <div class="user-avatar">
+      <div class="user-avatar" id="sidebar-avatar-el">
         <svg viewBox="0 0 24 24"><path d="M12 12c2.7 0 5-2.3 5-5s-2.3-5-5-5-5 2.3-5 5 2.3 5 5 5zm0 2c-3.3 0-10 1.7-10 5v2h20v-2c0-3.3-6.7-5-10-5z"/></svg>
       </div>
       <div class="user-info">
@@ -1107,6 +1109,15 @@
   }
 
   // ── 页面初始化 ────────────────────────────────────────
+  function renderSidebarAvatar(avatarData) {
+    const el = document.getElementById('sidebar-avatar-el');
+    if (!el) return;
+    const _path = "M12 12c2.7 0 5-2.3 5-5s-2.3-5-5-5-5 2.3-5 5 2.3 5 5 5zm0 2c-3.3 0-10 1.7-10 5v2h20v-2c0-3.3-6.7-5-10-5z";
+    el.innerHTML = avatarData
+      ? `<img src="${avatarData}" style="width:32px;height:32px;object-fit:cover">`
+      : `<svg viewBox="0 0 24 24"><path d="${_path}"/></svg>`;
+  }
+
   function initPage() {
     let user = null;
     try { user = JSON.parse(localStorage.getItem('user') || 'null'); } catch(e) {}
@@ -1114,6 +1125,7 @@
     if (user.role !== 'admin') { window.location.href = 'home-page.html'; return; }
     document.getElementById('sidebar-username').textContent = user.display_name || user.username;
     document.getElementById('sidebar-role').textContent = ROLE_MAP[user.role] || user.role;
+    renderSidebarAvatar(user.avatar || null);
     loadStats();
     loadUsers();
     loadKbDatasets(1);

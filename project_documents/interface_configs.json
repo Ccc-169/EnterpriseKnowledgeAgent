@@ -3,27 +3,27 @@
     {
       "id": "g-alarm",
       "name": "报警管理",
-      "open": false
+      "open": true
     },
     {
       "id": "g-device",
       "name": "设备管理",
-      "open": false
+      "open": true
     },
     {
       "id": "g-hazard",
       "name": "安全隐患",
-      "open": false
+      "open": true
     },
     {
       "id": "g-monitor",
       "name": "实时监测",
-      "open": false
+      "open": true
     },
     {
       "id": "g-workorder",
       "name": "工单管理",
-      "open": false
+      "open": true
     }
   ],
   "interfaces": [
@@ -38,17 +38,20 @@
         {
           "key": "start_date",
           "value": "2025-01-01",
-          "enabled": true
+          "enabled": true,
+          "desc": "查询开始日期，格式 YYYY-MM-DD。【今年】【本月】【最近N天】等需转换为具体日期"
         },
         {
           "key": "end_date",
           "value": "2025-06-30",
-          "enabled": true
+          "enabled": true,
+          "desc": "查询结束日期，格式 YYYY-MM-DD。【当前】【今天】【截至今日】填今日日期"
         },
         {
           "key": "level",
           "value": "1",
-          "enabled": false
+          "enabled": false,
+          "desc": "报警等级筛选（整数）：0=低级，1=中级，2=高级；不传则统计全部等级"
         }
       ],
       "headers": [],
@@ -73,21 +76,25 @@
         {
           "key": "area",
           "value": "A区",
-          "enabled": false
+          "desc": "按区域筛选，如 A区、B区、C区；不传则返回全部区域",
+          "enabled": true
         },
         {
           "key": "status",
           "value": "warning",
-          "enabled": false
+          "desc": "按状态筛选：normal=正常，warning=告警，error=故障；不传则返回全部状态",
+          "enabled": true
         },
         {
           "key": "page",
           "value": "1",
+          "desc": "分页页码，从 1 开始",
           "enabled": true
         },
         {
           "key": "page_size",
           "value": "10",
+          "desc": "每页返回的设备数量，默认 10，最大 100",
           "enabled": true
         }
       ],
@@ -138,16 +145,19 @@
         {
           "key": "area",
           "value": "C区",
+          "desc": "监测区域，如 A区、B区、C区；不传则返回全部区域的传感器数据",
           "enabled": true
         },
         {
           "key": "metric",
           "value": "co",
+          "desc": "监测指标：co=一氧化碳，temperature=温度，humidity=湿度，smoke=烟雾；不传则返回全部指标",
           "enabled": true
         },
         {
           "key": "state",
           "value": "warning",
+          "desc": "预警状态：normal=正常，warning=预警，critical=危险；不传则返回全部状态",
           "enabled": true
         }
       ],
@@ -173,17 +183,20 @@
         {
           "key": "start_date",
           "value": "2025-01-01",
-          "enabled": true
+          "enabled": true,
+          "desc": "统计开始日期，格式 YYYY-MM-DD。【今年】【本月】等需转换为具体日期"
         },
         {
           "key": "end_date",
           "value": "2025-06-30",
-          "enabled": true
+          "enabled": true,
+          "desc": "统计结束日期，格式 YYYY-MM-DD。【当前】【今天】填今日日期"
         },
         {
           "key": "type",
           "value": "maintenance",
-          "enabled": false
+          "enabled": false,
+          "desc": "工单类型：maintenance=维护，repair=维修，inspection=巡检；不传则统计全部类型"
         }
       ],
       "headers": [],

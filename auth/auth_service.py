@@ -23,7 +23,7 @@ def authenticate_user(username: str, password: str) -> dict | None:
     conn = get_db()
     try:
         row = conn.execute(
-            "SELECT id, username, password_hash, display_name, role, is_active "
+            "SELECT id, username, password_hash, display_name, role, is_active, avatar "
             "FROM users WHERE username = ?",
             (username,),
         ).fetchone()
@@ -39,10 +39,11 @@ def authenticate_user(username: str, password: str) -> dict | None:
         return None
 
     return {
-        "user_id": row["id"],
-        "username": row["username"],
-        "role": row["role"],
+        "user_id":      row["id"],
+        "username":     row["username"],
+        "role":         row["role"],
         "display_name": row["display_name"],
+        "avatar":       row["avatar"],
     }
 
 
@@ -149,6 +150,24 @@ def update_password(user_id: int, old_password: str, new_password: str) -> tuple
     except Exception as e:
         conn.rollback()
         return False, f"修改失败: {str(e)}"
+    finally:
+        conn.close()
+
+
+def update_avatar(user_id: int, avatar_data: str) -> tuple[bool, str]:
+    """更新用户头像（base64 编码的图片数据或 SVG data URL）。"""
+    if not avatar_data:
+        return False, "头像数据不能为空"
+    if len(avatar_data) > 400_000:
+        return False, "头像图片过大，请选择较小的图片"
+    conn = get_db()
+    try:
+        conn.execute("UPDATE users SET avatar = ? WHERE id = ?", (avatar_data, user_id))
+        conn.commit()
+        return True, "头像更新成功"
+    except Exception as e:
+        conn.rollback()
+        return False, f"更新失败: {str(e)}"
     finally:
         conn.close()
 
