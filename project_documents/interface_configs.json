@@ -13,17 +13,17 @@
     {
       "id": "g-hazard",
       "name": "安全隐患",
-      "open": true
+      "open": false
     },
     {
       "id": "g-monitor",
       "name": "实时监测",
-      "open": true
+      "open": false
     },
     {
       "id": "g-workorder",
       "name": "工单管理",
-      "open": true
+      "open": false
     }
   ],
   "interfaces": [
@@ -38,20 +38,20 @@
         {
           "key": "start_date",
           "value": "2025-01-01",
-          "enabled": true,
-          "desc": "查询开始日期，格式 YYYY-MM-DD。【今年】【本月】【最近N天】等需转换为具体日期"
+          "desc": "查询开始日期，格式 YYYY-MM-DD。【今年】【本月】【最近N天】等需转换为具体日期",
+          "enabled": true
         },
         {
           "key": "end_date",
           "value": "2025-06-30",
-          "enabled": true,
-          "desc": "查询结束日期，格式 YYYY-MM-DD。【当前】【今天】【截至今日】填今日日期"
+          "desc": "查询结束日期，格式 YYYY-MM-DD。【当前】【今天】【截至今日】填今日日期",
+          "enabled": true
         },
         {
           "key": "level",
-          "value": "1",
-          "enabled": false,
-          "desc": "报警等级筛选（整数）：0=低级，1=中级，2=高级；不传则统计全部等级"
+          "value": "0",
+          "desc": "报警等级筛选（整数）：0=低级，1=中级，2=高级；不传则统计全部等级",
+          "enabled": false
         }
       ],
       "headers": [],
@@ -81,8 +81,8 @@
         },
         {
           "key": "status",
-          "value": "warning",
-          "desc": "按状态筛选：normal=正常，warning=告警，error=故障；不传则返回全部状态",
+          "value": "online",
+          "desc": "按状态筛选：online=在线，warning=告警，fault=故障，offline=掉线；不传则返回全部状态",
           "enabled": true
         },
         {
@@ -103,7 +103,7 @@
       "body": "",
       "bodyText": "",
       "formRows": [],
-      "authType": "none",
+      "authType": "basic",
       "authValue": "",
       "authKeyName": "X-API-Key",
       "authUser": "",
