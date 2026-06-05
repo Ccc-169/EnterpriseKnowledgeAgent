@@ -1,0 +1,332 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>智能知识助手</title>
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+
+body {
+  font-family: 'PingFang SC', 'Microsoft YaHei', sans-serif;
+  background: #f2f6fa;
+  height: 100vh;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+/* ── Header ── */
+.ce-header {
+  background: linear-gradient(135deg, #1a3a7e 0%, #2a5aa8 100%);
+  padding: 14px 20px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-shrink: 0;
+  box-shadow: 0 2px 8px rgba(10,30,80,0.15);
+}
+.ce-header-icon {
+  width: 32px; height: 32px;
+  background: rgba(255,255,255,0.18);
+  border-radius: 8px;
+  display: flex; align-items: center; justify-content: center;
+  flex-shrink: 0;
+}
+.ce-header-icon svg { width: 18px; height: 18px; fill: white; }
+.ce-header-text h1 { font-size: 15px; font-weight: 700; color: white; }
+.ce-header-text p  { font-size: 11px; color: rgba(255,255,255,0.6); margin-top: 1px; }
+
+/* ── Messages area ── */
+.ce-messages {
+  flex: 1;
+  overflow-y: auto;
+  padding: 20px 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+.ce-messages::-webkit-scrollbar { width: 4px; }
+.ce-messages::-webkit-scrollbar-thumb { background: #c8d8ec; border-radius: 2px; }
+
+/* Bubble base */
+.ce-bubble-row {
+  display: flex;
+  gap: 8px;
+  max-width: 88%;
+}
+.ce-bubble-row.user {
+  align-self: flex-end;
+  flex-direction: row-reverse;
+}
+.ce-bubble-row.bot {
+  align-self: flex-start;
+}
+
+.ce-avatar {
+  width: 30px; height: 30px; border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  flex-shrink: 0; font-size: 13px; font-weight: 700;
+}
+.ce-bubble-row.bot .ce-avatar {
+  background: linear-gradient(135deg, #2a5aa8, #4a7adc);
+  color: white;
+}
+.ce-bubble-row.user .ce-avatar {
+  background: #e8eef8;
+  color: #3a5a9a;
+}
+
+.ce-bubble {
+  padding: 10px 14px;
+  border-radius: 14px;
+  font-size: 13.5px;
+  line-height: 1.65;
+  word-break: break-word;
+  white-space: pre-wrap;
+}
+.ce-bubble-row.bot .ce-bubble {
+  background: white;
+  color: #1a2a4a;
+  border-radius: 4px 14px 14px 14px;
+  box-shadow: 0 1px 4px rgba(30,60,120,0.08);
+}
+.ce-bubble-row.user .ce-bubble {
+  background: linear-gradient(135deg, #2a5aa8, #3a6ec4);
+  color: white;
+  border-radius: 14px 4px 14px 14px;
+}
+
+/* Typing indicator */
+.ce-typing {
+  display: flex; align-items: center; gap: 4px;
+  padding: 10px 14px;
+  background: white; border-radius: 4px 14px 14px 14px;
+  box-shadow: 0 1px 4px rgba(30,60,120,0.08);
+  width: fit-content;
+}
+.ce-dot {
+  width: 7px; height: 7px; border-radius: 50%;
+  background: #a0b8d8;
+  animation: ceDot 1.2s ease-in-out infinite;
+}
+.ce-dot:nth-child(2) { animation-delay: 0.2s; }
+.ce-dot:nth-child(3) { animation-delay: 0.4s; }
+@keyframes ceDot {
+  0%, 80%, 100% { transform: scale(0.7); opacity: 0.5; }
+  40%           { transform: scale(1);   opacity: 1;   }
+}
+
+/* ── Input bar ── */
+.ce-input-bar {
+  background: white;
+  border-top: 1px solid #e4eaf4;
+  padding: 12px 16px;
+  display: flex;
+  gap: 10px;
+  align-items: flex-end;
+  flex-shrink: 0;
+}
+.ce-input {
+  flex: 1;
+  min-height: 38px; max-height: 120px;
+  padding: 8px 12px;
+  border: 1.5px solid #dce8f4;
+  border-radius: 10px;
+  font-size: 13.5px;
+  font-family: inherit;
+  color: #1a2a4a;
+  resize: none;
+  outline: none;
+  line-height: 1.5;
+  overflow-y: auto;
+  transition: border-color 0.15s;
+}
+.ce-input:focus { border-color: #2a5aa8; }
+.ce-input::placeholder { color: #a0b0c8; }
+
+.ce-send {
+  width: 38px; height: 38px;
+  background: #2a5aa8;
+  border: none; border-radius: 10px;
+  cursor: pointer; flex-shrink: 0;
+  display: flex; align-items: center; justify-content: center;
+  transition: background 0.15s;
+}
+.ce-send:hover:not(:disabled) { background: #1a3a7e; }
+.ce-send:disabled { background: #b8c8e0; cursor: default; }
+.ce-send svg { width: 18px; height: 18px; fill: white; }
+
+/* ── Welcome ── */
+.ce-welcome {
+  display: flex; flex-direction: column; align-items: center;
+  justify-content: center; flex: 1; gap: 12px; color: #9aaac0;
+  padding: 40px 20px; text-align: center;
+}
+.ce-welcome-icon {
+  width: 56px; height: 56px; border-radius: 16px;
+  background: linear-gradient(135deg, #dce8fc 0%, #c4d8f8 100%);
+  display: flex; align-items: center; justify-content: center;
+}
+.ce-welcome-icon svg { width: 30px; height: 30px; fill: #2a5aa8; }
+.ce-welcome h2 { font-size: 15px; font-weight: 700; color: #3a5a8a; }
+.ce-welcome p  { font-size: 13px; line-height: 1.6; }
+</style>
+</head>
+<body>
+
+<!-- Header -->
+<div class="ce-header">
+  <div class="ce-header-icon">
+    <svg viewBox="0 0 24 24"><path d="M20 2H4c-1.1 0-2 .9-2 2v18l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2z"/></svg>
+  </div>
+  <div class="ce-header-text">
+    <h1>智能知识助手</h1>
+    <p>有什么可以帮助您？</p>
+  </div>
+</div>
+
+<!-- Messages -->
+<div class="ce-messages" id="ce-messages">
+  <div class="ce-welcome" id="ce-welcome">
+    <div class="ce-welcome-icon">
+      <svg viewBox="0 0 24 24"><path d="M20 2H4c-1.1 0-2 .9-2 2v18l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2z"/></svg>
+    </div>
+    <h2>智能知识助手</h2>
+    <p>您好！我可以回答您的问题、<br>查询知识库内容，请输入您的问题开始对话。</p>
+  </div>
+</div>
+
+<!-- Input bar -->
+<div class="ce-input-bar">
+  <textarea
+    class="ce-input"
+    id="ce-input"
+    placeholder="输入您的问题，按 Enter 发送..."
+    rows="1"
+  ></textarea>
+  <button class="ce-send" id="ce-send" onclick="ceSend()">
+    <svg viewBox="0 0 24 24"><path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"/></svg>
+  </button>
+</div>
+
+<script>
+  // ── 配置（从 URL 参数读取）──
+  const _params      = new URLSearchParams(location.search);
+  const _token       = _params.get('token') || '';
+  const _server      = _params.get('server') || (location.origin.includes('8080')
+                         ? 'http://localhost:8000'
+                         : location.origin);
+
+  // ── 会话 thread_id（sessionStorage，刷新消失）──
+  let _threadId = sessionStorage.getItem('hngd_embed_thread') || null;
+  let _busy     = false;
+
+  const $msgs  = document.getElementById('ce-messages');
+  const $input = document.getElementById('ce-input');
+  const $send  = document.getElementById('ce-send');
+
+  // ── 自动增高输入框 ──
+  $input.addEventListener('input', () => {
+    $input.style.height = 'auto';
+    $input.style.height = Math.min($input.scrollHeight, 120) + 'px';
+  });
+
+  // ── Enter 发送（Shift+Enter 换行）──
+  $input.addEventListener('keydown', e => {
+    if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); ceSend(); }
+  });
+
+  function _removeWelcome() {
+    const w = document.getElementById('ce-welcome');
+    if (w) w.remove();
+  }
+
+  function _appendBubble(role, text) {
+    _removeWelcome();
+    const row = document.createElement('div');
+    row.className = `ce-bubble-row ${role}`;
+    const avatar = document.createElement('div');
+    avatar.className = 'ce-avatar';
+    avatar.textContent = role === 'bot' ? '智' : '我';
+    const bubble = document.createElement('div');
+    bubble.className = 'ce-bubble';
+    bubble.textContent = text;
+    row.appendChild(avatar);
+    row.appendChild(bubble);
+    $msgs.appendChild(row);
+    $msgs.scrollTop = $msgs.scrollHeight;
+    return bubble;
+  }
+
+  function _showTyping() {
+    _removeWelcome();
+    const row = document.createElement('div');
+    row.className = 'ce-bubble-row bot';
+    row.id = 'ce-typing-row';
+    const avatar = document.createElement('div');
+    avatar.className = 'ce-avatar';
+    avatar.textContent = '智';
+    const typing = document.createElement('div');
+    typing.className = 'ce-typing';
+    typing.innerHTML = '<div class="ce-dot"></div><div class="ce-dot"></div><div class="ce-dot"></div>';
+    row.appendChild(avatar);
+    row.appendChild(typing);
+    $msgs.appendChild(row);
+    $msgs.scrollTop = $msgs.scrollHeight;
+  }
+
+  function _removeTyping() {
+    const el = document.getElementById('ce-typing-row');
+    if (el) el.remove();
+  }
+
+  async function ceSend() {
+    const msg = $input.value.trim();
+    if (!msg || _busy) return;
+
+    _busy = true;
+    $send.disabled = true;
+    $input.value = '';
+    $input.style.height = 'auto';
+
+    _appendBubble('user', msg);
+    _showTyping();
+
+    try {
+      const res = await fetch(`${_server}/api/embed/chat`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          message:     msg,
+          thread_id:   _threadId,
+          embed_token: _token,
+        }),
+      });
+
+      _removeTyping();
+
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        _appendBubble('bot', `请求失败（${res.status}）：${err.detail || '未知错误'}`);
+      } else {
+        const data = await res.json();
+        // 首次请求后记录 thread_id，后续保持多轮上下文
+        if (!_threadId && data.thread_id) {
+          _threadId = data.thread_id;
+          sessionStorage.setItem('hngd_embed_thread', _threadId);
+        }
+        _appendBubble('bot', data.response || '（无回复）');
+      }
+    } catch (e) {
+      _removeTyping();
+      _appendBubble('bot', '网络错误，请检查服务是否运行。');
+    }
+
+    _busy = false;
+    $send.disabled = false;
+    $input.focus();
+  }
+</script>
+</body>
+</html>

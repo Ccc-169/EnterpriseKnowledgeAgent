@@ -1,0 +1,306 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>嵌入测试页 — HNGD Widget Demo</title>
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+
+body {
+  font-family: 'PingFang SC', 'Microsoft YaHei', sans-serif;
+  background: #f0f4f8;
+  color: #2a3a5a;
+}
+
+/* ── 顶部导航 ── */
+.nav {
+  background: white;
+  border-bottom: 1px solid #e4eaf4;
+  padding: 0 40px;
+  height: 56px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  position: sticky;
+  top: 0;
+  z-index: 100;
+  box-shadow: 0 1px 6px rgba(30,60,120,0.06);
+}
+.nav-logo { display: flex; align-items: center; gap: 10px; }
+.nav-logo-dot {
+  width: 28px; height: 28px; border-radius: 7px;
+  background: linear-gradient(135deg, #2a5aa8, #4a7adc);
+  display: flex; align-items: center; justify-content: center;
+}
+.nav-logo-dot svg { width: 16px; height: 16px; fill: white; }
+.nav-logo-name { font-size: 15px; font-weight: 700; color: #1a2a4a; }
+.nav-links { display: flex; gap: 28px; }
+.nav-links a {
+  font-size: 13.5px; color: #5a7aaa; text-decoration: none;
+  transition: color 0.15s;
+}
+.nav-links a:hover { color: #2a5aa8; }
+.nav-cta {
+  padding: 7px 18px; background: #2a5aa8; color: white;
+  border-radius: 8px; font-size: 13px; font-weight: 500;
+  text-decoration: none; transition: background 0.15s;
+}
+.nav-cta:hover { background: #1a3a7e; }
+
+/* ── Hero ── */
+.hero {
+  background: linear-gradient(135deg, #1a3a7e 0%, #2a5aa8 60%, #3a6ec4 100%);
+  padding: 64px 40px;
+  text-align: center;
+  color: white;
+}
+.hero h1 { font-size: 32px; font-weight: 700; margin-bottom: 14px; letter-spacing: 0.5px; }
+.hero p  { font-size: 15px; color: rgba(255,255,255,0.75); max-width: 480px; margin: 0 auto; line-height: 1.7; }
+.hero-badge {
+  display: inline-block;
+  background: rgba(255,255,255,0.15);
+  border: 1px solid rgba(255,255,255,0.3);
+  border-radius: 20px;
+  padding: 4px 14px;
+  font-size: 12px;
+  margin-bottom: 18px;
+  letter-spacing: 0.5px;
+}
+
+/* ── 主内容区 ── */
+.main {
+  max-width: 1100px;
+  margin: 0 auto;
+  padding: 40px 24px 60px;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 24px;
+}
+
+/* 卡片 */
+.card {
+  background: white;
+  border-radius: 14px;
+  padding: 24px;
+  box-shadow: 0 1px 6px rgba(30,60,120,0.06);
+  border: 1px solid #e8eef8;
+}
+.card h3 { font-size: 15px; font-weight: 700; color: #1a2a4a; margin-bottom: 10px; }
+.card p  { font-size: 13px; color: #7a8aaa; line-height: 1.7; }
+.card-icon {
+  width: 40px; height: 40px; border-radius: 10px;
+  display: flex; align-items: center; justify-content: center;
+  margin-bottom: 14px;
+}
+.card-icon.blue  { background: linear-gradient(135deg,#dce8fc,#c4d8f8); }
+.card-icon.green { background: linear-gradient(135deg,#e0f5ec,#c8eddb); }
+.card-icon svg { width: 22px; height: 22px; }
+
+/* 全宽区块 */
+.full-width { grid-column: 1 / -1; }
+
+/* ── 网页嵌入测试区 ── */
+.embed-section {
+  grid-column: 1 / -1;
+  background: white;
+  border-radius: 14px;
+  border: 2px dashed #a0c0e8;
+  overflow: hidden;
+}
+.embed-section-header {
+  background: #f0f6ff;
+  border-bottom: 1px dashed #a0c0e8;
+  padding: 12px 20px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.embed-label {
+  font-size: 11.5px;
+  font-weight: 700;
+  color: #2a5aa8;
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+}
+.embed-badge {
+  font-size: 11px;
+  background: #2a5aa8;
+  color: white;
+  padding: 2px 8px;
+  border-radius: 10px;
+}
+.embed-hint {
+  font-size: 12px;
+  color: #8a9ab8;
+  margin-left: auto;
+}
+.embed-body {
+  padding: 20px;
+  min-height: 120px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.embed-placeholder {
+  text-align: center;
+  color: #b0c0d8;
+}
+.embed-placeholder svg { width: 36px; height: 36px; margin-bottom: 10px; opacity: 0.5; }
+.embed-placeholder p { font-size: 13px; line-height: 1.6; }
+.embed-placeholder code {
+  display: inline-block;
+  background: #f0f4f8;
+  border: 1px solid #d8e4f0;
+  border-radius: 4px;
+  padding: 2px 7px;
+  font-size: 11.5px;
+  color: #3a6aaa;
+  font-family: 'Fira Code', monospace;
+  margin-top: 6px;
+}
+
+/* ── 底部 ── */
+.footer {
+  text-align: center;
+  padding: 24px;
+  font-size: 12px;
+  color: #9aaac0;
+  border-top: 1px solid #e4eaf4;
+  background: white;
+}
+</style>
+</head>
+<body>
+
+<!-- 导航栏（模拟真实网站） -->
+<nav class="nav">
+  <div class="nav-logo">
+    <div class="nav-logo-dot">
+      <svg viewBox="0 0 24 24"><path d="M12 2L3 7v5c0 5.25 3.75 10.15 9 11.35C17.25 22.15 21 17.25 21 12V7L12 2z"/></svg>
+    </div>
+    <span class="nav-logo-name">模拟企业网站</span>
+  </div>
+  <div class="nav-links">
+    <a href="#">首页</a>
+    <a href="#">产品</a>
+    <a href="#">关于我们</a>
+    <a href="#">联系</a>
+  </div>
+  <a class="nav-cta" href="#">立即体验</a>
+</nav>
+
+<!-- Hero -->
+<div class="hero">
+  <div class="hero-badge">🧪 嵌入可用性测试页</div>
+  <h1>Widget 嵌入测试</h1>
+  <p>这是一个用于测试 HNGD 对话嵌入功能的模拟页面，包含网页嵌入和聊天球两种测试区域。</p>
+</div>
+
+<!-- 主内容 -->
+<div class="main">
+
+  <!-- 普通内容卡片 -->
+  <div class="card">
+    <div class="card-icon blue">
+      <svg viewBox="0 0 24 24" fill="#2a5aa8"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-6h2v6zm0-8h-2V7h2v2z"/></svg>
+    </div>
+    <h3>关于本测试页</h3>
+    <p>本页面模拟一个真实的企业网站环境，用于验证聊天球和网页嵌入两种方式的实际效果与交互体验。</p>
+  </div>
+
+  <div class="card">
+    <div class="card-icon green">
+      <svg viewBox="0 0 24 24" fill="#1a9e6b"><path d="M9 16.2L4.8 12l-1.4 1.4L9 19 21 7l-1.4-1.4L9 16.2z"/></svg>
+    </div>
+    <h3>测试检查项</h3>
+    <p>① 聊天球：右下角是否出现悬浮球、能否拖动、点击后是否展开聊天面板、能否正常回复。<br>② 网页嵌入：iframe 是否正常加载、能否发送消息并获得回复。</p>
+  </div>
+
+  <!-- ================================================================
+       【网页嵌入测试区】
+       将 "网页嵌入" 的 iframe 代码粘贴到 .embed-body 内，替换占位内容。
+
+       示例代码：
+         <iframe
+           src="http://localhost:8000/embed/chat?token=hngd-embed-2024"
+           width="100%" height="680" frameborder="0"
+           allowtransparency="true"
+           style="border-radius:12px; border:1px solid #e0e8f4; display:block;"
+         ></iframe>
+       ================================================================ -->
+  <div class="embed-section">
+    <div class="embed-section-header">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="#2a5aa8"><path d="M4 8h4V4H4v4zm6 12h4v-4h-4v4zm-6 0h4v-4H4v4zm0-6h4v-4H4v4zm6 0h4v-4h-4v4zm6-10v4h4V4h-4zm-6 4h4V4h-4v4zm6 6h4v-4h-4v4zm0 6h4v-4h-4v4z"/></svg>
+      <span class="embed-label">网页嵌入</span>
+      <span class="embed-badge">iframe</span>
+      <span class="embed-hint">将 iframe 代码粘贴到下方 .embed-body 内</span>
+    </div>
+    <div class="embed-body" id="page-embed-area">
+
+      <!-- ▼▼▼ 在此处粘贴网页嵌入代码 ▼▼▼ -->
+      <!-- 将以下代码粘贴到需要展示对话的位置 -->
+<iframe
+  src="http://localhost:8000/embed/chat?token=hngd-embed-2024"
+  width="100%"
+  height="680"
+  frameborder="0"
+  allowtransparency="true"
+  style="
+    border: 1px solid #e0e8f4;
+    border-radius: 12px;
+    display: block;
+  "
+></iframe>
+
+
+      <!-- ▲▲▲ 网页嵌入代码结束 ▲▲▲ -->
+
+      <!-- 未放入代码时显示的占位提示，放入后可删除此块 -->
+      <div class="embed-placeholder" id="page-embed-placeholder">
+        <svg viewBox="0 0 24 24" fill="currentColor"><path d="M4 8h4V4H4v4zm6 12h4v-4h-4v4zm-6 0h4v-4H4v4zm0-6h4v-4H4v4zm6 0h4v-4h-4v4zm6-10v4h4V4h-4zm-6 4h4V4h-4v4zm6 6h4v-4h-4v4zm0 6h4v-4h-4v4z"/></svg>
+        <p>在此处粘贴<strong>网页嵌入</strong>代码</p>
+        <code>&lt;iframe src="http://localhost:8000/embed/chat?token=..."&gt;</code>
+      </div>
+
+    </div>
+  </div>
+
+</div><!-- end .main -->
+
+<!-- 底部 -->
+<div class="footer">
+  HNGD 智能知识助手 · 嵌入测试页 · 仅供内部测试使用
+</div>
+
+
+<!-- ================================================================
+     【聊天球测试区】
+     将 "聊天球" 的脚本代码粘贴到此处（body 末尾）。
+
+     示例代码：
+       <script>
+         window.HNGDChatConfig = {
+           server: 'http://localhost:8000',
+           token:  'hngd-embed-2024'
+         };
+       </script>
+       <script src="http://localhost:8000/static/chat-ball.js"></script>
+     ================================================================ -->
+
+<!-- ▼▼▼ 在此处粘贴聊天球代码 ▼▼▼ -->
+<!-- 在 <body> 末尾粘贴以下两段代码 -->
+<!-- 在 <body> 末尾粘贴以下两段代码 -->
+<script>
+  window.HNGDChatConfig = {
+    server: 'http://localhost:8000',
+    token:  'hngd-embed-2024'
+  };
+</script>
+<script src="http://localhost:8000/static/chat-ball.js"></script>
+
+<!-- ▲▲▲ 聊天球代码结束 ▲▲▲ -->
+
+
+</body>
+</html>
