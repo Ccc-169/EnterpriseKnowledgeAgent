@@ -2,13 +2,15 @@
 # 启动：uvicorn api:app --port 8000
 import asyncio
 import json
+import os
+import uuid
 from datetime import datetime, timedelta
 from pathlib import Path
 
 from dotenv import load_dotenv
 from fastapi import Depends, FastAPI, File, Form, HTTPException, Request, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import StreamingResponse
+from fastapi.responses import FileResponse, StreamingResponse
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from jose import JWTError, jwt
 from pydantic import BaseModel
@@ -41,6 +43,7 @@ from data.conversation_service import (
 _SECRET_KEY         = "hngd-knowledge-agent-secret"   # 生产环境改为环境变量
 _ALGORITHM          = "HS256"
 _TOKEN_EXPIRE_HOURS = 8
+_EMBED_TOKEN        = os.getenv("EMBED_TOKEN", "hngd-embed-2024")
 
 
 def _create_token(user: dict) -> str:
@@ -143,6 +146,12 @@ class UpdateRoleRequest(BaseModel):
 
 class UpdateActiveRequest(BaseModel):
     is_active: bool
+
+
+class EmbedChatRequest(BaseModel):
+    message:     str
+    thread_id:   str | None = None
+    embed_token: str
 
 
 # ── 文档编写辅助 ───────────────────────────────────────
@@ -636,3 +645,48 @@ async def save_interface_configs(request: Request, user: dict = Depends(verify_t
         encoding="utf-8",
     )
     return {"ok": True}
+
+
+# ── 嵌入式对话接口（无需 JWT，embed_token 鉴权）──────────────
+_EMBED_HTML = Path(__file__).parent / "html_files" / "chat-embed.html"
+
+
+@app.get("/embed/chat")
+def embed_chat_page():
+    """提供网页嵌入版对话页面，供 iframe 加载。"""
+    if not _EMBED_HTML.exists():
+        raise HTTPException(status_code=404, detail="嵌入页面尚未部署")
+    return FileResponse(_EMBED_HTML, media_type="text/html")
+
+
+@app.get("/static/chat-ball.js")
+def serve_chat_ball_js():
+    """提供聊天球 widget 脚本，外部前端通过 <script src> 引入。"""
+    js_path = Path(__file__).parent / "html_files" / "chat-ball.js"
+    if not js_path.exists():
+        raise HTTPException(status_code=404, detail="chat-ball.js 尚未部署")
+    return FileResponse(js_path, media_type="application/javascript")
+
+
+@app.post("/api/embed/chat")
+async def embed_chat(req: EmbedChatRequest):
+    """
+    嵌入式对话接口，支持两种调用模式：
+    - 单轮（聊天球）：不传 thread_id，每次生成新 UUID，对话无上下文
+    - 多轮（网页嵌入）：传入 thread_id，LangGraph 保留会话内上下文
+    """
+    if req.embed_token != _EMBED_TOKEN:
+        raise HTTPException(status_code=401, detail="embed_token 无效")
+
+    thread_id    = req.thread_id or f"embed-{uuid.uuid4().hex}"
+    user_context = {"user_id": 0, "username": "embed_guest", "role": "visitor"}
+
+    from agent import chat as agent_chat
+    try:
+        response, _steps, _agent = await asyncio.to_thread(
+            lambda: agent_chat(req.message, thread_id, user_context=user_context)
+        )
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"对话失败：{e}")
+
+    return {"response": response, "thread_id": thread_id}
