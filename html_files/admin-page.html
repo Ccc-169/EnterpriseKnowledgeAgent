@@ -480,6 +480,31 @@
   }
   .btn-primary-modal:hover { background: #1e4a8a; }
   .btn-primary-modal:disabled { background: #a0b4d0; cursor: not-allowed; }
+  .btn-danger-modal {
+    padding: 8px 20px; border: none; border-radius: 7px; background: #c0392b;
+    color: white; font-size: 13px; font-weight: 600; cursor: pointer; font-family: inherit; transition: background 0.15s;
+  }
+  .btn-danger-modal:hover { background: #a93226; }
+  .btn-danger-modal:disabled { background: #d0a0a0; cursor: not-allowed; }
+  .danger-zone {
+    margin-top: 18px; padding-top: 14px;
+    border-top: 1px solid #f0f4f8;
+    display: flex; align-items: center; gap: 8px;
+  }
+  .danger-zone-label { font-size: 12px; color: #b0bdd0; flex: 1; }
+  .btn-open-delete {
+    font-size: 12.5px; font-weight: 500; color: #c0392b; background: none;
+    border: 1px solid rgba(192,57,43,0.25); border-radius: 6px;
+    padding: 5px 12px; cursor: pointer; font-family: inherit; transition: all 0.15s;
+    white-space: nowrap;
+  }
+  .btn-open-delete:hover { background: #fff0f0; border-color: rgba(192,57,43,0.5); }
+  .delete-warning-box {
+    background: #fff8f0; border: 1px solid rgba(224,122,26,0.25);
+    border-radius: 8px; padding: 12px 14px; margin-bottom: 16px;
+    font-size: 13px; color: #7a5a2a; line-height: 1.6;
+  }
+  .delete-warning-box strong { color: #c0392b; }
   /* Toggle switch */
   .toggle-row { display: flex; align-items: center; justify-content: space-between; }
   .toggle-switch { position: relative; width: 44px; height: 24px; flex-shrink: 0; }
@@ -1023,6 +1048,10 @@
         <div id="edit-self-tip" style="display:none;font-size:12px;color:#9aaac0;margin-top:6px">无法禁用当前登录账户</div>
       </div>
       <div class="form-msg" id="edit-user-msg"></div>
+      <div class="danger-zone" id="edit-danger-zone">
+        <span class="danger-zone-label">危险操作</span>
+        <button class="btn-open-delete" id="btn-open-delete" onclick="openDeleteFromEdit()">删除此用户</button>
+      </div>
     </div>
     <div class="modal-footer">
       <button class="btn-cancel" onclick="closeModal('modal-edit-user')">取消</button>
@@ -1082,10 +1111,41 @@
   </div>
 </div>
 
+<!-- ========== Modal: 删除用户确认 ========== -->
+<div class="modal-overlay" id="modal-delete-user">
+  <div class="modal">
+    <div class="modal-header">
+      <h3 style="color:#c0392b">删除用户</h3>
+      <button class="modal-close" onclick="closeModal('modal-delete-user')">✕</button>
+    </div>
+    <div class="modal-body">
+      <div class="delete-warning-box">
+        即将删除用户 <strong id="delete-username-display">—</strong>，此操作将<strong>不可撤销</strong>地删除该用户的全部数据，包括：
+        <ul style="margin:6px 0 0 18px;padding:0">
+          <li>所有历史对话及消息</li>
+          <li>操作审计日志</li>
+          <li>文档生成历史</li>
+        </ul>
+      </div>
+      <div class="form-group">
+        <label class="form-label">请输入用户名 <strong id="delete-username-hint" style="color:#c0392b"></strong> 以确认删除</label>
+        <input class="form-input" id="delete-confirm-input" placeholder="输入用户名确认" oninput="onDeleteConfirmInput()">
+      </div>
+      <div class="form-msg" id="delete-user-msg"></div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn-cancel" onclick="closeModal('modal-delete-user')">取消</button>
+      <button class="btn-danger-modal" id="btn-confirm-delete" onclick="deleteUser()" disabled>确认删除</button>
+    </div>
+  </div>
+</div>
+
 <script>
   const API_BASE = 'http://localhost:8000';
   const ROLE_MAP = { admin: '系统管理员', user: '普通用户', visitor: '访客' };
   let currentEditUserId = null;
+  let currentDeleteUserId = null;
+  let currentDeleteUsername = null;
   const kbState = { page: 1, docPages: {} };
 
   // ── 时钟 ──────────────────────────────────────────────
@@ -1238,6 +1298,7 @@
     document.getElementById('edit-active-toggle').checked     = isActive;
     document.getElementById('edit-active-toggle').disabled    = isSelf;
     document.getElementById('edit-self-tip').style.display    = isSelf ? '' : 'none';
+    document.getElementById('edit-danger-zone').style.display = isSelf ? 'none' : '';
     showMsg('edit-user-msg', '', '');
     openModal('modal-edit-user');
   }
@@ -1278,6 +1339,46 @@
       if (!r.ok) throw new Error((await r.json()).detail || '操作失败');
       loadUsers();
     } catch(err) { alert(err.message); }
+  }
+
+  // ── 删除用户 ──────────────────────────────────────────
+  function openDeleteFromEdit() {
+    const username = document.getElementById('edit-username-display').value;
+    currentDeleteUserId = currentEditUserId;
+    currentDeleteUsername = username;
+    closeModal('modal-edit-user');
+    document.getElementById('delete-username-display').textContent = username;
+    document.getElementById('delete-username-hint').textContent = username;
+    document.getElementById('delete-confirm-input').value = '';
+    document.getElementById('btn-confirm-delete').disabled = true;
+    showMsg('delete-user-msg', '', '');
+    openModal('modal-delete-user');
+    setTimeout(() => document.getElementById('delete-confirm-input').focus(), 220);
+  }
+
+  function onDeleteConfirmInput() {
+    const val = document.getElementById('delete-confirm-input').value;
+    document.getElementById('btn-confirm-delete').disabled = (val !== currentDeleteUsername);
+  }
+
+  async function deleteUser() {
+    const btn = document.getElementById('btn-confirm-delete');
+    btn.disabled = true; btn.textContent = '删除中...';
+    try {
+      const r = await fetch(`${API_BASE}/api/admin/users/${currentDeleteUserId}`, {
+        method: 'DELETE', headers: authHeaders()
+      });
+      const d = await r.json();
+      if (!r.ok) throw new Error(d.detail || '删除失败');
+      closeModal('modal-delete-user');
+      loadUsers();
+      loadStats();
+    } catch(err) {
+      showMsg('delete-user-msg', err.message, 'error');
+      btn.disabled = false;
+    } finally {
+      btn.textContent = '确认删除';
+    }
   }
 
   // ── 审计日志弹窗 ─────────────────────────────────────

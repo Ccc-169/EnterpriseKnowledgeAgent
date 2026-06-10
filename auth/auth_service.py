@@ -118,6 +118,31 @@ def toggle_user_active(user_id: int, is_active: bool) -> bool:
         conn.close()
 
 
+def delete_user(user_id: int) -> bool:
+    """级联删除用户及其全部数据（对话、消息、审计日志、文档历史）。成功返回 True。"""
+    conn = get_db()
+    try:
+        cur = conn.cursor()
+        cur.execute("SELECT id FROM users WHERE id = ?", (user_id,))
+        if not cur.fetchone():
+            return False
+        cur.execute(
+            "DELETE FROM messages WHERE conversation_id IN "
+            "(SELECT id FROM conversations WHERE user_id = ?)", (user_id,)
+        )
+        cur.execute("DELETE FROM conversations WHERE user_id = ?", (user_id,))
+        cur.execute("DELETE FROM audit_logs WHERE user_id = ?", (user_id,))
+        cur.execute("DELETE FROM document_history WHERE user_id = ?", (user_id,))
+        cur.execute("DELETE FROM users WHERE id = ?", (user_id,))
+        conn.commit()
+        return True
+    except Exception:
+        conn.rollback()
+        return False
+    finally:
+        conn.close()
+
+
 # ── 用户自助设置（供用户设置页面调用）─────────────────────────
 
 def update_password(user_id: int, old_password: str, new_password: str) -> tuple[bool, str]:

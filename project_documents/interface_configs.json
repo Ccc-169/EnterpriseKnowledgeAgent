@@ -3,12 +3,12 @@
     {
       "id": "g-alarm",
       "name": "报警管理",
-      "open": true
+      "open": false
     },
     {
       "id": "g-device",
       "name": "设备管理",
-      "open": true
+      "open": false
     },
     {
       "id": "g-hazard",
@@ -18,12 +18,12 @@
     {
       "id": "g-monitor",
       "name": "实时监测",
-      "open": false
+      "open": true
     },
     {
       "id": "g-workorder",
       "name": "工单管理",
-      "open": false
+      "open": true
     }
   ],
   "interfaces": [
@@ -37,18 +37,21 @@
       "params": [
         {
           "key": "start_date",
+          "type": "string",
           "value": "2025-01-01",
           "desc": "查询开始日期，格式 YYYY-MM-DD。【今年】【本月】【最近N天】等需转换为具体日期",
           "enabled": true
         },
         {
           "key": "end_date",
+          "type": "string",
           "value": "2025-06-30",
           "desc": "查询结束日期，格式 YYYY-MM-DD。【当前】【今天】【截至今日】填今日日期",
           "enabled": true
         },
         {
           "key": "level",
+          "type": "string",
           "value": "0",
           "desc": "报警等级筛选（整数）：0=低级，1=中级，2=高级；不传则统计全部等级",
           "enabled": false
@@ -144,18 +147,21 @@
       "params": [
         {
           "key": "area",
+          "type": "string",
           "value": "C区",
           "desc": "监测区域，如 A区、B区、C区；不传则返回全部区域的传感器数据",
           "enabled": true
         },
         {
           "key": "metric",
+          "type": "string",
           "value": "co",
           "desc": "监测指标：co=一氧化碳，temperature=温度，humidity=湿度，smoke=烟雾；不传则返回全部指标",
           "enabled": true
         },
         {
           "key": "state",
+          "type": "string",
           "value": "warning",
           "desc": "预警状态：normal=正常，warning=预警，critical=危险；不传则返回全部状态",
           "enabled": true
@@ -199,6 +205,25 @@
           "desc": "工单类型：maintenance=维护，repair=维修，inspection=巡检；不传则统计全部类型"
         }
       ],
+      "headers": [],
+      "bodyType": "none",
+      "body": "",
+      "bodyText": "",
+      "formRows": [],
+      "authType": "none",
+      "authValue": "",
+      "authKeyName": "X-API-Key",
+      "authUser": "",
+      "authPass": ""
+    },
+    {
+      "id": "mq7dwegrulj",
+      "groupId": null,
+      "name": "",
+      "method": "GET",
+      "url": "",
+      "enabled": true,
+      "params": [],
       "headers": [],
       "bodyType": "none",
       "body": "",

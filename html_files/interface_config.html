@@ -152,8 +152,10 @@
   .kv-header-row { display: grid; grid-template-columns: 18px 1fr 1fr 26px; gap: 8px; padding: 0 2px 4px; }
   .kv-header-cell { font-size: 11.5px; color: #9aaac0; font-weight: 500; }
   .kv-row { display: grid; grid-template-columns: 18px 1fr 1fr 26px; gap: 8px; align-items: center; }
-  .param-header-row { display: grid; grid-template-columns: 18px 1fr 1fr 1.4fr 26px; gap: 8px; padding: 0 2px 4px; }
-  .param-row { display: grid; grid-template-columns: 18px 1fr 1fr 1.4fr 26px; gap: 8px; align-items: center; }
+  .param-header-row { display: grid; grid-template-columns: 18px 1fr 90px 1fr 1.4fr 26px; gap: 8px; padding: 0 2px 4px; }
+  .param-row { display: grid; grid-template-columns: 18px 1fr 90px 1fr 1.4fr 26px; gap: 8px; align-items: center; }
+  .type-select { border: 1px solid #d8e4f4; border-radius: 6px; padding: 6px 20px 6px 7px; font-size: 12px; color: #2a5aa8; font-family: 'SFMono-Regular', Consolas, monospace; outline: none; background: #f4f8ff; cursor: pointer; width: 100%; appearance: none; -webkit-appearance: none; background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='10' viewBox='0 0 24 24' fill='%232a5aa8'%3E%3Cpath d='M7 10l5 5 5-5z'/%3E%3C/svg%3E"); background-repeat: no-repeat; background-position: right 4px center; transition: border-color 0.15s; font-weight: 500; }
+  .type-select:focus { border-color: #2a5aa8; }
   .kv-desc { color: #7a8aaa; font-style: italic; }
   .kv-checkbox { width: 14px; height: 14px; cursor: pointer; accent-color: #2a5aa8; }
   .kv-input { border: 1px solid #d8e4f4; border-radius: 6px; padding: 6px 9px; font-size: 12.5px; color: #1a2a4a; font-family: 'SFMono-Regular', Consolas, 'Microsoft YaHei', monospace; outline: none; background: white; transition: border-color 0.15s; width: 100%; }
@@ -366,7 +368,7 @@
             <!-- Params -->
             <div class="tab-content active" id="tab-params">
               <div>
-                <div class="param-header-row"><div></div><div class="kv-header-cell">参数名</div><div class="kv-header-cell">参数值</div><div class="kv-header-cell">参数说明（供 AI 理解）</div><div></div></div>
+                <div class="param-header-row"><div></div><div class="kv-header-cell">参数名</div><div class="kv-header-cell">类型</div><div class="kv-header-cell">参数值</div><div class="kv-header-cell">参数说明（供 AI 理解）</div><div></div></div>
                 <div id="params-kv"></div>
               </div>
               <button class="kv-add-btn" onclick="addParamRow()">
@@ -525,7 +527,11 @@
           "name": "报警统计",
           "method": "GET",
           "url": "http://localhost:8002/api/alarms/count",
-          "desc": "获取各类报警数量"
+          "desc": "获取各类报警数量",
+          "params": [
+            { "key": "page", "type": "int", "value": "1", "desc": "页码", "enabled": true },
+            { "key": "keyword", "type": "string", "value": "", "desc": "关键词", "enabled": true }
+          ]
         }
       ]
     }
@@ -771,9 +777,13 @@
     const div = document.createElement('div');
     div.className = 'param-row';
     div.style.marginBottom = '6px';
+    const types = ['string','int','float','bool','list','object','any'];
+    const selType = row?.type || 'string';
+    const typeOptions = types.map(t => `<option value="${t}"${t===selType?' selected':''}>${t}</option>`).join('');
     div.innerHTML = `
       <input type="checkbox" class="kv-checkbox" ${(row?.enabled!==false)?'checked':''} onchange="updateTabCounts()">
       <input type="text" class="kv-input" placeholder="Key"   value="${esc(row?.key||'')}" oninput="updateTabCounts()">
+      <select class="type-select">${typeOptions}</select>
       <input type="text" class="kv-input" placeholder="Value" value="${esc(row?.value||'')}">
       <input type="text" class="kv-input kv-desc" placeholder="说明（可选，供 AI 理解参数含义）" value="${esc(row?.desc||'')}">
       <button class="kv-del-btn" onclick="this.closest('.param-row').remove();updateTabCounts()" title="删除">
@@ -798,7 +808,8 @@
   function getParamRows() {
     return Array.from(document.querySelectorAll('#params-kv .param-row')).map(row => {
       const inputs = row.querySelectorAll('.kv-input');
-      return { key: inputs[0]?.value||'', value: inputs[1]?.value||'', desc: inputs[2]?.value||'', enabled: row.querySelector('.kv-checkbox')?.checked!==false };
+      const type   = row.querySelector('.type-select')?.value || 'string';
+      return { key: inputs[0]?.value||'', type, value: inputs[1]?.value||'', desc: inputs[2]?.value||'', enabled: row.querySelector('.kv-checkbox')?.checked!==false };
     });
   }
 

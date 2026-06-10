@@ -24,7 +24,7 @@ init_db()
 from audit.audit_service import log_event
 from auth.auth_service import (
     authenticate_user, update_display_name, update_password, update_avatar,
-    create_user, list_users, update_user_role, toggle_user_active,
+    create_user, list_users, update_user_role, toggle_user_active, delete_user,
 )
 from audit.audit_service import get_logs, get_summary_stats
 from data.document_service import generate_title_from_requirements, save_document
@@ -533,6 +533,18 @@ def admin_toggle_active(target_id: int, req: UpdateActiveRequest, user: dict = D
     if target_id == user["user_id"] and not req.is_active:
         raise HTTPException(status_code=400, detail="不能禁用当前登录账户")
     ok = toggle_user_active(target_id, req.is_active)
+    if not ok:
+        raise HTTPException(status_code=404, detail="用户不存在")
+    log_event(user["user_id"], user["username"], "admin_op", status="success")
+    return {"ok": True}
+
+
+@app.delete("/api/admin/users/{target_id}")
+def admin_delete_user(target_id: int, user: dict = Depends(require_admin)):
+    """删除用户及其全部历史数据（对话、消息、审计日志、文档历史），不可撤销。"""
+    if target_id == user["user_id"]:
+        raise HTTPException(status_code=400, detail="不能删除当前登录账户")
+    ok = delete_user(target_id)
     if not ok:
         raise HTTPException(status_code=404, detail="用户不存在")
     log_event(user["user_id"], user["username"], "admin_op", status="success")

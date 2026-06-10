@@ -1,6 +1,49 @@
 ﻿# 开发日志列表
 :
 
+## 2026-06-10 (接口配置页参数类型列)
+
+**功能**：接口配置页 Params 面板新增"类型"列，支持为每个参数指定数据类型；已配置接口的参数加载时自动显示类型。
+
+**方案**：
+- Params 行从 5 列扩为 6 列（checkbox | 参数名 | **类型** | 参数值 | 说明 | 删除），grid 更新为 `18px 1fr 90px 1fr 1.4fr 26px`。
+- 类型下拉选项：`string`、`int`、`float`、`bool`、`list`、`object`、`any`，蓝色 monospace 样式与系统统一。
+- 旧数据兼容：无 `type` 字段时自动 fallback 为 `string`，打开旧接口不报错，保存一次后自动补全。
+- 数据模型扩展：`params` 数组每项新增 `type` 字段，随整体 JSON blob 持久化，无需后端改动。
+- 导入格式示例同步更新，展示带 `type` 字段的参数写法。
+
+**修改文件**：`html_files/interface_config.html`
+
+**时间**：2026-06-10
+
+---
+
+## 2026-06-10 (管理员界面删除用户功能)
+
+**功能**：管理员界面"用户管理"新增删除用户，级联清除该用户的全部历史数据，需二次确认。
+
+**方案**：
+- 删除入口置于"编辑用户"弹窗底部的危险操作区（非表格行内），减少误触风险。
+- 当前登录账户自动隐藏删除入口，防止管理员自删。
+- 删除确认弹窗要求管理员手动键入目标用户名后"确认删除"按钮才激活，为最强防误触机制。
+- 级联删除顺序：messages → conversations → audit_logs → document_history → users，单事务保证原子性。
+- 配色与风格沿用系统现有设计，危险按钮使用深红色（`#c0392b`）。
+
+**后端** (`auth/auth_service.py`, `api.py`)：
+- `auth_service.py`：新增 `delete_user(user_id)` 函数，事务内按顺序级联删除，用户不存在返回 `False`。
+- `api.py`：导入 `delete_user`，新增 `DELETE /api/admin/users/{target_id}` 端点；禁止删除自身账户（400），用户不存在（404），成功写入 admin_op 审计日志。
+
+**前端** (`html_files/admin-page.html`)：
+- 新增 CSS：`btn-danger-modal`、`danger-zone`、`btn-open-delete`、`delete-warning-box`。
+- 编辑弹窗底部加"危险操作"分区 + "删除此用户"入口按钮。
+- 新增删除确认弹窗（`modal-delete-user`）：展示将删除的数据范围 → 手动输入用户名验证 → 确认删除。
+
+**修改文件**：`auth/auth_service.py`、`api.py`、`html_files/admin-page.html`
+
+**时间**：2026-06-10
+
+---
+
 ## 2026-06-05 (对话嵌入功能)
 
 **功能**：新增"对话嵌入"，支持将智能对话以聊天球或网页 iframe 两种方式嵌入到外部前端项目。
