@@ -5,7 +5,7 @@ import streamlit as st
 from auth.session import get_current_user, require_role
 from auth.auth_service import create_user, list_users, update_user_role, toggle_user_active
 from audit.audit_service import get_logs, get_summary_stats, log_event
-from data.dify_service import list_datasets, list_documents
+from data.ragflow_service import list_datasets, list_documents
 
 
 def render():

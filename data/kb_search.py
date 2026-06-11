@@ -9,9 +9,9 @@ data/kb_search.py — Dify 知识库语义检索
 import os
 import requests
 
-DIFY_API_BASE = os.environ.get("DIFY_API_BASE", "https://api.dify.ai/v1")
-DIFY_API_KEY = os.environ.get("DIFY_DATASET_KEY", "")
-DIFY_KB_ID = os.environ.get("DIFY_KB_ID", "")
+RAGFLOW_API_BASE   = os.environ.get("RAGFLOW_API_BASE", "http://localhost/api/v1")
+RAGFLOW_API_KEY    = os.environ.get("RAGFLOW_API_KEY", "")
+RAGFLOW_DATASET_ID = os.environ.get("RAGFLOW_DATASET_ID", "")
 
 
 def search_knowledge_base(query: str, top_k: int = 5) -> list:
@@ -25,30 +25,42 @@ def search_knowledge_base(query: str, top_k: int = 5) -> list:
         list[dict]，每条：{"score": float, "segment": {"document": {"name": str}, "content": str}}
         网络错误或未配置时返回空列表。
     """
-    if not DIFY_API_KEY or not DIFY_KB_ID:
+    if not RAGFLOW_API_KEY or not RAGFLOW_DATASET_ID:
         return []
 
     try:
         resp = requests.post(
-            f"{DIFY_API_BASE}/datasets/{DIFY_KB_ID}/retrieve",
+            f"{RAGFLOW_API_BASE}/retrieval",
             headers={
-                "Authorization": f"Bearer {DIFY_API_KEY}",
+                "Authorization": f"Bearer {RAGFLOW_API_KEY}",
                 "Content-Type": "application/json",
             },
             json={
-                "query": query,
-                "retrieval_model": {
-                    "search_method": "semantic_search",
-                    "reranking_enable": False,
-                    "top_k": top_k,
-                    "score_threshold_enabled": False,
-                },
+                "question": query,
+                "dataset_ids": [RAGFLOW_DATASET_ID],
+                "page": 1,
+                "page_size": top_k,
+                "similarity_threshold": 0.2,
+                "vector_similarity_weight": 0.3,
+                "keyword": False,
             },
             timeout=30,
         )
         if resp.status_code != 200:
             return []
-        return resp.json().get("records", [])
+        data = resp.json().get("data", {})
+        chunks = data.get("chunks", [])
+        doc_name_map = {d["doc_id"]: d["doc_name"] for d in data.get("doc_aggs", [])}
+        return [
+            {
+                "score": c.get("similarity", 0),
+                "segment": {
+                    "content": c.get("content", ""),
+                    "document": {"name": doc_name_map.get(c.get("document_id", ""), "未知文档")},
+                },
+            }
+            for c in chunks
+        ]
     except Exception:
         return []
 

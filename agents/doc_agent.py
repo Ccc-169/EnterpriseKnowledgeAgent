@@ -150,9 +150,9 @@ def _format_kb_records(records: list, max_chars: int = 4000) -> str:
 
 def create_doc_agent(llm):
 
-    DIFY_BASE_URL = os.environ.get("DIFY_API_BASE", "https://api.dify.ai/v1")
-    DIFY_API_KEY  = os.environ.get("DIFY_DATASET_KEY", "")
-    DIFY_KB_ID    = os.environ.get("DIFY_KB_ID", "")
+    RAGFLOW_BASE_URL   = os.environ.get("RAGFLOW_API_BASE", "http://localhost/api/v1")
+    RAGFLOW_API_KEY    = os.environ.get("RAGFLOW_API_KEY", "")
+    RAGFLOW_DATASET_ID = os.environ.get("RAGFLOW_DATASET_ID", "")
 
     @tool
     def search_knowledge_base(query: str) -> str:
@@ -163,32 +163,44 @@ def create_doc_agent(llm):
         参数：
           query - 检索查询词（通常是用户的需求描述或关键词）
         """
-        if not DIFY_API_KEY or not DIFY_KB_ID:
-            return "知识库未配置（缺少 DIFY_DATASET_KEY 或 DIFY_KB_ID 环境变量）。"
+        if not RAGFLOW_API_KEY or not RAGFLOW_DATASET_ID:
+            return "知识库未配置（缺少 RAGFLOW_API_KEY 或 RAGFLOW_DATASET_ID 环境变量）。"
 
         try:
             resp = requests.post(
-                f"{DIFY_BASE_URL}/datasets/{DIFY_KB_ID}/retrieve",
+                f"{RAGFLOW_BASE_URL}/retrieval",
                 headers={
-                    "Authorization": f"Bearer {DIFY_API_KEY}",
+                    "Authorization": f"Bearer {RAGFLOW_API_KEY}",
                     "Content-Type": "application/json",
                 },
                 json={
-                    "query": query,
-                    "retrieval_model": {
-                        "search_method": "semantic_search",
-                        "reranking_enable": False,
-                        "top_k": 5,
-                        "score_threshold_enabled": False,
-                    },
+                    "question": query,
+                    "dataset_ids": [RAGFLOW_DATASET_ID],
+                    "page": 1,
+                    "page_size": 5,
+                    "similarity_threshold": 0.2,
+                    "vector_similarity_weight": 0.3,
+                    "keyword": False,
                 },
                 timeout=30,
             )
             if resp.status_code != 200:
                 return f"知识库检索失败：HTTP {resp.status_code}"
-            records = resp.json().get("records", [])
-            if not records:
+            data = resp.json().get("data", {})
+            chunks = data.get("chunks", [])
+            if not chunks:
                 return "知识库中未检索到相关文档内容。"
+            doc_name_map = {d["doc_id"]: d["doc_name"] for d in data.get("doc_aggs", [])}
+            records = [
+                {
+                    "score": c.get("similarity", 0),
+                    "segment": {
+                        "content": c.get("content", ""),
+                        "document": {"name": doc_name_map.get(c.get("document_id", ""), "未知文档")},
+                    },
+                }
+                for c in chunks
+            ]
             formatted = _format_kb_records(records)
             return f"=== 知识库参考资料 ===\n{formatted}"
         except Exception as e:
