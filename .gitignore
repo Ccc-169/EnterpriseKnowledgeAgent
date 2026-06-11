@@ -50,6 +50,9 @@ trace_export*.json
 test_trace/
 generated-images/
 
+# ── 文档解包临时文件 ────────────────────────────────
+project_documents/unpacked_deploy/
+
 # ── 代码审查 / 覆盖率 ────────────────────────────────
 .coverage
 htmlcov/
