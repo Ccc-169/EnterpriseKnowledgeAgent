@@ -18,23 +18,23 @@ load_dotenv()
 
 # ── LLM ──────────────────────────────────────────────
 # 云端 Qwen API（按量计费）
-llm = ChatOpenAI(
-    model="qwen-plus",
-    base_url="https://dashscope.aliyuncs.com/compatible-mode/v1",
-    api_key=os.environ["QWEN_API_KEY"],
-    temperature=0,
-    max_tokens=8192,
-    timeout=300,
-    max_retries=2,
-)
+# llm = ChatOpenAI(
+#     model="qwen-plus",
+#     base_url="https://dashscope.aliyuncs.com/compatible-mode/v1",
+#     api_key=os.environ["QWEN_API_KEY"],
+#     temperature=0,
+#     max_tokens=8192,
+#     timeout=300,
+#     max_retries=2,
+# )
 
 # # 本地 Ollama（需先启动 Ollama 服务，模型名根据本地部署情况修改）
-# llm = ChatOpenAI(
-#     model="qwen3.6:35b",
-#     base_url="http://192.168.1.155:11434/v1",
-#     api_key="ollama",
-#     temperature=0,
-# )
+llm = ChatOpenAI(
+    model="qwen3.6:35b",
+    base_url="http://192.168.1.155:11434/v1",
+    api_key="ollama",
+    temperature=0,
+)
 
 
 

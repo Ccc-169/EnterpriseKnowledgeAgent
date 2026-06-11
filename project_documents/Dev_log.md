@@ -911,3 +911,20 @@
 - 修改 `.env.example` 补充可选的 `DIFY_API_BASE` 配置说明（默认 `https://api.dify.ai/v1`）
 
 **时间**：2026-05-17 12:40 - 13:00
+
+---
+
+## 2026-06-11 (对接真实数据接口)
+
+**功能**：实现从 Swagger 服务导入真实 API 规范、在线测试、接口查询与必填校验。
+
+**方案**：
+- **导入引擎**：支持 Swagger URL 自动探测（`/v3/api-docs`、`/v2/api-docs`、`/swagger.json`、`/api-docs`），也支持直接粘贴 JSON 规范；解析后按服务名归类保存到 `data_interface/`。
+- **混合存储**：`data_interface/` JSON 文件为 Source of Truth，启动时自动扫描并同步到 SQLite `data_interfaces` 索引表，支持按用户权限过滤可见接口。
+- **在线测试**：前端"接口查询"页面选择接口 → 填参 → 发送请求，后端通过 `requests` 真实调用目标服务并展示响应（状态码、耗时、响应体）。
+- **必填校验**：前后端双重校验 `parameters[].required`，不填则拦截提示，不再静默发送缺失参数的请求。
+- **安全隔离**：`data_interface/` 纳入 `.gitignore`，不随代码推送；他人部署后通过"从 Swagger URL 导入"即可重建。
+
+**修改/新增文件**：`data/interface_service.py`、`html_files/interface_config.html`、`scripts/import_swagger_specs.py`、`.gitignore`
+
+**时间**：2026-06-11

@@ -38,6 +38,21 @@ from data.conversation_service import (
     save_message,
     update_conversation_title,
 )
+from data.interface_service import (
+    sync_data_interfaces_index,
+    get_interface_tree,
+    get_interface_detail,
+    import_from_swagger_url,
+    import_from_json_content,
+    delete_single_interface,
+    delete_interface_file,
+    delete_service_directory,
+    get_user_interface_permissions,
+    set_user_interface_permissions,
+    set_user_all_interface_access,
+    list_all_services,
+    test_interface,
+)
 
 # ── JWT 配置 ──────────────────────────────────────────
 _SECRET_KEY         = "hngd-knowledge-agent-secret"   # 生产环境改为环境变量
@@ -152,6 +167,23 @@ class EmbedChatRequest(BaseModel):
     message:     str
     thread_id:   str | None = None
     embed_token: str
+
+
+# ── 系统接口管理相关模型 ─────────────────────────────────
+class SwaggerImportRequest(BaseModel):
+    url:          str
+    service_name: str = ""
+
+
+class PermissionUpdateRequest(BaseModel):
+    granted_ids: list[int] = []
+    revoked_ids: list[int] = []
+
+
+class InterfaceTestRequest(BaseModel):
+    params:   dict = {}
+    body:     dict | None = None
+    base_url: str = ""
 
 
 # ── 文档编写辅助 ───────────────────────────────────────
@@ -633,7 +665,154 @@ def admin_list_data_files(user: dict = Depends(require_admin)):
     return {"dir": str(data_dir), "files": files}
 
 
-# ── 接口配置存取 ──────────────────────────────────────────
+# ── 启动时同步接口索引 ──────────────────────────────────────
+@app.on_event("startup")
+def on_startup():
+    """应用启动时扫描 data_interface/ 目录，同步接口索引到数据库。"""
+    try:
+        count = sync_data_interfaces_index(force=False)
+        if count > 0:
+            print(f"[STARTUP] 接口索引已同步，新增/更新 {count} 条记录")
+    except Exception as e:
+        print(f"[STARTUP] 接口索引同步失败: {e}")
+
+
+# ── 系统接口浏览（所有登录用户可用）───────────────────────
+@app.get("/api/system-interfaces/tree")
+def api_interface_tree(user: dict = Depends(verify_token)):
+    """返回当前用户有权访问的接口树结构。"""
+    return get_interface_tree(user["user_id"], user["role"])
+
+
+@app.get("/api/system-interfaces/{interface_id}/detail")
+def api_interface_detail(interface_id: int, user: dict = Depends(verify_token)):
+    """返回单个接口的完整定义。"""
+    detail = get_interface_detail(interface_id)
+    if not detail:
+        raise HTTPException(status_code=404, detail="接口不存在")
+    return detail
+
+
+@app.post("/api/system-interfaces/{interface_id}/test")
+def api_interface_test(interface_id: int, req: InterfaceTestRequest, user: dict = Depends(verify_token)):
+    """代理发送接口测试请求，返回目标服务的响应。"""
+    result = test_interface(
+        interface_id,
+        params=req.params,
+        body=req.body,
+        base_url_override=req.base_url,
+    )
+    return result
+
+
+# ── 管理员 — 接口导入 ──────────────────────────────────────
+@app.post("/api/admin/interfaces/import-from-url")
+def admin_import_from_url(req: SwaggerImportRequest, user: dict = Depends(require_admin)):
+    """管理员通过 Swagger URL 导入接口。"""
+    if not req.url:
+        raise HTTPException(status_code=400, detail="URL 不能为空")
+    result = import_from_swagger_url(req.url, req.service_name)
+    if not result["ok"]:
+        raise HTTPException(status_code=400, detail=result["message"])
+    log_event(user["user_id"], user["username"], "import_interfaces_url", status="success")
+    return result
+
+
+@app.post("/api/admin/interfaces/import-from-json")
+async def admin_import_from_json(request: Request, user: dict = Depends(require_admin)):
+    """管理员上传 OpenAPI JSON 文件导入接口。"""
+    try:
+        body = await request.json()
+    except Exception:
+        raise HTTPException(status_code=400, detail="请求体必须是 JSON 格式")
+
+    service_name = body.pop("service_name", "")
+    result = import_from_json_content(json.dumps(body, ensure_ascii=False), service_name=service_name)
+    if not result["ok"]:
+        raise HTTPException(status_code=400, detail=result["message"])
+    log_event(user["user_id"], user["username"], "import_interfaces_json", status="success")
+    return result
+
+
+# ── 管理员 — 接口删除 ──────────────────────────────────────
+@app.delete("/api/admin/interfaces/{interface_id}")
+def admin_delete_single_interface(interface_id: int, user: dict = Depends(require_admin)):
+    """管理员删除单个接口（仅从索引中移除）。"""
+    result = delete_single_interface(interface_id)
+    if not result["ok"]:
+        raise HTTPException(status_code=404, detail=result["message"])
+    log_event(user["user_id"], user["username"], "delete_interface", status="success")
+    return result
+
+
+@app.delete("/api/admin/interfaces/file/{service_name}/{file_name}")
+def admin_delete_interface_file(service_name: str, file_name: str, user: dict = Depends(require_admin)):
+    """管理员删除一个接口文件（文件 + 索引）。"""
+    result = delete_interface_file(service_name, file_name)
+    if not result["ok"]:
+        raise HTTPException(status_code=404, detail=result["message"])
+    log_event(user["user_id"], user["username"], "delete_interface_file", status="success")
+    return result
+
+
+@app.delete("/api/admin/interfaces/service/{service_name}")
+def admin_delete_service(service_name: str, user: dict = Depends(require_admin)):
+    """管理员删除整个服务目录（目录 + 全部索引）。"""
+    result = delete_service_directory(service_name)
+    if not result["ok"]:
+        raise HTTPException(status_code=404, detail=result["message"])
+    log_event(user["user_id"], user["username"], "delete_service", status="success")
+    return result
+
+
+# ── 管理员 — 用户接口权限管理 ──────────────────────────────
+@app.get("/api/admin/user-permissions/{user_id}")
+def admin_get_user_permissions(user_id: int, user: dict = Depends(require_admin)):
+    """查看指定用户的接口权限。"""
+    return get_user_interface_permissions(user_id)
+
+
+@app.put("/api/admin/user-permissions/{user_id}")
+def admin_set_user_permissions(
+    user_id: int,
+    req: PermissionUpdateRequest,
+    user: dict = Depends(require_admin),
+):
+    """批量设置用户的接口权限（授权 + 撤销）。"""
+    result = set_user_interface_permissions(user_id, req.granted_ids, req.revoked_ids)
+    log_event(user["user_id"], user["username"], "update_permissions", status="success")
+    return result
+
+
+@app.put("/api/admin/user-permissions/{user_id}/grant-all")
+def admin_grant_all(user_id: int, user: dict = Depends(require_admin)):
+    """一键授予用户所有接口的访问权限。"""
+    result = set_user_all_interface_access(user_id, granted=True)
+    log_event(user["user_id"], user["username"], "grant_all_permissions", status="success")
+    return result
+
+
+@app.put("/api/admin/user-permissions/{user_id}/revoke-all")
+def admin_revoke_all(user_id: int, user: dict = Depends(require_admin)):
+    """一键撤销用户所有接口的访问权限。"""
+    result = set_user_all_interface_access(user_id, granted=False)
+    log_event(user["user_id"], user["username"], "revoke_all_permissions", status="success")
+    return result
+
+
+@app.get("/api/admin/services/list")
+def admin_list_services(user: dict = Depends(require_admin)):
+    """列出所有已索引的服务名。"""
+    return {"services": list_all_services()}
+
+
+@app.get("/api/admin/interfaces/all")
+def admin_get_all_interfaces(user: dict = Depends(require_admin)):
+    """管理员查看所有接口（用于管理面板）。"""
+    return get_interface_tree(user["user_id"], user["role"])
+
+
+# ── 接口配置存取（保留原有功能）──────────────────────────────
 _IFACE_CONFIGS_PATH = Path(__file__).parent / "project_documents" / "interface_configs.json"
 
 

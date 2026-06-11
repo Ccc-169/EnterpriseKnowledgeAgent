@@ -45,6 +45,7 @@ build/
 
 # ── 运行时数据 ───────────────────────────────────────
 data/files/
+data_interface/
 trace_export*.json
 test_trace/
 generated-images/

@@ -21,7 +21,7 @@ AGENT_REGISTRY = {
     },
     "api_agent": {
         "name": "API 接口查询智能体",
-        "description": "调用已配置的 HTTP 接口获取实时数据",
+        "description": "调用 data_interface/ 下 OpenAPI 规范对应的真实 HTTP 接口，获取实时业务数据",
         "required_role": ["user", "admin"],
         "enabled": True,
     },

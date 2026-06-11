@@ -76,6 +76,38 @@ CREATE TABLE IF NOT EXISTS document_history (
 );
 """
 
+_CREATE_DATA_INTERFACES_TABLE = """
+CREATE TABLE IF NOT EXISTS data_interfaces (
+    id              INTEGER PRIMARY KEY AUTOINCREMENT,
+    service_name    TEXT NOT NULL,
+    file_name       TEXT NOT NULL,
+    path            TEXT NOT NULL,
+    method          TEXT NOT NULL,
+    summary         TEXT,
+    operation_id    TEXT,
+    parameters      TEXT,
+    tags            TEXT,
+    spec_file_path  TEXT NOT NULL,
+    file_mtime      REAL,
+    enabled         INTEGER NOT NULL DEFAULT 1,
+    indexed_at      TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE(service_name, file_name, path, method)
+);
+"""
+
+_CREATE_USER_INTERFACE_ACCESS_TABLE = """
+CREATE TABLE IF NOT EXISTS user_interface_access (
+    id              INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id         INTEGER NOT NULL,
+    interface_id    INTEGER NOT NULL,
+    granted         INTEGER NOT NULL DEFAULT 0,
+    updated_at      TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+    FOREIGN KEY (interface_id) REFERENCES data_interfaces(id) ON DELETE CASCADE,
+    UNIQUE(user_id, interface_id)
+);
+"""
+
 
 def get_db() -> sqlite3.Connection:
     """返回数据库连接，自动创建 ./data/ 目录。"""
@@ -98,6 +130,8 @@ def init_db() -> None:
         conn.execute(_CREATE_CONVERSATIONS_TABLE)
         conn.execute(_CREATE_MESSAGES_TABLE)
         conn.execute(_CREATE_DOCUMENT_HISTORY_TABLE)
+        conn.execute(_CREATE_DATA_INTERFACES_TABLE)
+        conn.execute(_CREATE_USER_INTERFACE_ACCESS_TABLE)
         # 迁移：为已有 messages 表添加 question_vec 列（列已存在则跳过）
         try:
             conn.execute(_MIGRATE_MESSAGES_QUESTION_VEC)

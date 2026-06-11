@@ -3,7 +3,7 @@
     {
       "id": "g-alarm",
       "name": "报警管理",
-      "open": false
+      "open": true
     },
     {
       "id": "g-device",
@@ -18,12 +18,12 @@
     {
       "id": "g-monitor",
       "name": "实时监测",
-      "open": true
+      "open": false
     },
     {
       "id": "g-workorder",
       "name": "工单管理",
-      "open": true
+      "open": false
     }
   ],
   "interfaces": [
@@ -205,25 +205,6 @@
           "desc": "工单类型：maintenance=维护，repair=维修，inspection=巡检；不传则统计全部类型"
         }
       ],
-      "headers": [],
-      "bodyType": "none",
-      "body": "",
-      "bodyText": "",
-      "formRows": [],
-      "authType": "none",
-      "authValue": "",
-      "authKeyName": "X-API-Key",
-      "authUser": "",
-      "authPass": ""
-    },
-    {
-      "id": "mq7dwegrulj",
-      "groupId": null,
-      "name": "",
-      "method": "GET",
-      "url": "",
-      "enabled": true,
-      "params": [],
       "headers": [],
       "bodyType": "none",
       "body": "",
