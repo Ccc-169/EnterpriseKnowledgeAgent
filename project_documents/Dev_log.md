@@ -914,6 +914,23 @@
 
 ---
 
+## 2026-06-11 (知识库后端从 Dify 迁移至 RAGFlow)
+
+**功能**：将 rag_agent、doc_agent 及管理员知识库页面的检索后端从 Dify 切换为自建 RAGFlow 实例（192.168.1.155）。
+
+**方案**：
+- **检索接口**：`POST /datasets/{id}/retrieve`（Dify）→ `POST /retrieval`（RAGFlow）；请求体 `query` → `question`，`top_k` 嵌套对象 → 平铺 `page_size`，`dataset_ids` 数组传参；响应 `records[]` → `data.chunks[]` + `data.doc_aggs[]` 合并重组为内部统一格式，业务层无感知。
+- **文档列表接口**：路径不变，响应从 `data[]` 改为 `data.docs[]`，翻页终止条件改为与 `total` 对比；状态字段 `indexing_status=="completed"` → `run=="DONE"`。
+- **知识库列表接口**：路径不变，分页参数 `limit` → `page_size`。
+- **新增** `data/ragflow_service.py`，替代 `data/dify_service.py`；函数签名保持不变，调用方 `api.py`、`admin_page.py` 仅改 import。
+- **环境变量**：`DIFY_DATASET_KEY`/`DIFY_KB_ID`/`DIFY_API_BASE` → `RAGFLOW_API_KEY`/`RAGFLOW_DATASET_ID`/`RAGFLOW_API_BASE`；`.env.example` 注释旧 Dify 变量，补充 RAGFlow 变量。
+
+**修改文件**：`agents/rag_agent.py`、`agents/doc_agent.py`、`data/kb_search.py`、`data/ragflow_service.py`（新建）、`api.py`、`pages/admin_page.py`、`.env.example`
+
+**时间**：2026-06-11
+
+---
+
 ## 2026-06-11 (对接真实数据接口)
 
 **功能**：实现从 Swagger 服务导入真实 API 规范、在线测试、接口查询与必填校验。

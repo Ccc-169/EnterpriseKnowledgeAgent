@@ -611,11 +611,11 @@ async def admin_list_datasets(
     limit: int  = 20,
     user:  dict = Depends(require_admin),
 ):
-    """获取 Dify 知识库列表（分页）。未配置 DIFY_DATASET_KEY 时返回 503。"""
+    """获取 RAGFlow 知识库列表（分页）。未配置 RAGFLOW_API_KEY 时返回 503。"""
     import os
-    if not os.environ.get("DIFY_DATASET_KEY"):
-        raise HTTPException(status_code=503, detail="未配置 DIFY_DATASET_KEY，请在 .env 文件中配置后重启服务")
-    from data.dify_service import list_datasets
+    if not os.environ.get("RAGFLOW_API_KEY"):
+        raise HTTPException(status_code=503, detail="未配置 RAGFLOW_API_KEY，请在 .env 文件中配置后重启服务")
+    from data.ragflow_service import list_datasets
     try:
         return await asyncio.to_thread(list_datasets, page, limit)
     except RuntimeError as e:
@@ -631,9 +631,9 @@ async def admin_list_documents(
 ):
     """获取指定知识库的文档列表（分页）。"""
     import os
-    if not os.environ.get("DIFY_DATASET_KEY"):
-        raise HTTPException(status_code=503, detail="未配置 DIFY_DATASET_KEY，请在 .env 文件中配置后重启服务")
-    from data.dify_service import list_documents
+    if not os.environ.get("RAGFLOW_API_KEY"):
+        raise HTTPException(status_code=503, detail="未配置 RAGFLOW_API_KEY，请在 .env 文件中配置后重启服务")
+    from data.ragflow_service import list_documents
     try:
         return await asyncio.to_thread(list_documents, dataset_id, page, limit)
     except RuntimeError as e:
