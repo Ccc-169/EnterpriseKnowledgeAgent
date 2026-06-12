@@ -189,9 +189,7 @@ def _log_records(records: list, query: str) -> None:
 
 def create_rag_agent(llm):
 
-    RAGFLOW_BASE_URL  = os.environ.get("RAGFLOW_API_BASE", "http://localhost/api/v1")
-    RAGFLOW_API_KEY   = os.environ["RAGFLOW_API_KEY"]
-    RAGFLOW_DATASET_ID = os.environ["RAGFLOW_DATASET_ID"]
+    from core.config import RAGFLOW_API_BASE as RAGFLOW_BASE_URL, RAGFLOW_API_KEY, RAGFLOW_DATASET_ID
 
     # ── 答案质量后校验（v2.0：仅日志记录，不修改答案）─
     def _post_check_answer(raw_answer: str, context_text: str = "") -> str:

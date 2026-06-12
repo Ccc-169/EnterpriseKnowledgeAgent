@@ -4,13 +4,8 @@ data/dify_service.py — Dify 知识库 API 封装
 提供知识库和文档的查询接口，供管理员页面调用。
 """
 
-import os
-
 import requests
-
-
-DIFY_API_BASE = os.environ.get("DIFY_API_BASE", "https://api.dify.ai/v1")
-DIFY_API_KEY = os.environ.get("DIFY_DATASET_KEY", "")
+from core.config import DIFY_API_BASE, DIFY_DATASET_KEY as DIFY_API_KEY
 
 
 def _headers() -> dict:

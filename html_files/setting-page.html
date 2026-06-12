@@ -687,6 +687,7 @@
     z-index: 1;
   }
 </style>
+<script src="config.js"></script>
 </head>
 <body>
 
@@ -1030,7 +1031,7 @@
 
 <script>
   const ROLE_MAP = { admin: '系统管理员', user: '普通用户', visitor: '访客' };
-  const API_BASE = 'http://localhost:8000';
+  const API_BASE = window.APP_CONFIG.api_base;
 
   // ── 时钟 ──────────────────────────────────────────────
   function updateClock() {

@@ -255,6 +255,7 @@
   .test-resp-body.empty { background: #f6f9fc; color: #b0bdd0; text-align: center; padding: 24px; }
   .test-no-base-url { padding: 12px 14px; background: #fff8e8; border: 1px solid #f0d080; border-radius: 7px; color: #c08a20; font-size: 12px; }
 </style>
+<script src="config.js"></script>
 </head>
 <body>
 <div id="iface-page">
@@ -406,7 +407,7 @@
 </div>
 
 <script>
-  const API_BASE = 'http://localhost:8000';
+  const API_BASE = window.APP_CONFIG.api_base;
   let currentUser = null;
   let isAdmin = false;
   let interfaceTree = null;

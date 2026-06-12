@@ -502,6 +502,7 @@
   }
   .embed-footer-btn:hover { border-color: #2a5aa8; background: #f0f5ff; color: #1a3a7e; }
 </style>
+<script src="config.js"></script>
 </head>
 <body>
 
@@ -892,7 +893,7 @@
   }
 
   async function logout() {
-    try { await fetch('http://localhost:8000/api/auth/logout', { method: 'POST', headers: { 'Authorization': 'Bearer ' + localStorage.getItem('token') } }); } catch(e) {}
+    try { await fetch(window.APP_CONFIG.api_base + '/api/auth/logout', { method: 'POST', headers: { 'Authorization': 'Bearer ' + localStorage.getItem('token') } }); } catch(e) {}
     localStorage.clear();
     window.location.href = 'login-page.html';
   }
@@ -902,17 +903,19 @@
   // ========== EMBED MODAL ==========
   let _eMode = 'ball', _eFw = 'html';
 
-  const _eCodes = {
-    ball: {
-      html: `<!-- 在 <body> 末尾粘贴以下两段代码 -->
+  function _eCodes() {
+    const base = window.APP_CONFIG.api_base;
+    return {
+      ball: {
+        html: `<!-- 在 <body> 末尾粘贴以下两段代码 -->
 <script>
   window.HNGDChatConfig = {
-    server: 'http://localhost:8000',
+    server: '${base}',
     token:  'hngd-embed-2024'
   };
 <\/script>
-<script src="http://localhost:8000/static/chat-ball.js"><\/script>`,
-      vue: `<!-- 在 App.vue 或入口组件的 onMounted 中注入 -->
+<script src="${base}/static/chat-ball.js"><\/script>`,
+        vue: `<!-- 在 App.vue 或入口组件的 onMounted 中注入 -->
 <template>
   <div>
     <!-- 其他页面内容 -->
@@ -924,19 +927,19 @@ import { onMounted } from 'vue'
 
 onMounted(() => {
   window.HNGDChatConfig = {
-    server: 'http://localhost:8000',
+    server: '${base}',
     token:  'hngd-embed-2024'
   }
   const s = document.createElement('script')
-  s.src = 'http://localhost:8000/static/chat-ball.js'
+  s.src = '${base}/static/chat-ball.js'
   document.body.appendChild(s)
 })
 <\/script>`
-    },
-    page: {
-      html: `<!-- 将以下代码粘贴到需要展示对话的位置 -->
+      },
+      page: {
+        html: `<!-- 将以下代码粘贴到需要展示对话的位置 -->
 <iframe
-  src="http://localhost:8000/embed/chat?token=hngd-embed-2024"
+  src="${base}/embed/chat?token=hngd-embed-2024"
   width="100%"
   height="680"
   frameborder="0"
@@ -947,10 +950,10 @@ onMounted(() => {
     display: block;
   "
 ></iframe>`,
-      vue: `<!-- 在需要展示对话的 Vue 组件中 -->
+        vue: `<!-- 在需要展示对话的 Vue 组件中 -->
 <template>
   <iframe
-    src="http://localhost:8000/embed/chat?token=hngd-embed-2024"
+    src="${base}/embed/chat?token=hngd-embed-2024"
     width="100%"
     height="680"
     frameborder="0"
@@ -962,8 +965,9 @@ onMounted(() => {
 <script setup>
 // 无需额外依赖，直接使用 iframe 嵌入
 <\/script>`
-    }
-  };
+      }
+    };
+  }
 
   const _eHints = {
     ball: {
@@ -1034,7 +1038,7 @@ onMounted(() => {
   function _esc(s) { return _e(s); }
 
   function _renderCode() {
-    document.getElementById('embed-code-pre').innerHTML = _highlight(_eCodes[_eMode][_eFw]);
+    document.getElementById('embed-code-pre').innerHTML = _highlight(_eCodes()[_eMode][_eFw]);
     document.getElementById('embed-hint-text').textContent = _eHints[_eMode][_eFw];
     const btn = document.getElementById('embed-copy-btn');
     btn.textContent = '复制代码'; btn.classList.remove('copied');
@@ -1069,7 +1073,7 @@ onMounted(() => {
   }
 
   function copyEmbedCode() {
-    const raw = _eCodes[_eMode][_eFw];
+    const raw = _eCodes()[_eMode][_eFw];
     const btn = document.getElementById('embed-copy-btn');
     (navigator.clipboard
       ? navigator.clipboard.writeText(raw)

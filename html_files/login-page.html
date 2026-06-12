@@ -384,6 +384,7 @@
 
   @keyframes spin { to { transform: rotate(360deg); } }
 </style>
+<script src="config.js"></script>
 </head>
 <body>
 
@@ -474,7 +475,7 @@
 </div>
 
 <script>
-  const API_BASE = 'http://localhost:8000';
+  const API_BASE = window.APP_CONFIG.api_base;
 
   let selectedRole = 'user';
 

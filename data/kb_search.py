@@ -6,12 +6,8 @@ data/kb_search.py — Dify 知识库语义检索
 - format_kb_results: 将检索结果格式化为 LLM 可用的参考文本（含来源标注）
 """
 
-import os
 import requests
-
-RAGFLOW_API_BASE   = os.environ.get("RAGFLOW_API_BASE", "http://localhost/api/v1")
-RAGFLOW_API_KEY    = os.environ.get("RAGFLOW_API_KEY", "")
-RAGFLOW_DATASET_ID = os.environ.get("RAGFLOW_DATASET_ID", "")
+from core.config import RAGFLOW_API_BASE, RAGFLOW_API_KEY, RAGFLOW_DATASET_ID
 
 
 def search_knowledge_base(query: str, top_k: int = 5) -> list:

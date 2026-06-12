@@ -1,6 +1,24 @@
 ﻿# 开发日志列表
 :
 
+## 2026-06-12 (服务地址统一配置)
+
+**功能**：消除项目中所有硬编码服务地址，实现换部署环境只需修改两个文件。
+
+**方案**：
+- 后端：`core/config.py` 新增 `RAGFLOW_API_BASE`、`RAGFLOW_API_KEY`、`RAGFLOW_DATASET_ID`、`DIFY_API_BASE` 统一导出，消除 `rag_agent.py`、`doc_agent.py`、`kb_search.py`、`ragflow_service.py`、`dify_service.py` 中各自散落的 `os.environ.get()` 调用。
+- 前端：新建 `html_files/config.js`，声明 `window.APP_CONFIG = { api_base, alarm_base }`，作为前端唯一配置文件。9 个 HTML/JS 文件引入该文件并替换硬编码常量。
+- `more-features-page.html` 的嵌入代码示例改为函数 `_eCodes()` 动态拼接，展示给用户的复制代码随配置自动更新。
+- `.env` 顶部新增服务地址区块；`.env.example` 重构，将服务地址配置提到最前并注明前端配置入口。
+
+**换环境操作**：修改 `.env` 中的 `RAGFLOW_API_BASE`、`EXECUTOR_URL`，以及 `html_files/config.js` 中的 `api_base`、`alarm_base`，其余文件无需改动。
+
+**修改文件**：`core/config.py`、`agents/rag_agent.py`、`agents/doc_agent.py`、`data/kb_search.py`、`data/ragflow_service.py`、`data/dify_service.py`、`html_files/config.js`（新建）、`html_files/login-page.html`、`html_files/home-page.html`、`html_files/admin-page.html`、`html_files/setting-page.html`、`html_files/interface_config.html`、`html_files/more-features-page.html`、`html_files/chat-embed.html`、`html_files/chat-ball.js`、`html_files/implant_test.html`、`.env`、`.env.example`
+
+**时间**：2026-06-12
+
+---
+
 ## 2026-06-10 (接口配置页参数类型列)
 
 **功能**：接口配置页 Params 面板新增"类型"列，支持为每个参数指定数据类型；已配置接口的参数加载时自动显示类型。
