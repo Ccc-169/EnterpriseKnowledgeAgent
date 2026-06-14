@@ -617,6 +617,23 @@
 
   .send-btn svg { width: 17px; height: 17px; fill: white; }
 
+  /* 停止态：尺寸/圆角/阴影与发送态一致，布局零位移 */
+  .send-btn.is-stopping {
+    background: linear-gradient(135deg, #c0506a, #a8425a);
+    box-shadow: 0 2px 8px rgba(168,66,90,0.28);
+  }
+  .send-btn.is-stopping:hover {
+    box-shadow: 0 4px 12px rgba(168,66,90,0.38);
+  }
+
+  /* 等待计时 / 用时徽章 */
+  .wait-timer { margin-top: 6px; font-size: 12px; color: #8a96aa; }
+  .msg-time {
+    margin-top: 8px; font-size: 11px; color: #9aa5b8;
+    display: inline-flex; align-items: center; gap: 4px;
+  }
+  .msg-time svg { width: 12px; height: 12px; fill: #9aa5b8; }
+
   /* Suggestion chips */
   .suggestion-chips {
     margin-top: 12px;
@@ -1431,7 +1448,7 @@
       <div id="chat-input-wrap">
         <div class="chat-input-area">
           <input type="text" id="chat-input" placeholder="请输入您的问题..." />
-          <button class="send-btn" onclick="sendChat()">
+          <button class="send-btn" id="send-btn" onclick="sendChat()">
             <svg viewBox="0 0 24 24"><path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"/></svg>
           </button>
         </div>
@@ -1480,6 +1497,28 @@
   let currentMode   = 'rag';
   let currentUser   = null;
   let isSending     = false;
+  let chatController = null;   // 当前对话的 AbortController
+  let chatStartTime = 0;       // 本次提问起始时间戳
+  let waitTimer     = null;    // 等待计时器 interval
+  let queueHint     = '';      // 排队提示文案（与计时器共存）
+
+  const SEND_ICON = '<svg viewBox="0 0 24 24"><path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"/></svg>';
+  const STOP_ICON = '<svg viewBox="0 0 24 24"><rect x="6" y="6" width="12" height="12" rx="2"/></svg>';
+
+  // 切换发送按钮到「停止」态
+  function setBtnStop() {
+    const btn = document.getElementById('send-btn');
+    btn.classList.add('is-stopping');
+    btn.innerHTML = STOP_ICON;
+    btn.setAttribute('onclick', 'stopChat()');
+  }
+  // 恢复发送按钮到「发送」态
+  function setBtnSend() {
+    const btn = document.getElementById('send-btn');
+    btn.classList.remove('is-stopping');
+    btn.innerHTML = SEND_ICON;
+    btn.setAttribute('onclick', 'sendChat()');
+  }
 
   // ── Auth 工具 ─────────────────────────────────────────
   function authHeaders() {
@@ -1632,6 +1671,7 @@
 
   // ── 新建对话（延迟创建：仅清空前端状态，首条消息时由后端自动创建）──
   function newConversation() {
+    if (isSending) stopChat();   // 切走前主动取消，避免幽灵任务占槽
     const msgBox = document.getElementById('chat-messages');
     const hasMessages = msgBox.querySelectorAll('.msg-row').length > 0;
 
@@ -1654,6 +1694,7 @@
   // ── 切换对话 ──────────────────────────────────────────
   async function selectConversation(id) {
     if (activeConvId === id) return;
+    if (isSending) stopChat();   // 切走前主动取消，避免幽灵任务占槽
     activeConvId = id;
 
     const conv = conversations.find(c => c.id === id);
@@ -1689,6 +1730,7 @@
   // ── 删除对话 ──────────────────────────────────────────
   async function deleteConversation(e, id) {
     e.stopPropagation();
+    if (isSending && activeConvId === id) stopChat();   // 删除正在生成的对话时取消任务
     try {
       const res = await fetch(`${API_BASE}/api/conversations/${id}`, {
         method: 'DELETE', headers: authHeaders(),
@@ -1720,12 +1762,15 @@
     if (!text) return;
 
     isSending = true;
+    chatController = new AbortController();
+    setBtnStop();                 // 发送态 → 停止态
     input.value    = '';
     input.disabled = true;
 
     const convIdForRequest = activeConvId;   // 可能为 null（由 init 事件更新）
     appendMessage('user', text);
     appendTyping();
+    startWaitTimer();            // 开始等待计时，减少干等待体感
 
     const stepsAccum = [];
 
@@ -1734,6 +1779,7 @@
         method: 'POST',
         headers: authHeaders(),
         body: JSON.stringify({ message: text, conversation_id: convIdForRequest, mode: currentMode }),
+        signal: chatController.signal,
       });
 
       if (res.status === 401) { handleUnauth(); return; }
@@ -1774,16 +1820,27 @@
             updateChatMessagesVisibility();
             renderConversations();
 
+          } else if (event.type === 'queued') {
+            // 排队中：更新等待气泡文案（前方 N 人），计时继续
+            queueHint = event.position > 0
+              ? `排队中（前方 ${event.position} 人）…`
+              : '排队中…';
+            renderWaiting();
+
           } else if (event.type === 'step') {
             stepsAccum.push(event.text);
 
           } else if (event.type === 'answer') {
+            stopWaitTimer();
+            const usedSec = elapsedStr();    // 定格总耗时
             removeTyping();
-            const contentEl = appendAiShell(stepsAccum, event.warning);
+            const contentEl = appendAiShell(stepsAccum, event.warning, usedSec);
             const conv = conversations.find(c => c.id === activeConvId);
             if (conv) { conv.updated_at = new Date().toISOString(); renderConversations(); }
             typewriterMarkdown(contentEl, event.text, () => {
               isSending      = false;
+              chatController = null;
+              setBtnSend();
               input.disabled = false;
               input.focus();
             });
@@ -1792,6 +1849,7 @@
             done = true; break;
 
           } else if (event.type === 'error') {
+            stopWaitTimer();
             removeTyping();
             appendMessage('ai', `⚠️ ${event.text}`, null, true);
             done = true; break;
@@ -1799,19 +1857,47 @@
         }
       }
     } catch(e) {
-      removeTyping();
-      appendMessage('ai', '⚠️ 网络错误，请检查服务是否启动', null, true);
-      console.error(e);
+      // 用户主动停止/切页导致的 abort 不算错误，保留已显示的部分内容
+      if (e.name !== 'AbortError') {
+        removeTyping();
+        appendMessage('ai', '⚠️ 网络错误，请检查服务是否启动', null, true);
+        console.error(e);
+      }
     } finally {
       // 正常流程的输入框恢复由打字机 onDone 回调负责；
-      // 此处仅兜底 error/exception 路径（isSending 已为 false 时幂等）
+      // 此处兜底 error/abort/exception 路径（isSending 已为 false 时幂等）
+      stopWaitTimer();   // 任何退出路径都停表，防定时器泄漏
       if (isSending) {
         isSending      = false;
+        chatController = null;
+        setBtnSend();
+        removeTyping();
         input.disabled = false;
         input.focus();
       }
     }
   }
+
+  // 主动停止当前对话生成：通知后端取消 + 中断本地 SSE 读取
+  async function stopChat() {
+    if (!isSending) return;
+    try {
+      await fetch(`${API_BASE}/api/chat/stop`, { method: 'POST', headers: authHeaders() });
+    } catch (e) { /* 网络失败也要中断本地 */ }
+    if (chatController) chatController.abort();   // 触发 sendChat 的 AbortError 分支收尾
+  }
+
+  // 切页/关页时主动取消，避免幽灵任务独占 -np 1 生成槽
+  window.addEventListener('beforeunload', () => {
+    if (isSending) {
+      // 用 keepalive 确保卸载期间请求仍能发出
+      try {
+        fetch(`${API_BASE}/api/chat/stop`, {
+          method: 'POST', headers: authHeaders(), keepalive: true,
+        });
+      } catch (e) {}
+    }
+  });
 
   // ── 消息渲染 ──────────────────────────────────────────
   function appendMessage(role, text, steps = null, isWarning = false) {
@@ -1843,7 +1929,7 @@
   }
 
   // 创建 AI 消息气泡（不填内容），返回 contentEl 供打字机写入
-  function appendAiShell(steps = null, isWarning = false) {
+  function appendAiShell(steps = null, isWarning = false, usedSec = null) {
     const box = document.getElementById('chat-messages');
 
     let stepsHtml = '';
@@ -1854,6 +1940,10 @@
       </details>`;
     }
 
+    const timeHtml = usedSec != null
+      ? `<div class="msg-time"><svg viewBox="0 0 24 24"><path d="M12 2a10 10 0 100 20 10 10 0 000-20zm1 11h-4v-2h2V7h2z"/></svg>用时 ${usedSec} 秒</div>`
+      : '';
+
     const row = document.createElement('div');
     row.className = 'msg-row ai';
     row.innerHTML = `
@@ -1861,6 +1951,7 @@
       <div class="msg-bubble${isWarning ? ' msg-warning' : ''}">
         <div class="msg-content"></div>
         ${stepsHtml}
+        ${timeHtml}
       </div>`;
     box.appendChild(row);
     updateChatMessagesVisibility();
@@ -1927,6 +2018,35 @@
     const el = document.getElementById('typing-indicator');
     if (el) el.remove();
     updateChatMessagesVisibility();
+  }
+
+  // 已等待秒数（一位小数）
+  function elapsedStr() {
+    return ((Date.now() - chatStartTime) / 1000).toFixed(1);
+  }
+
+  // 刷新等待气泡：思考动画 + 排队提示（可选）+ 实时计时
+  function renderWaiting() {
+    const el = document.getElementById('typing-indicator');
+    if (!el) return;
+    const bubble = el.querySelector('.msg-bubble');
+    if (!bubble) return;
+    const q = queueHint ? `<div class="wait-timer">${queueHint}</div>` : '';
+    bubble.innerHTML =
+      `<div class="msg-typing"><span></span><span></span><span></span></div>` +
+      q +
+      `<div class="wait-timer">已等待 ${elapsedStr()} 秒</div>`;
+  }
+
+  // 开始/停止等待计时
+  function startWaitTimer() {
+    chatStartTime = Date.now();
+    queueHint = '';
+    renderWaiting();
+    waitTimer = setInterval(renderWaiting, 200);
+  }
+  function stopWaitTimer() {
+    if (waitTimer) { clearInterval(waitTimer); waitTimer = null; }
   }
 
   function updateChatMessagesVisibility() {

@@ -151,6 +151,7 @@ def chat_direct(
     thread_id: str = "default",
     user_context: dict = None,
     username: str = "unknown",
+    cancel_event=None,
 ) -> tuple[str, list, str]:
     """
     直接调用指定子智能体，不使用 Router 自动路由分发。
@@ -210,6 +211,9 @@ def chat_direct(
 
     try:
         for chunk in agent.stream(state_input, config=config, stream_mode="updates"):
+            # 协作式取消点：用户切页/停止后退出循环，复用下方"提取已收集答案"逻辑
+            if cancel_event is not None and cancel_event.is_set():
+                break
             for node_name, node_data in chunk.items():
                 for msg in node_data.get("messages", []):
                     all_messages.append(msg)
@@ -268,6 +272,7 @@ def chat(
     thread_id: str = "default",
     user_context: dict = None,
     username: str = "unknown",
+    cancel_event=None,
 ) -> tuple[str, list, str]:
     """
     调用智能体进行对话。
@@ -326,6 +331,9 @@ def chat(
         config=config,
         stream_mode="updates"
     ):
+        # 协作式取消点：用户切页/停止后退出循环，复用下方"提取已收集答案"逻辑
+        if cancel_event is not None and cancel_event.is_set():
+            break
         for node_name, node_data in chunk.items():
             for msg in node_data.get("messages", []):
                 all_messages.append(msg)

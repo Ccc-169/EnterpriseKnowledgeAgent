@@ -1,6 +1,35 @@
 ﻿# 开发日志列表
 :
 
+## 2026-06-14 (对话任务可取消 + 并发闸门 + 等待计时)
+
+**背景**：本地 Ollama 以 `-np 1` 启动，全系统任意时刻只能生成 1 条回复。原实现下用户切页/删对话/反复新建后，后台 agent 任务仍在跑且无并发控制，一个"幽灵任务"即独占唯一生成槽，拖垮所有真实用户（详见 `problem_document/problem_record_5.md`、`plan.md`）。
+
+**功能**：
+1. 对话生成可协作式取消（切页、点停止、删除正在生成的对话均真正中断后台任务）。
+2. 应用层唯一生成槽信号量闸门，对齐 `-np 1`，排队有序并显示"前方 N 人"。
+3. 客户端断开自动取消，资源（信号量/注册项/线程/定时器）全路径回收，无泄漏。
+4. 等待计时：思考中实时显示"已等待 X.X 秒"，回复结束在该条消息底部定格"用时 X.X 秒"徽章，减少干等待体感。
+
+**方案**：
+- 配置：`core/config.py` 新增 `CHAT_MAX_CONCURRENCY`（默认 1）、`CHAT_CANCEL_ON_DISCONNECT`、`CHAT_THREAD_POOL_SIZE`、`CHAT_DISCONNECT_POLL_SEC`，全部 env 可调，便于回滚。
+- 取消注册中心：新建 `core/chat_registry.py`，维护 `dict[user_id -> threading.Event]`，`register` 自动 set 旧事件实现单飞，`unregister` 仅删本事件避免误删新任务，提供 `cancel`/`waiting_count`。
+- 协作式取消：`agent.py` 的 `chat` / `chat_direct` 新增 `cancel_event=None` 参数（默认值保证文档/CLI/Streamlit 等现有调用零影响），两处 `stream` 循环顶部插 `if cancel_event and cancel_event.is_set(): break`，复用已有"提取已收集答案"逻辑。
+- 闸门与断开检测：`api.py` `/api/chat/stream` 注入 `Request`，模块级 `asyncio.Semaphore(CHAT_MAX_CONCURRENCY)`；进槽前推送 `queued` 位次；进槽后 `create_task` 跑线程并按 `CHAT_DISCONNECT_POLL_SEC` 轮询 `request.is_disconnected()`，断开则 set 事件、`await task` 等线程在 chunk 边界收尾再释放槽；`try/finally` 中 `unregister`。新增 `POST /api/chat/stop`。落库前 `get_conversation` 校验，孤儿对话不写库，取消任务不写库。启动时设置线程池上限。
+- 前端：`home-page.html` 发送按钮加 `id` + 停止态 `.is-stopping`（红灰渐变，布局零位移），`sendChat` 加 `AbortController`，新增 `stopChat()`；处理 `queued` 事件显示排队提示；`beforeunload`(keepalive) + 切对话/新建/删对话钩子触发 `stopChat`，落实"切页即取消"。等待计时：`startWaitTimer`/`stopWaitTimer`/`renderWaiting`/`elapsedStr` 每 200ms 刷新，`appendAiShell` 新增 `usedSec` 参数渲染"用时"徽章，`finally` 无条件停表防泄漏。
+
+**关键取舍**：
+- 切页即取消是有意取舍——回到对话页只能看到部分内容或无回复，换取不被幽灵任务拖垮。
+- 取消只在 chunk 边界生效，单个 LLM 长请求内部仍不可中断（架构固有限制）。
+- 等待计时为前端端到端耗时，仅实时会话显示，历史重载不显示（DB 未存耗时字段）。
+- 本改动解决"队列有序、不被拖垮"，解决不了"单卡一次只能生成一条"的物理瓶颈，50 人流畅需运维降上下文换槽或上 vLLM。
+
+**修改文件**：`core/config.py`、`core/chat_registry.py`（新建）、`agent.py`、`api.py`、`html_files/home-page.html`、`problem_document/plan.md`（新建）
+
+**时间**：2026-06-14
+
+---
+
 ## 2026-06-12 (服务地址统一配置)
 
 **功能**：消除项目中所有硬编码服务地址，实现换部署环境只需修改两个文件。
