@@ -1,6 +1,27 @@
 ﻿# 开发日志列表
 :
 
+## 2026-06-14 (修复 rag_search 重复调用 28 次)
+
+**背景**：上一轮 Router 循环修复后，trace 显示同一问题 rag_search 仍被调用 28 次（同一查询词、同一 tool_call id `call_ohykswt4` 出现 15 次），耗时 66 秒、消耗 246k token。
+
+**根因**：双层叠加导致 ReAct 反复重放历史工具调用。
+1. `chat_direct` 的 `config["configurable"]["thread_id"]` 用的是业务 `thread_id`（如 `conversation-13`），SqliteSaver 每次调用都会加载该 thread 上一轮留下的 checkpoint（含带 `tool_calls` 的 AIMessage + ToolMessage），然后与 `_build_messages_with_history` 手动注入的历史**叠加合并**。
+2. LangGraph ReAct 循环看到 checkpoint 里"未处理完"的 tool_call → 重新执行 rag_search → 得到相同结果 → 再次认为未完成 → 循环 28 次。
+3. `parallel_tool_calls=False` 和 `recursion_limit=18` 均无法拦截（前者只管单轮并发，后者每次重放也算正常步骤）。
+
+**方案**（`agent.py` 两处修改，合计 ~10 行）：
+- `_build_messages_with_history`：历史 AIMessage 注入时显式加 `tool_calls=[]`，防止被 ReAct 识别为未完成调用（防御层）。
+- `chat_direct` 的 checkpoint thread_id 改为每次请求唯一（`thread_id:uuid8`），SqliteSaver 无旧状态可加载，彻底切断重放来源（隔离层）。多轮记忆职责完全归 `_build_messages_with_history` + 业务 DB，两者职责清晰分离，不再双轨叠加。
+
+**预期效果**：同一问题 rag_search 从 28 次降至 1 次，耗时从 66 秒降至约 10 秒，token 消耗大幅下降。
+
+**修改文件**：`agent.py`
+
+**时间**：2026-06-14
+
+---
+
 ## 2026-06-14 (修复 Router 路由失控死循环)
 
 **背景**：生产 trace（问题"HN-CSMP 智能体需求一期内容分类总结"）显示一次提问触发 98 次 LLM 调用、28 次重复检索、supervisor↔rag_agent 互相交接 106/86 次、耗时 114 秒、消耗 70 万 token，最终用户只收到报错 `执行失败：'NoneType' object has no attribute 'get'`。第一次 rag_search 其实已返回完整正确答案，但系统未收口。

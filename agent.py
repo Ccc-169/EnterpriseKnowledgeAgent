@@ -105,43 +105,34 @@ def _parse_conversation_id(thread_id: str) -> int | None:
 
 def _build_messages_with_history(user_input: str, thread_id: str, user_id: int = None) -> list:
     """
-    构建包含完整历史上下文的消息列表。
-    
-    原理：从 SQLite 读取持久化的对话记录，手动构建完整的消息列表，
-    确保多轮对话的上下文连续性。
-    
-    即使 SqliteSaver 已提供持久化 checkpoint，本函数仍作为双重保险：
-    Streamlit rerun 导致 Python 模块重载时，内存中的 SqliteSaver 连接
-    可能与新实例不同，而直接读 SQLite 消息表是最可靠的方式。
+    构建包含完整历史上下文的消息列表（纯文本，不含 tool_calls）。
+
+    只注入 HumanMessage 和纯文本 AIMessage（tool_calls=[] / tool_call_id=None），
+    避免 SqliteSaver checkpoint 中残留的带 tool_calls 的 AIMessage 与本次注入叠加，
+    导致 ReAct 把历史工具调用当作"未处理"而反复重放（28 次重复 rag_search 的根因）。
     """
     conv_id = _parse_conversation_id(thread_id)
-    
+
     if not conv_id or not user_id:
-        # 无法解析 conversation_id 或没有 user_id，退回单条消息
         return [HumanMessage(content=user_input)]
-    
+
     from data.conversation_service import get_messages
-    history = get_messages(conv_id, user_id)  # ✅ 必须传 user_id
-    
+    history = get_messages(conv_id, user_id)
+
     if not history or len(history) <= 1:
-        # 无历史或只有当前这条消息（新建对话的第一轮），直接发送
         return [HumanMessage(content=user_input)]
-    
-    # 从历史消息构建 LangChain Message 列表
-    # 注意：history 末尾是当前用户刚保存的消息，需要排除以避免重复
+
     messages = []
     for msg in history[:-1]:  # 排除最后一条（当前用户输入，下面单独追加）
         if msg["role"] == "user":
             messages.append(HumanMessage(content=msg["content"]))
         elif msg["role"] == "assistant":
-            # 语义降权：历史回复中的数据和结论是基于当时的查询结果，
-            # 不代表当前文件状态，避免 LLM 把旧结论当作已验证事实
+            # 语义降权标记，同时强制 tool_calls=[] 确保 ReAct 不把历史工具调用当未完成任务
             tagged = f"[历史回复，其中的数据和结论为当时查询结果，不代表当前真实状态]{msg['content']}"
-            messages.append(AIMessage(content=tagged))
-    
-    # 追加当前用户输入
+            messages.append(AIMessage(content=tagged, tool_calls=[]))
+
     messages.append(HumanMessage(content=user_input))
-    
+
     print(f"[ContextMemory] thread_id={thread_id}, user_id={user_id}, "
           f"加载 {len(history)-1} 条历史消息, 总计 {len(messages)} 条")
     
@@ -194,8 +185,14 @@ def chat_direct(
         "conversation_id": thread_id,
     }
 
+    # 每次请求用唯一 checkpoint thread，防止 SqliteSaver 加载上一轮含
+    # tool_calls 的旧状态并与手动注入的历史叠加，导致 ReAct 重放历史工具调用。
+    # 多轮记忆完全由 _build_messages_with_history 从业务 DB 注入，不依赖 checkpoint。
+    import uuid as _uuid
+    checkpoint_thread_id = f"{thread_id}:{_uuid.uuid4().hex[:8]}"
+
     config = {
-        "configurable": {"thread_id": thread_id},
+        "configurable": {"thread_id": checkpoint_thread_id},
         "recursion_limit": 18,
         "metadata": metadata,
     }
@@ -205,7 +202,7 @@ def chat_direct(
     all_messages = []
     final_answer = ""
 
-    # ── 构建消息：注入历史上下文 ──
+    # ── 构建消息：注入历史上下文（纯文本，不含 tool_calls） ──
     _uid = (user_context.get("user_id") if isinstance(user_context, dict) else None)
     messages_with_history = _build_messages_with_history(user_input, thread_id, _uid)
     state_input = {"messages": messages_with_history}
