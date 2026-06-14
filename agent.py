@@ -34,6 +34,9 @@ llm = ChatOpenAI(
     base_url="http://192.168.1.155:11434/v1",
     api_key="ollama",
     temperature=0,
+    # 禁止单轮并行工具调用：防止 agent 一次性吐出多个 rag_search / transfer，
+    # 这是"重复检索 / 多重交接"失控的放大器（已确认 Ollama 兼容）
+    model_kwargs={"parallel_tool_calls": False},
 )
 
 
@@ -193,7 +196,7 @@ def chat_direct(
 
     config = {
         "configurable": {"thread_id": thread_id},
-        "recursion_limit": 50,
+        "recursion_limit": 18,
         "metadata": metadata,
     }
 
@@ -215,7 +218,7 @@ def chat_direct(
             if cancel_event is not None and cancel_event.is_set():
                 break
             for node_name, node_data in chunk.items():
-                for msg in node_data.get("messages", []):
+                for msg in (node_data or {}).get("messages", []):
                     all_messages.append(msg)
 
                     # 记录工具调用
@@ -308,7 +311,7 @@ def chat(
 
     config = {
         "configurable": {"thread_id": thread_id},
-        "recursion_limit": 50,
+        "recursion_limit": 18,
         "metadata": metadata,  # 注入 LangSmith tracing metadata
     }
     from langchain_core.messages import AIMessage
@@ -335,7 +338,7 @@ def chat(
         if cancel_event is not None and cancel_event.is_set():
             break
         for node_name, node_data in chunk.items():
-            for msg in node_data.get("messages", []):
+            for msg in (node_data or {}).get("messages", []):
                 all_messages.append(msg)
 
                 # 记录工具调用（用 tool_call id 去重）

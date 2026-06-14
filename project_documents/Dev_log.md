@@ -1,6 +1,29 @@
 ﻿# 开发日志列表
 :
 
+## 2026-06-14 (修复 Router 路由失控死循环)
+
+**背景**：生产 trace（问题"HN-CSMP 智能体需求一期内容分类总结"）显示一次提问触发 98 次 LLM 调用、28 次重复检索、supervisor↔rag_agent 互相交接 106/86 次、耗时 114 秒、消耗 70 万 token，最终用户只收到报错 `执行失败：'NoneType' object has no attribute 'get'`。第一次 rag_search 其实已返回完整正确答案，但系统未收口。
+
+**根因**：
+1. 主因——rag 模式走 `create_supervisor` 的循环编排：每次子智能体交回控制权后都重新唤起 supervisor 的 LLM 决策，是否终止完全托付给模型自觉。qwen3.6:35b（本地中等模型）无视 prompt 的"最多两次转发"约束，无限横跳，且单轮一次吐出多个 transfer（`Send` 并行派发）放大失控。
+2. `node_data` 可能为 None（纯路由帧无 state 更新），消费代码 `node_data.get("messages")` 崩溃 → 即前端那句报错。
+3. `recursion_limit=50` 唯一硬兜底，过高，单卡下放任跑近 2 分钟。
+
+**方案**（前端模式直派 + 多层熔断/防御，仅改 `api.py`、`agent.py`）：
+- 前端"知识库检索"(rag) 模式从 `chat()`（走 supervisor）改为 `chat_direct("rag_agent")`。改后前端四模式（rag/data/write/api）全部直派 `chat_direct`，"前端选哪个、后端调哪个"，前端路径不再调用 supervisor，横跳从根上消除。
+- `recursion_limit` 50 → 18（`agent.py` 两处），子 agent 内部 ReAct 失控时 18 步内熔断。
+- llm 构造加 `model_kwargs={"parallel_tool_calls": False}`（已实测 Ollama 返回 200 兼容），禁止单轮并行工具调用，堵住"重复检索/多重交接"放大器。
+- 两处 stream 消费循环 `node_data.get(...)` → `(node_data or {}).get(...)`，防御 None chunk。
+
+**取舍**：CLI(`main.py`)、Streamlit(`pages/chat_page.py`) 仍走 `chat()`/supervisor（选项 A，本次不改其调用方式），但 recursion_limit=18、parallel_tool_calls=False、None 防御对其同样生效，失控时 18 步内熔断、不会再拖 2 分钟。supervisor `router` 对象保留不删，仅前端不再调用，改动面最小、可回退。
+
+**修改文件**：`api.py`、`agent.py`
+
+**时间**：2026-06-14
+
+---
+
 ## 2026-06-14 (对话任务可取消 + 并发闸门 + 等待计时)
 
 **背景**：本地 Ollama 以 `-np 1` 启动，全系统任意时刻只能生成 1 条回复。原实现下用户切页/删对话/反复新建后，后台 agent 任务仍在跑且无并发控制，一个"幽灵任务"即独占唯一生成槽，拖垮所有真实用户（详见 `problem_document/problem_record_5.md`、`plan.md`）。
