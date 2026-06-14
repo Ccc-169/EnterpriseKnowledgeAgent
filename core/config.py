@@ -7,9 +7,15 @@ load_dotenv()
 # ── LLM 配置 ──────────────────────────────────────────
 QWEN_API_KEY = os.environ.get("QWEN_API_KEY", "")
 
-# ── Dify 知识库 ────────────────────────────────────────
+# ── RAGFlow 知识库 ─────────────────────────────────────
+RAGFLOW_API_BASE   = os.environ.get("RAGFLOW_API_BASE", "http://localhost/api/v1")
+RAGFLOW_API_KEY    = os.environ.get("RAGFLOW_API_KEY", "")
+RAGFLOW_DATASET_ID = os.environ.get("RAGFLOW_DATASET_ID", "")
+
+# ── Dify 知识库（已弃用） ──────────────────────────────
+DIFY_API_BASE    = os.environ.get("DIFY_API_BASE", "https://api.dify.ai/v1")
 DIFY_DATASET_KEY = os.environ.get("DIFY_DATASET_KEY", "")
-DIFY_KB_ID = os.environ.get("DIFY_KB_ID", "")
+DIFY_KB_ID       = os.environ.get("DIFY_KB_ID", "")
 
 # ── 代码沙箱 ───────────────────────────────────────────
 EXECUTOR_URL = os.environ.get("EXECUTOR_URL", "http://localhost:8001")

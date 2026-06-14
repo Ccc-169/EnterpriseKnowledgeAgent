@@ -10,8 +10,9 @@
   'use strict';
 
   // ── 配置 ──────────────────────────────────────────────
+  const _defaultServer = (window.APP_CONFIG && window.APP_CONFIG.api_base) || 'http://localhost:8000';
   const cfg = Object.assign(
-    { server: 'http://localhost:8000', token: 'hngd-embed-2024' },
+    { server: _defaultServer, token: 'hngd-embed-2024' },
     window.HNGDChatConfig || {}
   );
 

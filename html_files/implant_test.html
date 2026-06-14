@@ -170,6 +170,7 @@ body {
   background: white;
 }
 </style>
+<script src="config.js"></script>
 </head>
 <body>
 
@@ -241,7 +242,7 @@ body {
       <!-- ▼▼▼ 在此处粘贴网页嵌入代码 ▼▼▼ -->
       <!-- 将以下代码粘贴到需要展示对话的位置 -->
 <iframe
-  src="http://localhost:8000/embed/chat?token=hngd-embed-2024"
+  id="hngd-embed-iframe"
   width="100%"
   height="680"
   frameborder="0"
@@ -252,6 +253,10 @@ body {
     display: block;
   "
 ></iframe>
+<script>
+  document.getElementById('hngd-embed-iframe').src =
+    (window.APP_CONFIG ? window.APP_CONFIG.api_base : 'http://localhost:8000') + '/embed/chat?token=hngd-embed-2024';
+</script>
 
 
       <!-- ▲▲▲ 网页嵌入代码结束 ▲▲▲ -->
@@ -289,15 +294,17 @@ body {
      ================================================================ -->
 
 <!-- ▼▼▼ 在此处粘贴聊天球代码 ▼▼▼ -->
-<!-- 在 <body> 末尾粘贴以下两段代码 -->
-<!-- 在 <body> 末尾粘贴以下两段代码 -->
 <script>
   window.HNGDChatConfig = {
-    server: 'http://localhost:8000',
+    server: window.APP_CONFIG ? window.APP_CONFIG.api_base : 'http://localhost:8000',
     token:  'hngd-embed-2024'
   };
 </script>
-<script src="http://localhost:8000/static/chat-ball.js"></script>
+<script id="hngd-ball-script"></script>
+<script>
+  document.getElementById('hngd-ball-script').src =
+    (window.APP_CONFIG ? window.APP_CONFIG.api_base : 'http://localhost:8000') + '/static/chat-ball.js';
+</script>
 
 <!-- ▲▲▲ 聊天球代码结束 ▲▲▲ -->
 

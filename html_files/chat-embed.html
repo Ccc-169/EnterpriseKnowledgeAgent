@@ -172,6 +172,7 @@ body {
 .ce-welcome h2 { font-size: 15px; font-weight: 700; color: #3a5a8a; }
 .ce-welcome p  { font-size: 13px; line-height: 1.6; }
 </style>
+<script src="config.js"></script>
 </head>
 <body>
 
@@ -215,7 +216,7 @@ body {
   const _params      = new URLSearchParams(location.search);
   const _token       = _params.get('token') || '';
   const _server      = _params.get('server') || (location.origin.includes('8080')
-                         ? 'http://localhost:8000'
+                         ? (window.APP_CONFIG ? window.APP_CONFIG.api_base : 'http://localhost:8000')
                          : location.origin);
 
   // ── 会话 thread_id（sessionStorage，刷新消失）──

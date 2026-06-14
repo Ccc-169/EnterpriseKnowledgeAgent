@@ -150,9 +150,7 @@ def _format_kb_records(records: list, max_chars: int = 4000) -> str:
 
 def create_doc_agent(llm):
 
-    RAGFLOW_BASE_URL   = os.environ.get("RAGFLOW_API_BASE", "http://localhost/api/v1")
-    RAGFLOW_API_KEY    = os.environ.get("RAGFLOW_API_KEY", "")
-    RAGFLOW_DATASET_ID = os.environ.get("RAGFLOW_DATASET_ID", "")
+    from core.config import RAGFLOW_API_BASE as RAGFLOW_BASE_URL, RAGFLOW_API_KEY, RAGFLOW_DATASET_ID
 
     @tool
     def search_knowledge_base(query: str) -> str:

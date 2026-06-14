@@ -4,13 +4,8 @@ data/ragflow_service.py — RAGFlow 知识库 API 封装
 提供知识库和文档的查询接口，供管理员页面调用。
 """
 
-import os
-
 import requests
-
-
-RAGFLOW_API_BASE   = os.environ.get("RAGFLOW_API_BASE", "http://localhost/api/v1")
-RAGFLOW_API_KEY    = os.environ.get("RAGFLOW_API_KEY", "")
+from core.config import RAGFLOW_API_BASE, RAGFLOW_API_KEY
 
 
 def _headers() -> dict:
