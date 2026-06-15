@@ -686,6 +686,51 @@
     position: relative;
     z-index: 1;
   }
+
+  /* ════════════ 动效升级（后台克制版）════════════ */
+
+  /* ── 关键帧库 ── */
+  @keyframes fadeInUp { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: translateY(0); } }
+  @keyframes cardPop  { from { opacity: 0; transform: translateY(14px) scale(0.97); } to { opacity: 1; transform: translateY(0) scale(1); } }
+  @keyframes rippleAnim { to { transform: scale(2.6); opacity: 0; } }
+
+  /* ── 页头 / 卡片错峰入场 ── */
+  .page-header { animation: fadeInUp 0.5s ease both; }
+  .card { animation: cardPop 0.48s cubic-bezier(0.34,1.12,0.64,1) both; transition: transform 0.2s, box-shadow 0.2s; }
+  .cards-grid .card:nth-child(1) { animation-delay: 0.08s; }
+  .cards-grid .card:nth-child(2) { animation-delay: 0.16s; }
+  .cards-grid .card:nth-child(3) { animation-delay: 0.24s; }
+  .card:hover { transform: translateY(-2px); box-shadow: 0 4px 20px rgba(30,60,120,0.09); }
+
+  /* ── 大头像 hover 光环 ── */
+  .big-avatar { transition: transform 0.25s cubic-bezier(0.34,1.15,0.64,1), box-shadow 0.25s; }
+  .avatar-section:hover .big-avatar { transform: scale(1.05); box-shadow: 0 0 0 4px rgba(42,90,168,0.12); }
+
+  /* ── 预置头像色块入场错峰 ── */
+  .avatar-preset-swatch { animation: cardPop 0.4s ease both; }
+  .avatar-preset-swatch:nth-child(1) { animation-delay: 0.02s; }
+  .avatar-preset-swatch:nth-child(2) { animation-delay: 0.06s; }
+  .avatar-preset-swatch:nth-child(3) { animation-delay: 0.10s; }
+  .avatar-preset-swatch:nth-child(4) { animation-delay: 0.14s; }
+  .avatar-preset-swatch:nth-child(5) { animation-delay: 0.18s; }
+  .avatar-preset-swatch:nth-child(6) { animation-delay: 0.22s; }
+
+  /* ── 输入框聚焦图标微交互（修改密码等无图标，主要作用于带 prefix 的场景）── */
+
+  /* ── 按钮点击反馈 ── */
+  .avatar-btn, .btn-primary-modal { position: relative; overflow: hidden; }
+  .avatar-btn:active, .btn-primary-modal:active, .btn-cancel:active { transform: scale(0.96); }
+  .ripple {
+    position: absolute; border-radius: 50%; transform: scale(0);
+    background: rgba(42,90,168,0.18); pointer-events: none;
+    animation: rippleAnim 0.6s ease-out; will-change: transform, opacity;
+  }
+  .btn-primary-modal .ripple { background: rgba(255,255,255,0.4); }
+
+  /* ── 无障碍降级 ── */
+  @media (prefers-reduced-motion: reduce) {
+    *, .card, .big-avatar, .avatar-preset-swatch { animation: none !important; transition: none !important; }
+  }
 </style>
 <script src="config.js"></script>
 </head>
@@ -1317,6 +1362,21 @@
   }
 
   window.addEventListener('load', initPage);
+
+  // ── 按钮点击波纹（委托）──
+  document.addEventListener('click', e => {
+    const btn = e.target.closest('.avatar-btn, .btn-primary-modal');
+    if (!btn) return;
+    const d = Math.max(btn.offsetWidth, btn.offsetHeight);
+    const rect = btn.getBoundingClientRect();
+    const r = document.createElement('span');
+    r.className = 'ripple';
+    r.style.width = r.style.height = d + 'px';
+    r.style.left = (e.clientX - rect.left - d / 2) + 'px';
+    r.style.top  = (e.clientY - rect.top  - d / 2) + 'px';
+    btn.appendChild(r);
+    setTimeout(() => r.remove(), 600);
+  });
 </script>
 
 </body>
