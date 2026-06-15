@@ -83,6 +83,15 @@ app.add_middleware(
 )
 
 
+# ── 会话并发控制 ───────────────────────────────────────
+from core import config as _cfg
+from core import chat_registry
+
+# 应用层唯一生成槽闸门：严格对齐 Ollama -np 1。所有 /api/chat/stream 进入生成前
+# 必须 acquire；幽灵任务在 chunk 边界被取消后释放，真实用户排队拿槽。
+_chat_semaphore = asyncio.Semaphore(_cfg.CHAT_MAX_CONCURRENCY)
+
+
 # ── JWT 鉴权依赖 ───────────────────────────────────────
 _bearer = HTTPBearer()
 
@@ -276,12 +285,20 @@ def get_conv_messages(conv_id: int, user: dict = Depends(verify_token)):
 
 # ── 流式对话接口 ───────────────────────────────────────
 @app.post("/api/chat/stream")
-async def chat_stream(req: ChatRequest, user: dict = Depends(verify_token)):
+async def chat_stream(req: ChatRequest, request: Request, user: dict = Depends(verify_token)):
     """
     发送消息，以 SSE 流式返回思考步骤和最终回答。
 
+    并发模型（对齐 Ollama -np 1）：
+      - 注册取消事件（单飞：挤掉同一用户的旧任务）
+      - 进入唯一生成槽信号量前，若被占用则推送 queued 排队位次
+      - 拿到槽后在线程池跑 LangGraph，并发轮询客户端是否断开（切页/关页）
+      - 断开或主动停止 → 设置 cancel_event → agent.stream 在 chunk 边界退出
+      - 任何退出路径都在 finally 释放信号量与注册项（资源回收硬保证）
+
     SSE 事件类型：
       init   — 含 conversation_id 和 title（首条消息时对话自动命名）
+      queued — 排队中，position 为前方人数
       step   — LangGraph 工具调用/返回步骤（对应 steps_log）
       answer — 最终回答，含 warning 和 agent 字段
       done   — 流结束信号
@@ -289,7 +306,7 @@ async def chat_stream(req: ChatRequest, user: dict = Depends(verify_token)):
     """
     async def event_gen():
         # 延迟导入避免模块加载时阻塞（agent.py 会初始化 LLM）
-        from agent import chat, chat_direct
+        from agent import chat_direct
 
         # 1. 处理 conversation_id
         conv_id = req.conversation_id
@@ -309,7 +326,7 @@ async def chat_stream(req: ChatRequest, user: dict = Depends(verify_token)):
         # 4. 推送 init 事件（前端更新 conversation_id 和标题）
         yield _sse({"type": "init", "conversation_id": conv_id, "title": title})
 
-        # 5. 根据 mode 选择调用方式（与 chat_page.py 逻辑一致）
+        # 5. 根据 mode 选择调用方式（cancel_event 注入实现协作式取消）
         thread_id    = f"conversation-{conv_id}"
         user_context = {
             "user_id":  user["user_id"],
@@ -317,46 +334,86 @@ async def chat_stream(req: ChatRequest, user: dict = Depends(verify_token)):
             "role":     user["role"],
         }
 
+        # 注册取消事件（单飞：自动取消该用户旧任务）
+        cancel_event = chat_registry.register(user["user_id"])
+
         mode_calls = {
-            "rag":   lambda: chat(req.message, thread_id, user_context=user_context),
-            "data":  lambda: chat_direct("data_agent", req.message, thread_id, user_context=user_context),
-            "write": lambda: chat_direct("rag_agent",  req.message, thread_id, user_context=user_context),
-            "api":   lambda: chat_direct("api_agent",  req.message, thread_id, user_context=user_context),
+            "rag":   lambda: chat_direct("rag_agent",  req.message, thread_id, user_context=user_context, cancel_event=cancel_event),
+            "data":  lambda: chat_direct("data_agent", req.message, thread_id, user_context=user_context, cancel_event=cancel_event),
+            "write": lambda: chat_direct("rag_agent",  req.message, thread_id, user_context=user_context, cancel_event=cancel_event),
+            "api":   lambda: chat_direct("api_agent",  req.message, thread_id, user_context=user_context, cancel_event=cancel_event),
         }
         call_fn = mode_calls.get(req.mode, mode_calls["rag"])
 
-        # 6. 在线程池中运行同步 LangGraph（避免阻塞事件循环）
         try:
-            response, steps, agent_used = await asyncio.to_thread(call_fn)
-        except Exception as e:
-            yield _sse({"type": "error", "text": f"执行失败：{e}"})
+            # 6. 进入唯一生成槽前，若被占用则推送排队位次（前方人数）
+            if _chat_semaphore.locked():
+                position = max(0, chat_registry.waiting_count() - _cfg.CHAT_MAX_CONCURRENCY)
+                yield _sse({"type": "queued", "position": position})
+
+            async with _chat_semaphore:
+                # 排队期间可能已被单飞挤掉或用户已停止：直接退出，不占用生成
+                if cancel_event.is_set():
+                    yield _sse({"type": "done"})
+                    return
+
+                # 7. 线程池中运行同步 LangGraph，并发监控客户端断开
+                task = asyncio.create_task(asyncio.to_thread(call_fn))
+                aborted = False
+                while True:
+                    done, _ = await asyncio.wait({task}, timeout=_cfg.CHAT_DISCONNECT_POLL_SEC)
+                    if task in done:
+                        break
+                    # 主动停止（/stop 已 set）或客户端断开 → 取消
+                    if cancel_event.is_set():
+                        aborted = True
+                    elif _cfg.CHAT_CANCEL_ON_DISCONNECT and await request.is_disconnected():
+                        cancel_event.set()
+                        aborted = True
+                    if aborted:
+                        await task   # 等待工作线程在 chunk 边界收尾后再释放槽
+                        break
+
+                # 取消的任务：不写库（避免半截回复污染历史），直接结束
+                if aborted or cancel_event.is_set():
+                    yield _sse({"type": "done"})
+                    return
+
+                try:
+                    response, steps, agent_used = task.result()
+                except Exception as e:
+                    yield _sse({"type": "error", "text": f"执行失败：{e}"})
+                    yield _sse({"type": "done"})
+                    return
+
+            # 8. 推送思考步骤
+            for step in (steps or []):
+                yield _sse({"type": "step", "text": step})
+
+            # 9. 推送最终回答
+            is_warning = any(kw in response for kw in ("未能找到", "未找到", "没有找到"))
+            yield _sse({
+                "type":    "answer",
+                "text":    response,
+                "warning": is_warning,
+                "agent":   agent_used or "",
+            })
+
+            # 10. 保存助手消息 + 写审计日志（孤儿校验：对话被删则丢弃，不写孤儿数据）
+            if get_conversation(conv_id, user["user_id"]):
+                save_message(conv_id, "assistant", response, steps_log=steps, agent_used=agent_used)
+                log_event(
+                    user_id    = user["user_id"],
+                    username   = user["username"],
+                    action     = "chat",
+                    agent_used = agent_used,
+                    question   = req.message,
+                )
+
             yield _sse({"type": "done"})
-            return
-
-        # 7. 推送思考步骤
-        for step in (steps or []):
-            yield _sse({"type": "step", "text": step})
-
-        # 8. 推送最终回答
-        is_warning = any(kw in response for kw in ("未能找到", "未找到", "没有找到"))
-        yield _sse({
-            "type":    "answer",
-            "text":    response,
-            "warning": is_warning,
-            "agent":   agent_used or "",
-        })
-
-        # 9. 保存助手消息 + 写审计日志
-        save_message(conv_id, "assistant", response, steps_log=steps, agent_used=agent_used)
-        log_event(
-            user_id    = user["user_id"],
-            username   = user["username"],
-            action     = "chat",
-            agent_used = agent_used,
-            question   = req.message,
-        )
-
-        yield _sse({"type": "done"})
+        finally:
+            # 资源回收硬保证：任何退出路径（正常/取消/异常/GeneratorExit）都清理注册项
+            chat_registry.unregister(user["user_id"], cancel_event)
 
     return StreamingResponse(
         event_gen(),
@@ -366,6 +423,16 @@ async def chat_stream(req: ChatRequest, user: dict = Depends(verify_token)):
             "X-Accel-Buffering": "no",    # 禁止 Nginx 缓冲，确保实时推送
         },
     )
+
+
+@app.post("/api/chat/stop")
+async def chat_stop(user: dict = Depends(verify_token)):
+    """主动停止当前用户正在进行的对话生成。
+
+    设置该用户的 cancel_event，agent.stream 在下一个 chunk 边界退出。
+    """
+    stopped = chat_registry.cancel(user["user_id"])
+    return {"ok": True, "stopped": stopped}
 
 
 # ── 用户设置接口 ───────────────────────────────────────
@@ -675,6 +742,18 @@ def on_startup():
             print(f"[STARTUP] 接口索引已同步，新增/更新 {count} 条记录")
     except Exception as e:
         print(f"[STARTUP] 接口索引同步失败: {e}")
+
+    # 设置 to_thread 默认线程池上限。线程在等 Ollama 时不耗 CPU，真正闸门是信号量。
+    try:
+        from concurrent.futures import ThreadPoolExecutor
+        loop = asyncio.get_event_loop()
+        loop.set_default_executor(
+            ThreadPoolExecutor(max_workers=_cfg.CHAT_THREAD_POOL_SIZE,
+                               thread_name_prefix="chat")
+        )
+        print(f"[STARTUP] 对话线程池上限设为 {_cfg.CHAT_THREAD_POOL_SIZE}")
+    except Exception as e:
+        print(f"[STARTUP] 线程池设置失败: {e}")
 
 
 # ── 系统接口浏览（所有登录用户可用）───────────────────────
