@@ -2,13 +2,15 @@
 # 启动：uvicorn api:app --port 8000
 import asyncio
 import json
+import os
+import uuid
 from datetime import datetime, timedelta
 from pathlib import Path
 
 from dotenv import load_dotenv
 from fastapi import Depends, FastAPI, File, Form, HTTPException, Request, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import StreamingResponse
+from fastapi.responses import FileResponse, StreamingResponse
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from jose import JWTError, jwt
 from pydantic import BaseModel
@@ -21,8 +23,8 @@ init_db()
 
 from audit.audit_service import log_event
 from auth.auth_service import (
-    authenticate_user, update_display_name, update_password,
-    create_user, list_users, update_user_role, toggle_user_active,
+    authenticate_user, update_display_name, update_password, update_avatar,
+    create_user, list_users, update_user_role, toggle_user_active, delete_user,
 )
 from audit.audit_service import get_logs, get_summary_stats
 from data.document_service import generate_title_from_requirements, save_document
@@ -36,11 +38,27 @@ from data.conversation_service import (
     save_message,
     update_conversation_title,
 )
+from data.interface_service import (
+    sync_data_interfaces_index,
+    get_interface_tree,
+    get_interface_detail,
+    import_from_swagger_url,
+    import_from_json_content,
+    delete_single_interface,
+    delete_interface_file,
+    delete_service_directory,
+    get_user_interface_permissions,
+    set_user_interface_permissions,
+    set_user_all_interface_access,
+    list_all_services,
+    test_interface,
+)
 
 # ── JWT 配置 ──────────────────────────────────────────
 _SECRET_KEY         = "hngd-knowledge-agent-secret"   # 生产环境改为环境变量
 _ALGORITHM          = "HS256"
 _TOKEN_EXPIRE_HOURS = 8
+_EMBED_TOKEN        = os.getenv("EMBED_TOKEN", "hngd-embed-2024")
 
 
 def _create_token(user: dict) -> str:
@@ -102,12 +120,13 @@ class LoginResponse(BaseModel):
     username:     str
     role:         str
     display_name: str
+    avatar:       str | None = None
 
 
 class ChatRequest(BaseModel):
     message:         str
     conversation_id: int | None = None
-    mode:            str = "rag"   # "rag" | "data" | "write"
+    mode:            str = "rag"   # "rag" | "data" | "write" | "api"
 
 
 class DocContentRequest(BaseModel):
@@ -118,6 +137,10 @@ class DocContentRequest(BaseModel):
 
 class UpdateDisplayNameRequest(BaseModel):
     display_name: str
+
+
+class UpdateAvatarRequest(BaseModel):
+    avatar: str
 
 
 class UpdatePasswordRequest(BaseModel):
@@ -138,6 +161,29 @@ class UpdateRoleRequest(BaseModel):
 
 class UpdateActiveRequest(BaseModel):
     is_active: bool
+
+
+class EmbedChatRequest(BaseModel):
+    message:     str
+    thread_id:   str | None = None
+    embed_token: str
+
+
+# ── 系统接口管理相关模型 ─────────────────────────────────
+class SwaggerImportRequest(BaseModel):
+    url:          str
+    service_name: str = ""
+
+
+class PermissionUpdateRequest(BaseModel):
+    granted_ids: list[int] = []
+    revoked_ids: list[int] = []
+
+
+class InterfaceTestRequest(BaseModel):
+    params:   dict = {}
+    body:     dict | None = None
+    base_url: str = ""
 
 
 # ── 文档编写辅助 ───────────────────────────────────────
@@ -183,6 +229,7 @@ def login(req: LoginRequest):
         username     = user["username"],
         role         = user["role"],
         display_name = user["display_name"],
+        avatar       = user.get("avatar"),
     )
 
 
@@ -274,6 +321,7 @@ async def chat_stream(req: ChatRequest, user: dict = Depends(verify_token)):
             "rag":   lambda: chat(req.message, thread_id, user_context=user_context),
             "data":  lambda: chat_direct("data_agent", req.message, thread_id, user_context=user_context),
             "write": lambda: chat_direct("rag_agent",  req.message, thread_id, user_context=user_context),
+            "api":   lambda: chat_direct("api_agent",  req.message, thread_id, user_context=user_context),
         }
         call_fn = mode_calls.get(req.mode, mode_calls["rag"])
 
@@ -331,6 +379,18 @@ def api_update_display_name(req: UpdateDisplayNameRequest, user: dict = Depends(
         raise HTTPException(status_code=400, detail=msg)
     log_event(user["user_id"], user["username"], "update_display_name")
     return {"ok": True, "display_name": req.display_name.strip()}
+
+
+@app.put("/api/user/avatar")
+def api_update_avatar(req: UpdateAvatarRequest, user: dict = Depends(verify_token)):
+    """更新当前用户的头像（base64 图片或 SVG data URL）。"""
+    if not req.avatar or not req.avatar.startswith("data:"):
+        raise HTTPException(status_code=400, detail="头像格式无效")
+    ok, msg = update_avatar(user["user_id"], req.avatar)
+    if not ok:
+        raise HTTPException(status_code=400, detail=msg)
+    log_event(user["user_id"], user["username"], "update_avatar")
+    return {"ok": True}
 
 
 @app.put("/api/user/password")
@@ -511,6 +571,18 @@ def admin_toggle_active(target_id: int, req: UpdateActiveRequest, user: dict = D
     return {"ok": True}
 
 
+@app.delete("/api/admin/users/{target_id}")
+def admin_delete_user(target_id: int, user: dict = Depends(require_admin)):
+    """删除用户及其全部历史数据（对话、消息、审计日志、文档历史），不可撤销。"""
+    if target_id == user["user_id"]:
+        raise HTTPException(status_code=400, detail="不能删除当前登录账户")
+    ok = delete_user(target_id)
+    if not ok:
+        raise HTTPException(status_code=404, detail="用户不存在")
+    log_event(user["user_id"], user["username"], "admin_op", status="success")
+    return {"ok": True}
+
+
 # ── 管理员接口 — 审计日志 ───────────────────────────────
 @app.get("/api/admin/logs")
 def admin_get_logs(
@@ -539,11 +611,11 @@ async def admin_list_datasets(
     limit: int  = 20,
     user:  dict = Depends(require_admin),
 ):
-    """获取 Dify 知识库列表（分页）。未配置 DIFY_DATASET_KEY 时返回 503。"""
+    """获取 RAGFlow 知识库列表（分页）。未配置 RAGFLOW_API_KEY 时返回 503。"""
     import os
-    if not os.environ.get("DIFY_DATASET_KEY"):
-        raise HTTPException(status_code=503, detail="未配置 DIFY_DATASET_KEY，请在 .env 文件中配置后重启服务")
-    from data.dify_service import list_datasets
+    if not os.environ.get("RAGFLOW_API_KEY"):
+        raise HTTPException(status_code=503, detail="未配置 RAGFLOW_API_KEY，请在 .env 文件中配置后重启服务")
+    from data.ragflow_service import list_datasets
     try:
         return await asyncio.to_thread(list_datasets, page, limit)
     except RuntimeError as e:
@@ -559,9 +631,9 @@ async def admin_list_documents(
 ):
     """获取指定知识库的文档列表（分页）。"""
     import os
-    if not os.environ.get("DIFY_DATASET_KEY"):
-        raise HTTPException(status_code=503, detail="未配置 DIFY_DATASET_KEY，请在 .env 文件中配置后重启服务")
-    from data.dify_service import list_documents
+    if not os.environ.get("RAGFLOW_API_KEY"):
+        raise HTTPException(status_code=503, detail="未配置 RAGFLOW_API_KEY，请在 .env 文件中配置后重启服务")
+    from data.ragflow_service import list_documents
     try:
         return await asyncio.to_thread(list_documents, dataset_id, page, limit)
     except RuntimeError as e:
@@ -593,7 +665,154 @@ def admin_list_data_files(user: dict = Depends(require_admin)):
     return {"dir": str(data_dir), "files": files}
 
 
-# ── 接口配置存取 ──────────────────────────────────────────
+# ── 启动时同步接口索引 ──────────────────────────────────────
+@app.on_event("startup")
+def on_startup():
+    """应用启动时扫描 data_interface/ 目录，同步接口索引到数据库。"""
+    try:
+        count = sync_data_interfaces_index(force=False)
+        if count > 0:
+            print(f"[STARTUP] 接口索引已同步，新增/更新 {count} 条记录")
+    except Exception as e:
+        print(f"[STARTUP] 接口索引同步失败: {e}")
+
+
+# ── 系统接口浏览（所有登录用户可用）───────────────────────
+@app.get("/api/system-interfaces/tree")
+def api_interface_tree(user: dict = Depends(verify_token)):
+    """返回当前用户有权访问的接口树结构。"""
+    return get_interface_tree(user["user_id"], user["role"])
+
+
+@app.get("/api/system-interfaces/{interface_id}/detail")
+def api_interface_detail(interface_id: int, user: dict = Depends(verify_token)):
+    """返回单个接口的完整定义。"""
+    detail = get_interface_detail(interface_id)
+    if not detail:
+        raise HTTPException(status_code=404, detail="接口不存在")
+    return detail
+
+
+@app.post("/api/system-interfaces/{interface_id}/test")
+def api_interface_test(interface_id: int, req: InterfaceTestRequest, user: dict = Depends(verify_token)):
+    """代理发送接口测试请求，返回目标服务的响应。"""
+    result = test_interface(
+        interface_id,
+        params=req.params,
+        body=req.body,
+        base_url_override=req.base_url,
+    )
+    return result
+
+
+# ── 管理员 — 接口导入 ──────────────────────────────────────
+@app.post("/api/admin/interfaces/import-from-url")
+def admin_import_from_url(req: SwaggerImportRequest, user: dict = Depends(require_admin)):
+    """管理员通过 Swagger URL 导入接口。"""
+    if not req.url:
+        raise HTTPException(status_code=400, detail="URL 不能为空")
+    result = import_from_swagger_url(req.url, req.service_name)
+    if not result["ok"]:
+        raise HTTPException(status_code=400, detail=result["message"])
+    log_event(user["user_id"], user["username"], "import_interfaces_url", status="success")
+    return result
+
+
+@app.post("/api/admin/interfaces/import-from-json")
+async def admin_import_from_json(request: Request, user: dict = Depends(require_admin)):
+    """管理员上传 OpenAPI JSON 文件导入接口。"""
+    try:
+        body = await request.json()
+    except Exception:
+        raise HTTPException(status_code=400, detail="请求体必须是 JSON 格式")
+
+    service_name = body.pop("service_name", "")
+    result = import_from_json_content(json.dumps(body, ensure_ascii=False), service_name=service_name)
+    if not result["ok"]:
+        raise HTTPException(status_code=400, detail=result["message"])
+    log_event(user["user_id"], user["username"], "import_interfaces_json", status="success")
+    return result
+
+
+# ── 管理员 — 接口删除 ──────────────────────────────────────
+@app.delete("/api/admin/interfaces/{interface_id}")
+def admin_delete_single_interface(interface_id: int, user: dict = Depends(require_admin)):
+    """管理员删除单个接口（仅从索引中移除）。"""
+    result = delete_single_interface(interface_id)
+    if not result["ok"]:
+        raise HTTPException(status_code=404, detail=result["message"])
+    log_event(user["user_id"], user["username"], "delete_interface", status="success")
+    return result
+
+
+@app.delete("/api/admin/interfaces/file/{service_name}/{file_name}")
+def admin_delete_interface_file(service_name: str, file_name: str, user: dict = Depends(require_admin)):
+    """管理员删除一个接口文件（文件 + 索引）。"""
+    result = delete_interface_file(service_name, file_name)
+    if not result["ok"]:
+        raise HTTPException(status_code=404, detail=result["message"])
+    log_event(user["user_id"], user["username"], "delete_interface_file", status="success")
+    return result
+
+
+@app.delete("/api/admin/interfaces/service/{service_name}")
+def admin_delete_service(service_name: str, user: dict = Depends(require_admin)):
+    """管理员删除整个服务目录（目录 + 全部索引）。"""
+    result = delete_service_directory(service_name)
+    if not result["ok"]:
+        raise HTTPException(status_code=404, detail=result["message"])
+    log_event(user["user_id"], user["username"], "delete_service", status="success")
+    return result
+
+
+# ── 管理员 — 用户接口权限管理 ──────────────────────────────
+@app.get("/api/admin/user-permissions/{user_id}")
+def admin_get_user_permissions(user_id: int, user: dict = Depends(require_admin)):
+    """查看指定用户的接口权限。"""
+    return get_user_interface_permissions(user_id)
+
+
+@app.put("/api/admin/user-permissions/{user_id}")
+def admin_set_user_permissions(
+    user_id: int,
+    req: PermissionUpdateRequest,
+    user: dict = Depends(require_admin),
+):
+    """批量设置用户的接口权限（授权 + 撤销）。"""
+    result = set_user_interface_permissions(user_id, req.granted_ids, req.revoked_ids)
+    log_event(user["user_id"], user["username"], "update_permissions", status="success")
+    return result
+
+
+@app.put("/api/admin/user-permissions/{user_id}/grant-all")
+def admin_grant_all(user_id: int, user: dict = Depends(require_admin)):
+    """一键授予用户所有接口的访问权限。"""
+    result = set_user_all_interface_access(user_id, granted=True)
+    log_event(user["user_id"], user["username"], "grant_all_permissions", status="success")
+    return result
+
+
+@app.put("/api/admin/user-permissions/{user_id}/revoke-all")
+def admin_revoke_all(user_id: int, user: dict = Depends(require_admin)):
+    """一键撤销用户所有接口的访问权限。"""
+    result = set_user_all_interface_access(user_id, granted=False)
+    log_event(user["user_id"], user["username"], "revoke_all_permissions", status="success")
+    return result
+
+
+@app.get("/api/admin/services/list")
+def admin_list_services(user: dict = Depends(require_admin)):
+    """列出所有已索引的服务名。"""
+    return {"services": list_all_services()}
+
+
+@app.get("/api/admin/interfaces/all")
+def admin_get_all_interfaces(user: dict = Depends(require_admin)):
+    """管理员查看所有接口（用于管理面板）。"""
+    return get_interface_tree(user["user_id"], user["role"])
+
+
+# ── 接口配置存取（保留原有功能）──────────────────────────────
 _IFACE_CONFIGS_PATH = Path(__file__).parent / "project_documents" / "interface_configs.json"
 
 
@@ -617,3 +836,48 @@ async def save_interface_configs(request: Request, user: dict = Depends(verify_t
         encoding="utf-8",
     )
     return {"ok": True}
+
+
+# ── 嵌入式对话接口（无需 JWT，embed_token 鉴权）──────────────
+_EMBED_HTML = Path(__file__).parent / "html_files" / "chat-embed.html"
+
+
+@app.get("/embed/chat")
+def embed_chat_page():
+    """提供网页嵌入版对话页面，供 iframe 加载。"""
+    if not _EMBED_HTML.exists():
+        raise HTTPException(status_code=404, detail="嵌入页面尚未部署")
+    return FileResponse(_EMBED_HTML, media_type="text/html")
+
+
+@app.get("/static/chat-ball.js")
+def serve_chat_ball_js():
+    """提供聊天球 widget 脚本，外部前端通过 <script src> 引入。"""
+    js_path = Path(__file__).parent / "html_files" / "chat-ball.js"
+    if not js_path.exists():
+        raise HTTPException(status_code=404, detail="chat-ball.js 尚未部署")
+    return FileResponse(js_path, media_type="application/javascript")
+
+
+@app.post("/api/embed/chat")
+async def embed_chat(req: EmbedChatRequest):
+    """
+    嵌入式对话接口，支持两种调用模式：
+    - 单轮（聊天球）：不传 thread_id，每次生成新 UUID，对话无上下文
+    - 多轮（网页嵌入）：传入 thread_id，LangGraph 保留会话内上下文
+    """
+    if req.embed_token != _EMBED_TOKEN:
+        raise HTTPException(status_code=401, detail="embed_token 无效")
+
+    thread_id    = req.thread_id or f"embed-{uuid.uuid4().hex}"
+    user_context = {"user_id": 0, "username": "embed_guest", "role": "visitor"}
+
+    from agent import chat as agent_chat
+    try:
+        response, _steps, _agent = await asyncio.to_thread(
+            lambda: agent_chat(req.message, thread_id, user_context=user_context)
+        )
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"对话失败：{e}")
+
+    return {"response": response, "thread_id": thread_id}

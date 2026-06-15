@@ -10,6 +10,7 @@ from langchain_core.messages import HumanMessage, AIMessage
 from agents.rag_agent import create_rag_agent
 from agents.data_agent import create_data_agent
 from agents.doc_agent import create_doc_agent
+from agents.api_agent import create_api_agent
 from rules.integration import init_engine, check_user_input
 from rules.engine import RuleViolationError
 
@@ -17,30 +18,31 @@ load_dotenv()
 
 # ── LLM ──────────────────────────────────────────────
 # 云端 Qwen API（按量计费）
-llm = ChatOpenAI(
-    model="qwen-plus",
-    base_url="https://dashscope.aliyuncs.com/compatible-mode/v1",
-    api_key=os.environ["QWEN_API_KEY"],
-    temperature=0,
-    max_tokens=8192,
-    timeout=300,
-    max_retries=2,
-)
-
-# # 本地 Ollama（需先启动 Ollama 服务，模型名根据本地部署情况修改）
 # llm = ChatOpenAI(
-#     model="qwen3.6:35b",
-#     base_url="http://192.168.1.155:11434/v1",
-#     api_key="ollama",
+#     model="qwen-plus",
+#     base_url="https://dashscope.aliyuncs.com/compatible-mode/v1",
+#     api_key=os.environ["QWEN_API_KEY"],
 #     temperature=0,
+#     max_tokens=8192,
+#     timeout=300,
+#     max_retries=2,
 # )
 
+# # 本地 Ollama（需先启动 Ollama 服务，模型名根据本地部署情况修改）
+llm = ChatOpenAI(
+    model="qwen3.6:35b",
+    base_url="http://192.168.1.155:11434/v1",
+    api_key="ollama",
+    temperature=0,
+)
 
 
-# ── 创建三个 Sub-Agent ────────────────────────────────
+
+# ── 创建四个 Sub-Agent ────────────────────────────────
 rag_agent  = create_rag_agent(llm)
 data_agent = create_data_agent(llm)
 doc_agent  = create_doc_agent(llm)
+api_agent  = create_api_agent(llm)
 
 # ── 初始化全局规则引擎（含 LLM 检查器）──────────────
 init_engine(llm=llm)
@@ -171,7 +173,7 @@ def chat_direct(
     except RuleViolationError as e:
         return f"⚠️ 输入安全检查未通过：{e}", [], None
 
-    agent_map = {"rag_agent": rag_agent, "data_agent": data_agent, "doc_agent": doc_agent}
+    agent_map = {"rag_agent": rag_agent, "data_agent": data_agent, "doc_agent": doc_agent, "api_agent": api_agent}
     agent = agent_map.get(agent_name)
     if agent is None:
         return f"未知智能体：{agent_name}", [], None

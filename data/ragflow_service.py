@@ -1,17 +1,16 @@
 """
-data/dify_service.py — Dify 知识库 API 封装
+data/ragflow_service.py — RAGFlow 知识库 API 封装
 
 提供知识库和文档的查询接口，供管理员页面调用。
 """
 
 import requests
-from core.config import DIFY_API_BASE, DIFY_DATASET_KEY as DIFY_API_KEY
+from core.config import RAGFLOW_API_BASE, RAGFLOW_API_KEY
 
 
 def _headers() -> dict:
-    """构造 Dify API 请求头。"""
     return {
-        "Authorization": f"Bearer {DIFY_API_KEY}",
+        "Authorization": f"Bearer {RAGFLOW_API_KEY}",
         "Content-Type": "application/json",
     }
 
@@ -22,26 +21,30 @@ def list_datasets(page: int = 1, limit: int = 20) -> dict:
 
     Returns:
         {
-            "data": [{"id", "name", "description", "document_count",
-                      "word_count", "created_at", ...}],
-            "has_more": bool,
-            "limit": int,
+            "data": [{"id", "name", "description", "document_count", "chunk_count", ...}],
             "total": int,
-            "page": int,
         }
 
     Raises:
         RuntimeError: API 调用失败时抛出，包含状态码和错误信息。
     """
     resp = requests.get(
-        f"{DIFY_API_BASE}/datasets",
+        f"{RAGFLOW_API_BASE}/datasets",
         headers=_headers(),
-        params={"page": page, "limit": limit},
+        params={"page": page, "page_size": limit},
         timeout=30,
     )
     if resp.status_code != 200:
         raise RuntimeError(f"获取知识库列表失败：{resp.status_code} {resp.text}")
-    return resp.json()
+    body = resp.json()
+    datasets = body.get("data", [])
+    return {
+        "data": datasets,
+        "total": len(datasets),
+        "page": page,
+        "limit": limit,
+        "has_more": False,
+    }
 
 
 def list_documents(dataset_id: str, page: int = 1, limit: int = 20) -> dict:
@@ -50,23 +53,27 @@ def list_documents(dataset_id: str, page: int = 1, limit: int = 20) -> dict:
 
     Returns:
         {
-            "data": [{"id", "name", "indexing_status", "word_count",
-                      "hit_count", "created_at", ...}],
-            "has_more": bool,
-            "limit": int,
+            "data": [{"id", "name", "run", "chunk_count", "created_at", ...}],
             "total": int,
-            "page": int,
         }
 
     Raises:
         RuntimeError: API 调用失败时抛出，包含状态码和错误信息。
     """
     resp = requests.get(
-        f"{DIFY_API_BASE}/datasets/{dataset_id}/documents",
+        f"{RAGFLOW_API_BASE}/datasets/{dataset_id}/documents",
         headers=_headers(),
-        params={"page": page, "limit": limit},
+        params={"page": page, "page_size": limit},
         timeout=30,
     )
     if resp.status_code != 200:
         raise RuntimeError(f"获取文档列表失败：{resp.status_code} {resp.text}")
-    return resp.json()
+    data = resp.json().get("data", {})
+    docs = data.get("docs", [])
+    return {
+        "data": docs,
+        "total": data.get("total", len(docs)),
+        "page": page,
+        "limit": limit,
+        "has_more": False,
+    }

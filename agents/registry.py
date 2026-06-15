@@ -19,6 +19,12 @@ AGENT_REGISTRY = {
         "required_role": ["user", "admin"],
         "enabled": True,
     },
+    "api_agent": {
+        "name": "API 接口查询智能体",
+        "description": "调用 data_interface/ 下 OpenAPI 规范对应的真实 HTTP 接口，获取实时业务数据",
+        "required_role": ["user", "admin"],
+        "enabled": True,
+    },
     # 未来扩展示例（不需要修改 agent.py）：
     # "report_agent": {
     #     "name": "Report 报告生成智能体",

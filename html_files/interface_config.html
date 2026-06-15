@@ -4,12 +4,13 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>HNGD 智能知识助手系统 - 接口配置</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='6' fill='%234f46e5'/><text x='16' y='23' font-size='18' text-anchor='middle' fill='white' font-family='sans-serif' font-weight='bold'>知</text></svg>">
 <style>
   * { margin: 0; padding: 0; box-sizing: border-box; }
   body { font-family: 'PingFang SC', 'Microsoft YaHei', '微软雅黑', sans-serif; background: #f2f6fa; overflow: hidden; height: 100vh; width: 100vw; }
   #iface-page { width: 100%; height: 100vh; display: flex; flex-direction: row; }
 
-  /* ========== SIDEBAR ========== */
+  /* SIDEBAR */
   .sidebar { width: 220px; min-width: 220px; height: 100vh; background: linear-gradient(180deg, #0f2a5e 0%, #1a3a7e 40%, #0d2050 100%); display: flex; flex-direction: column; position: relative; z-index: 10; box-shadow: 2px 0 16px rgba(10,30,80,0.18); }
   .sidebar-logo { padding: 20px 18px 16px; display: flex; align-items: center; gap: 10px; border-bottom: 1px solid rgba(255,255,255,0.08); flex-shrink: 0; }
   .sidebar-logo-icon { width: 36px; height: 36px; background: rgba(255,255,255,0.15); border-radius: 8px; display: flex; align-items: center; justify-content: center; border: 1.5px solid rgba(255,255,255,0.25); flex-shrink: 0; }
@@ -23,7 +24,7 @@
   .nav-item svg { width: 16px; height: 16px; flex-shrink: 0; }
   .sidebar-user { padding: 12px 14px; border-top: 1px solid rgba(255,255,255,0.08); display: flex; align-items: center; gap: 10px; cursor: pointer; flex-shrink: 0; transition: background 0.15s; }
   .sidebar-user:hover { background: rgba(255,255,255,0.05); }
-  .user-avatar { width: 32px; height: 32px; border-radius: 50%; background: rgba(255,255,255,0.18); display: flex; align-items: center; justify-content: center; flex-shrink: 0; border: 1.5px solid rgba(255,255,255,0.28); }
+  .user-avatar { width: 32px; height: 32px; border-radius: 50%; background: rgba(255,255,255,0.18); display: flex; align-items: center; justify-content: center; flex-shrink: 0; border: 1.5px solid rgba(255,255,255,0.28); overflow: hidden; }
   .user-avatar svg { width: 16px; height: 16px; fill: rgba(255,255,255,0.8); }
   .user-info { flex: 1; min-width: 0; }
   .user-info .name { font-size: 12.5px; font-weight: 600; color: white; }
@@ -32,186 +33,164 @@
   .logout-btn { display: block; width: calc(100% - 20px); margin: 0 10px 10px; padding: 7px; background: transparent; border: 1px solid rgba(255,255,255,0.1); border-radius: 6px; color: rgba(255,255,255,0.38); font-size: 12px; cursor: pointer; font-family: inherit; text-align: center; transition: all 0.15s; flex-shrink: 0; }
   .logout-btn:hover { background: rgba(210,50,50,0.15); border-color: rgba(210,80,80,0.28); color: rgba(255,150,150,0.9); }
 
-  /* ========== MAIN ========== */
+  /* MAIN */
   .iface-main { flex: 1; height: 100vh; display: flex; flex-direction: column; overflow: hidden; }
 
-  /* ========== TOPBAR ========== */
+  /* TOPBAR */
   .topbar { flex-shrink: 0; background: rgba(242,246,250,0.98); backdrop-filter: blur(8px); padding: 0 20px; height: 56px; display: flex; align-items: center; gap: 10px; border-bottom: 1px solid rgba(200,215,230,0.5); z-index: 5; }
   .back-btn { display: flex; align-items: center; gap: 6px; padding: 6px 13px; border: 1px solid #d0dae8; border-radius: 7px; background: white; color: #5a6a8a; font-size: 13px; font-weight: 500; cursor: pointer; font-family: inherit; transition: all 0.15s; text-decoration: none; white-space: nowrap; }
   .back-btn:hover { border-color: #2a5aa8; color: #2a5aa8; background: #f0f5ff; }
   .back-btn svg { width: 14px; height: 14px; }
   .topbar-title { font-size: 14px; font-weight: 600; color: #1a2a4a; margin-right: auto; }
+  .topbar-tabs { display: flex; gap: 2px; }
+  .topbar-tab { padding: 7px 16px; border-radius: 7px; font-size: 13px; cursor: pointer; color: #5a6a8a; border: 1px solid transparent; background: transparent; font-family: inherit; font-weight: 500; transition: all 0.15s; }
+  .topbar-tab:hover { color: #2a5aa8; background: #f0f5ff; }
+  .topbar-tab.active { color: #2a5aa8; background: #eef4ff; border-color: #c8d8f0; }
   .topbar-btn { display: flex; align-items: center; gap: 5px; padding: 6px 13px; border: 1px solid #d0dae8; border-radius: 7px; background: white; color: #5a6a8a; font-size: 13px; font-weight: 500; cursor: pointer; font-family: inherit; transition: all 0.15s; }
   .topbar-btn:hover { border-color: #2a5aa8; color: #2a5aa8; background: #f0f5ff; }
   .topbar-btn svg { width: 14px; height: 14px; }
+  .topbar-btn.primary { background: #2a5aa8; color: white; border: none; }
+  .topbar-btn.primary:hover { background: #1e4a8a; }
   .topbar-divider { width: 1px; height: 18px; background: #d0dae8; }
 
-  /* ========== WORKSPACE ========== */
+  /* WORKSPACE */
   .iface-workspace { flex: 1; display: flex; overflow: hidden; }
-
-  /* ========== LEFT PANEL ========== */
-  .iface-left { width: 260px; min-width: 260px; height: 100%; background: white; border-right: 1px solid #e8eff8; display: flex; flex-direction: column; overflow: hidden; }
-  .left-header { padding: 12px 12px 10px; border-bottom: 1px solid #f0f4f8; flex-shrink: 0; }
-  .left-header-row { display: flex; align-items: center; justify-content: space-between; margin-bottom: 9px; }
+  .iface-left { width: 300px; min-width: 300px; height: 100%; background: white; border-right: 1px solid #e8eff8; display: flex; flex-direction: column; overflow: hidden; }
+  .left-header { padding: 12px; border-bottom: 1px solid #f0f4f8; flex-shrink: 0; display: flex; align-items: center; justify-content: space-between; }
   .left-header-title { font-size: 13px; font-weight: 600; color: #1a2a4a; }
   .left-actions { display: flex; gap: 5px; }
   .icon-btn { width: 28px; height: 28px; display: flex; align-items: center; justify-content: center; border-radius: 6px; cursor: pointer; border: 1px solid #d8e4f4; background: white; color: #5a6a8a; transition: all 0.15s; flex-shrink: 0; }
   .icon-btn:hover { background: #f0f5ff; border-color: #2a5aa8; color: #2a5aa8; }
+  .icon-btn.danger { color: #c0392b; border-color: #f5c6c6; }
+  .icon-btn.danger:hover { background: #fff0f0; border-color: #e08080; }
   .icon-btn svg { width: 14px; height: 14px; }
-  .add-iface-btn { display: flex; align-items: center; justify-content: center; gap: 5px; width: 100%; padding: 7px; border: 1.5px dashed #c8d8f0; border-radius: 7px; background: transparent; color: #6a8ac0; font-size: 12.5px; font-weight: 500; cursor: pointer; font-family: inherit; transition: all 0.15s; }
-  .add-iface-btn:hover { border-color: #2a5aa8; color: #2a5aa8; background: #f4f8ff; }
-  .iface-list { flex: 1; overflow-y: auto; padding: 6px 0; }
+  .iface-list { flex: 1; overflow-y: auto; padding: 4px 0; }
 
-  /* Group */
-  .group-header { display: flex; align-items: center; gap: 6px; padding: 7px 12px; cursor: pointer; user-select: none; transition: background 0.12s; }
-  .group-header:hover { background: #f8fafd; }
-  .group-chevron { font-size: 11px; color: #9aaac0; transition: transform 0.18s; flex-shrink: 0; display: inline-block; line-height: 1; }
-  .group-chevron.open { transform: rotate(90deg); }
-  .group-name { font-size: 12.5px; font-weight: 600; color: #5a6a8a; flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-  .group-count { font-size: 11px; color: #b0bdd0; flex-shrink: 0; }
-  .group-del-btn { opacity: 0; width: 18px; height: 18px; display: flex; align-items: center; justify-content: center; border-radius: 4px; cursor: pointer; color: #c0392b; flex-shrink: 0; transition: opacity 0.15s; }
-  .group-header:hover .group-del-btn { opacity: 1; }
-  .group-del-btn svg { width: 12px; height: 12px; }
-
-  /* Interface row */
-  .iface-row { display: flex; align-items: center; gap: 7px; padding: 7px 12px 7px 24px; cursor: pointer; transition: background 0.12s; border-left: 3px solid transparent; }
+  /* TREE */
+  .svc-header { display: flex; align-items: center; gap: 6px; padding: 8px 12px; cursor: pointer; user-select: none; transition: background 0.12s; }
+  .svc-header:hover { background: #f8fafd; }
+  .svc-header .svc-chevron { font-size: 11px; color: #9aaac0; transition: transform 0.18s; flex-shrink: 0; display: inline-block; line-height: 1; width: 14px; text-align: center; }
+  .svc-header .svc-chevron.open { transform: rotate(90deg); }
+  .svc-header .svc-icon { width: 16px; height: 16px; fill: #6a8ac0; flex-shrink: 0; }
+  .svc-name { font-size: 12.5px; font-weight: 600; color: #3a4a6a; flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .svc-count { font-size: 11px; color: #b0bdd0; flex-shrink: 0; }
+  .svc-del { opacity: 0; width: 20px; height: 20px; display: flex; align-items: center; justify-content: center; border-radius: 4px; cursor: pointer; color: #c0392b; flex-shrink: 0; transition: opacity 0.15s; }
+  .svc-header:hover .svc-del { opacity: 1; }
+  .svc-del svg { width: 12px; height: 12px; }
+  .file-header { display: flex; align-items: center; gap: 6px; padding: 6px 12px 6px 28px; cursor: pointer; user-select: none; transition: background 0.12s; }
+  .file-header:hover { background: #f8fafd; }
+  .file-header .file-chevron { font-size: 10px; color: #b0bdd0; transition: transform 0.18s; flex-shrink: 0; display: inline-block; line-height: 1; width: 12px; text-align: center; }
+  .file-header .file-chevron.open { transform: rotate(90deg); }
+  .file-icon { font-size: 12px; flex-shrink: 0; }
+  .file-name { font-size: 12px; font-weight: 500; color: #5a6a8a; flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .file-count { font-size: 10.5px; color: #c0ccd8; flex-shrink: 0; }
+  .file-del { opacity: 0; width: 20px; height: 20px; display: flex; align-items: center; justify-content: center; border-radius: 4px; cursor: pointer; color: #c0392b; flex-shrink: 0; transition: opacity 0.15s; }
+  .file-header:hover .file-del { opacity: 1; }
+  .file-del svg { width: 11px; height: 11px; }
+  .iface-row { display: flex; align-items: center; gap: 7px; padding: 7px 12px 7px 44px; cursor: pointer; transition: background 0.12s; border-left: 3px solid transparent; }
   .iface-row:hover { background: #f4f8ff; }
   .iface-row.active { background: #eef4ff; border-left-color: #2a5aa8; }
   .iface-row-del { opacity: 0; width: 18px; height: 18px; display: flex; align-items: center; justify-content: center; border-radius: 4px; cursor: pointer; color: #c0392b; flex-shrink: 0; transition: opacity 0.15s; }
   .iface-row:hover .iface-row-del { opacity: 1; }
   .iface-row-del svg { width: 12px; height: 12px; }
-
-  /* Method badges */
-  .method-badge { font-size: 10px; font-weight: 700; padding: 2px 5px; border-radius: 4px; flex-shrink: 0; font-family: 'SFMono-Regular', Consolas, monospace; min-width: 40px; text-align: center; }
+  .method-badge { font-size: 10px; font-weight: 700; padding: 2px 5px; border-radius: 4px; flex-shrink: 0; font-family: 'SFMono-Regular', Consolas, monospace; min-width: 42px; text-align: center; }
   .method-badge.GET    { background: #e8f0fc; color: #2a5aa8; }
   .method-badge.POST   { background: #e6f7f0; color: #1a9e6b; }
   .method-badge.PUT    { background: #fff3e8; color: #e07a1a; }
   .method-badge.DELETE { background: #fff0f0; color: #c0392b; }
   .method-badge.PATCH  { background: #f0eafc; color: #7c3aed; }
   .method-badge.HEAD   { background: #f0f4f8; color: #5a6a8a; }
-
-  .iface-row-name { flex: 1; font-size: 12.5px; color: #2a3a5a; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-  .iface-row-name.disabled { color: #b0bdd0; }
-
-  /* Mini toggle */
-  .mini-toggle { position: relative; width: 32px; height: 18px; flex-shrink: 0; }
-  .mini-toggle input { opacity: 0; width: 0; height: 0; }
-  .mini-slider { position: absolute; inset: 0; background: #d0dae8; border-radius: 18px; cursor: pointer; transition: background 0.2s; }
-  .mini-slider::before { content: ''; position: absolute; width: 13px; height: 13px; left: 2.5px; top: 2.5px; background: white; border-radius: 50%; transition: transform 0.2s; box-shadow: 0 1px 2px rgba(0,0,0,0.18); }
-  .mini-toggle input:checked + .mini-slider { background: #2a5aa8; }
-  .mini-toggle input:checked + .mini-slider::before { transform: translateX(14px); }
-
-  .ungrouped-label { padding: 8px 12px 4px; font-size: 11.5px; font-weight: 600; color: #c0ccd8; letter-spacing: 0.5px; }
+  .iface-row-name { flex: 1; font-size: 12px; color: #2a3a5a; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .list-empty { text-align: center; padding: 36px 16px; color: #c0ccd8; font-size: 13px; }
+  .list-loading { text-align: center; padding: 36px 16px; color: #9aaac0; font-size: 13px; }
 
-  /* ========== RIGHT PANEL ========== */
+  /* RIGHT */
   .iface-right { flex: 1; height: 100%; display: flex; flex-direction: column; overflow: hidden; background: #f8fafd; }
-
-  /* Empty state */
   .right-empty { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 14px; color: #c0ccd8; }
   .right-empty svg { width: 64px; height: 64px; opacity: 0.25; }
   .right-empty-title { font-size: 15px; font-weight: 600; color: #b0bdd0; }
   .right-empty-sub { font-size: 13px; color: #c8d4e0; }
 
-  /* Editor */
-  .right-editor { flex: 1; display: flex; flex-direction: column; overflow: hidden; }
-  .editor-topbar { background: white; border-bottom: 1px solid #e8eff8; padding: 11px 18px; display: flex; align-items: center; gap: 10px; flex-shrink: 0; }
-  .editor-name-input { flex: 1; border: none; outline: none; font-size: 15px; font-weight: 600; color: #1a2a4a; background: transparent; font-family: 'PingFang SC', 'Microsoft YaHei', sans-serif; min-width: 0; }
-  .editor-name-input::placeholder { color: #c8d4e0; font-weight: 400; }
-  .group-select-inline { border: 1px solid #d8e4f4; border-radius: 6px; padding: 5px 22px 5px 9px; font-size: 12.5px; color: #5a6a8a; background: white; cursor: pointer; outline: none; font-family: inherit; appearance: none; -webkit-appearance: none; background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='11' height='11' viewBox='0 0 24 24' fill='%235a7aaa'%3E%3Cpath d='M7 10l5 5 5-5z'/%3E%3C/svg%3E"); background-repeat: no-repeat; background-position: right 5px center; max-width: 130px; }
-  .group-select-inline:focus { border-color: #2a5aa8; }
-  .save-btn { padding: 6px 16px; border: 1.5px solid #d0dae8; border-radius: 7px; background: white; color: #5a6a8a; font-size: 13px; font-weight: 500; cursor: pointer; font-family: inherit; transition: all 0.15s; white-space: nowrap; }
-  .save-btn:hover { border-color: #2a5aa8; color: #2a5aa8; background: #f0f5ff; }
-  .del-iface-btn { padding: 6px 10px; border: 1px solid #f5c6c6; border-radius: 7px; background: white; color: #c0392b; font-size: 13px; cursor: pointer; font-family: inherit; transition: all 0.15s; }
-  .del-iface-btn:hover { background: #fff0f0; border-color: #e08080; }
+  /* DETAIL VIEW */
+  .detail-view { flex: 1; display: flex; flex-direction: column; overflow-y: auto; }
+  .detail-header { background: white; border-bottom: 1px solid #e8eff8; padding: 14px 18px; flex-shrink: 0; }
+  .detail-title-row { display: flex; align-items: center; gap: 10px; margin-bottom: 6px; }
+  .detail-title { font-size: 15px; font-weight: 600; color: #1a2a4a; }
+  .detail-path { font-family: 'SFMono-Regular', Consolas, monospace; font-size: 13px; color: #2a5aa8; background: #eef4ff; padding: 3px 8px; border-radius: 5px; word-break: break-all; }
+  .detail-meta { display: flex; gap: 12px; font-size: 12px; color: #9aaac0; flex-wrap: wrap; }
+  .detail-section { padding: 14px 18px; border-bottom: 1px solid #f0f4f8; }
+  .detail-section:last-child { border-bottom: none; }
+  .detail-section-title { font-size: 12.5px; font-weight: 600; color: #5a6a8a; margin-bottom: 8px; text-transform: uppercase; letter-spacing: 0.5px; }
+  .param-table { width: 100%; border-collapse: collapse; font-size: 12.5px; }
+  .param-table th { text-align: left; padding: 7px 10px; background: #f6f9fc; color: #5a6a8a; font-weight: 500; border-bottom: 1px solid #e8eff8; }
+  .param-table td { padding: 7px 10px; border-bottom: 1px solid #f0f4f8; color: #2a3a5a; vertical-align: top; }
+  .param-table tr:last-child td { border-bottom: none; }
+  .param-tag { font-size: 11px; display: inline-block; padding: 2px 8px; border-radius: 10px; background: #eef4ff; color: #2a5aa8; margin-right: 4px; margin-bottom: 4px; }
+  .param-required { color: #c0392b; font-weight: 600; font-size: 11px; }
+  .param-detail { flex: 1; overflow-y: auto; padding: 0; }
 
-  /* URL bar */
-  .url-bar { background: white; border-bottom: 1px solid #e8eff8; padding: 10px 18px; display: flex; align-items: center; gap: 8px; flex-shrink: 0; }
-  .method-select { border: 1.5px solid #d8e4f4; border-radius: 7px; padding: 7px 22px 7px 10px; font-size: 13px; font-weight: 700; color: #2a5aa8; background: #eef4ff; cursor: pointer; outline: none; font-family: 'SFMono-Regular', Consolas, monospace; appearance: none; -webkit-appearance: none; background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='%232a5aa8'%3E%3Cpath d='M7 10l5 5 5-5z'/%3E%3C/svg%3E"); background-repeat: no-repeat; background-position: right 5px center; min-width: 88px; transition: all 0.15s; }
-  .url-input { flex: 1; border: 1.5px solid #d8e4f4; border-radius: 7px; padding: 7px 13px; font-size: 13px; color: #1a2a4a; font-family: 'SFMono-Regular', Consolas, 'Microsoft YaHei', monospace; outline: none; background: white; transition: border-color 0.15s; }
-  .url-input:focus { border-color: #2a5aa8; box-shadow: 0 0 0 3px rgba(42,90,168,0.08); }
-  .url-input::placeholder { color: #c0ccd8; font-family: 'PingFang SC', 'Microsoft YaHei', sans-serif; }
-  .send-btn { padding: 7px 22px; background: #2a5aa8; color: white; border: none; border-radius: 7px; font-size: 13px; font-weight: 600; cursor: pointer; font-family: inherit; white-space: nowrap; transition: background 0.15s; min-width: 72px; }
-  .send-btn:hover:not(:disabled) { background: #1e4a8a; }
-  .send-btn:disabled { background: #a0b4d0; cursor: not-allowed; }
+  /* PERMISSION PANEL */
+  .perm-panel { flex: 1; display: flex; overflow: hidden; }
+  .perm-user-list { width: 220px; min-width: 220px; height: 100%; background: white; border-right: 1px solid #e8eff8; overflow-y: auto; }
+  .perm-user-item { display: flex; align-items: center; gap: 8px; padding: 10px 12px; cursor: pointer; border-bottom: 1px solid #f6f8fc; transition: background 0.12s; }
+  .perm-user-item:hover { background: #f8fafd; }
+  .perm-user-item.active { background: #eef4ff; }
+  .perm-user-name { font-size: 13px; font-weight: 500; color: #1a2a4a; flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .perm-user-role { font-size: 10.5px; color: #9aaac0; }
+  .perm-detail { flex: 1; height: 100%; display: flex; flex-direction: column; overflow: hidden; }
+  .perm-detail-header { padding: 12px 16px; background: white; border-bottom: 1px solid #e8eff8; display: flex; align-items: center; gap: 10px; flex-shrink: 0; }
+  .perm-detail-title { font-size: 13px; font-weight: 600; color: #1a2a4a; }
+  .perm-detail-sub { font-size: 11.5px; color: #9aaac0; }
+  .perm-actions { display: flex; gap: 6px; margin-left: auto; }
+  .perm-btn { padding: 5px 12px; border-radius: 6px; font-size: 12px; cursor: pointer; border: 1px solid #d0dae8; background: white; color: #5a6a8a; font-family: inherit; transition: all 0.12s; }
+  .perm-btn:hover { border-color: #2a5aa8; color: #2a5aa8; background: #f0f5ff; }
+  .perm-tree { flex: 1; overflow-y: auto; padding: 8px 0; background: #f8fafd; }
+  .perm-svc-header { display: flex; align-items: center; gap: 6px; padding: 7px 16px; cursor: pointer; user-select: none; transition: background 0.12s; }
+  .perm-svc-header:hover { background: #f0f4f8; }
+  .perm-svc-chevron { font-size: 10px; color: #9aaac0; transition: transform 0.18s; flex-shrink: 0; display: inline-block; width: 12px; text-align: center; }
+  .perm-svc-chevron.open { transform: rotate(90deg); }
+  .perm-svc-name { font-size: 12.5px; font-weight: 600; color: #3a4a6a; flex: 1; }
+  .perm-file-header { display: flex; align-items: center; gap: 6px; padding: 6px 16px 6px 36px; cursor: pointer; user-select: none; transition: background 0.12s; }
+  .perm-file-header:hover { background: #f0f4f8; }
+  .perm-file-chevron { font-size: 10px; color: #b0bdd0; transition: transform 0.18s; flex-shrink: 0; display: inline-block; width: 12px; text-align: center; }
+  .perm-file-chevron.open { transform: rotate(90deg); }
+  .perm-file-name { font-size: 12px; font-weight: 500; color: #5a6a8a; flex: 1; }
+  .perm-iface-row { display: flex; align-items: center; gap: 8px; padding: 6px 16px 6px 56px; transition: background 0.12s; }
+  .perm-toggle { position: relative; width: 36px; height: 20px; flex-shrink: 0; cursor: pointer; }
+  .perm-toggle input { opacity: 0; width: 0; height: 0; }
+  .perm-toggle-slider { position: absolute; inset: 0; background: #d0dae8; border-radius: 20px; transition: background 0.2s; cursor: pointer; }
+  .perm-toggle-slider::before { content: ''; position: absolute; width: 16px; height: 16px; left: 2px; top: 2px; background: white; border-radius: 50%; transition: transform 0.2s; box-shadow: 0 1px 2px rgba(0,0,0,0.18); }
+  .perm-toggle input:checked + .perm-toggle-slider { background: #2a5aa8; }
+  .perm-toggle input:checked + .perm-toggle-slider::before { transform: translateX(16px); }
+  .perm-iface-info { flex: 1; min-width: 0; }
+  .perm-iface-path { font-size: 11.5px; color: #2a3a5a; font-family: 'SFMono-Regular', Consolas, monospace; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .perm-iface-desc { font-size: 11px; color: #9aaac0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .perm-empty { flex: 1; display: flex; align-items: center; justify-content: center; color: #c0ccd8; font-size: 13px; }
 
-  /* Param tabs */
-  .params-tabs { background: white; border-bottom: 1px solid #e8eff8; padding: 0 18px; display: flex; align-items: center; flex-shrink: 0; }
-  .params-tab { padding: 10px 14px; font-size: 13px; color: #7a8aaa; cursor: pointer; border-bottom: 2px solid transparent; transition: all 0.15s; user-select: none; white-space: nowrap; display: flex; align-items: center; gap: 5px; }
-  .params-tab:hover { color: #2a5aa8; }
-  .params-tab.active { color: #2a5aa8; border-bottom-color: #2a5aa8; font-weight: 500; }
-  .tab-count { font-size: 11px; background: #e8f0fc; color: #2a5aa8; padding: 1px 6px; border-radius: 8px; font-weight: 500; }
+  /* IMPORT PANEL */
+  .import-panel { flex: 1; display: flex; flex-direction: column; overflow: hidden; background: #f8fafd; }
+  .import-intro { padding: 20px 24px 8px; text-align: center; }
+  .import-intro h3 { font-size: 15px; font-weight: 600; color: #1a2a4a; margin-bottom: 4px; }
+  .import-intro p { font-size: 13px; color: #9aaac0; }
+  .import-cards { display: flex; gap: 16px; padding: 16px 24px; justify-content: center; }
+  .import-card { background: white; border: 1.5px solid #e8eff8; border-radius: 10px; padding: 24px; width: 340px; text-align: center; transition: border-color 0.15s, box-shadow 0.15s; }
+  .import-card:hover { border-color: #2a5aa8; box-shadow: 0 2px 12px rgba(42,90,168,0.1); }
+  .import-card-icon { width: 44px; height: 44px; margin: 0 auto 12px; background: #eef4ff; border-radius: 12px; display: flex; align-items: center; justify-content: center; }
+  .import-card-icon svg { width: 22px; height: 22px; fill: #2a5aa8; }
+  .import-card h4 { font-size: 14px; font-weight: 600; color: #1a2a4a; margin-bottom: 6px; }
+  .import-card p { font-size: 12px; color: #9aaac0; margin-bottom: 14px; line-height: 1.5; }
+  .import-card-input { width: 100%; border: 1.5px solid #d8e4f4; border-radius: 7px; padding: 8px 12px; font-size: 13px; color: #1a2a4a; font-family: 'SFMono-Regular', Consolas, monospace; outline: none; transition: border-color 0.15s; margin-bottom: 8px; }
+  .import-card-input:focus { border-color: #2a5aa8; box-shadow: 0 0 0 3px rgba(42,90,168,0.08); }
+  .import-status { padding: 12px 24px; }
+  .import-msg { padding: 10px 14px; border-radius: 8px; font-size: 13px; }
+  .import-msg.success { background: #e6f7f0; color: #1a9e6b; border: 1px solid #c0e8d5; }
+  .import-msg.error { background: #fff0f0; color: #c0392b; border: 1px solid #f5c6c6; }
+  .import-msg.loading { background: #eef4ff; color: #2a5aa8; border: 1px solid #c8d8f0; }
 
-  /* Tab panels */
-  .params-panel { flex: 1; overflow-y: auto; background: #f8fafd; }
-  .tab-content { display: none; padding: 16px 18px; flex-direction: column; gap: 12px; }
-  .tab-content.active { display: flex; }
-
-  /* KV rows */
-  .kv-header-row { display: grid; grid-template-columns: 18px 1fr 1fr 26px; gap: 8px; padding: 0 2px 4px; }
-  .kv-header-cell { font-size: 11.5px; color: #9aaac0; font-weight: 500; }
-  .kv-row { display: grid; grid-template-columns: 18px 1fr 1fr 26px; gap: 8px; align-items: center; }
-  .kv-checkbox { width: 14px; height: 14px; cursor: pointer; accent-color: #2a5aa8; }
-  .kv-input { border: 1px solid #d8e4f4; border-radius: 6px; padding: 6px 9px; font-size: 12.5px; color: #1a2a4a; font-family: 'SFMono-Regular', Consolas, 'Microsoft YaHei', monospace; outline: none; background: white; transition: border-color 0.15s; width: 100%; }
-  .kv-input:focus { border-color: #2a5aa8; }
-  .kv-input::placeholder { color: #c8d4e0; font-family: 'PingFang SC', 'Microsoft YaHei', sans-serif; }
-  .kv-del-btn { width: 24px; height: 24px; display: flex; align-items: center; justify-content: center; border-radius: 5px; cursor: pointer; color: #b0bdd0; border: none; background: none; transition: all 0.12s; }
-  .kv-del-btn:hover { background: #fff0f0; color: #c0392b; }
-  .kv-del-btn svg { width: 13px; height: 13px; }
-  .kv-add-btn { display: inline-flex; align-items: center; gap: 5px; padding: 5px 10px; border-radius: 6px; border: 1px dashed #c8d8f0; background: transparent; color: #6a8ac0; font-size: 12.5px; cursor: pointer; font-family: inherit; transition: all 0.15s; align-self: flex-start; white-space: nowrap; }
-  .kv-add-btn:hover { border-color: #2a5aa8; color: #2a5aa8; background: #f4f8ff; }
-  .kv-add-btn svg { width: 12px; height: 12px; flex-shrink: 0; }
-
-  /* Body */
-  .body-type-row { display: flex; gap: 0; border: 1px solid #d8e4f4; border-radius: 7px; overflow: hidden; background: #f6f8fc; align-self: flex-start; }
-  .body-type-btn { padding: 5px 13px; font-size: 12.5px; color: #7a8aaa; cursor: pointer; border: none; background: transparent; font-family: inherit; transition: all 0.12s; }
-  .body-type-btn.active { background: white; color: #2a5aa8; font-weight: 500; box-shadow: 0 1px 3px rgba(30,60,120,0.08); }
-  .body-textarea { width: 100%; border: 1.5px solid #d8e4f4; border-radius: 8px; padding: 12px; font-size: 12.5px; color: #1a2a4a; font-family: 'SFMono-Regular', Consolas, 'Microsoft YaHei', monospace; outline: none; resize: vertical; min-height: 130px; background: white; transition: border-color 0.15s; line-height: 1.65; }
-  .body-textarea:focus { border-color: #2a5aa8; box-shadow: 0 0 0 3px rgba(42,90,168,0.08); }
-  .body-none-tip { color: #b0bdd0; font-size: 13px; text-align: center; padding: 28px 0; }
-
-  /* Auth */
-  .auth-select { border: 1.5px solid #d8e4f4; border-radius: 7px; padding: 7px 28px 7px 11px; font-size: 13px; color: #1a2a4a; background: white; cursor: pointer; outline: none; font-family: inherit; width: 200px; appearance: none; -webkit-appearance: none; background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='%235a7aaa'%3E%3Cpath d='M7 10l5 5 5-5z'/%3E%3C/svg%3E"); background-repeat: no-repeat; background-position: right 8px center; transition: border-color 0.15s; }
-  .auth-select:focus { border-color: #2a5aa8; }
-  .auth-field { display: flex; flex-direction: column; gap: 5px; }
-  .auth-label { font-size: 12px; color: #7a8aaa; font-weight: 500; }
-  .auth-input { border: 1.5px solid #d8e4f4; border-radius: 7px; padding: 7px 11px; font-size: 13px; color: #1a2a4a; font-family: 'SFMono-Regular', Consolas, 'Microsoft YaHei', monospace; outline: none; background: white; transition: border-color 0.15s; }
-  .auth-input:focus { border-color: #2a5aa8; }
-  .auth-input::placeholder { color: #c8d4e0; font-family: 'PingFang SC', 'Microsoft YaHei', sans-serif; }
-
-  /* ========== RESPONSE ========== */
-  .response-area { height: 260px; min-height: 140px; border-top: 2px solid #e8eff8; background: white; display: flex; flex-direction: column; flex-shrink: 0; overflow: hidden; }
-  .response-header { display: flex; align-items: center; gap: 10px; padding: 9px 18px; border-bottom: 1px solid #f0f4f8; flex-shrink: 0; }
-  .response-title { font-size: 13px; font-weight: 600; color: #1a2a4a; margin-right: 4px; }
-  .resp-status { font-size: 12px; font-weight: 600; padding: 2px 8px; border-radius: 6px; font-family: 'SFMono-Regular', Consolas, monospace; display: none; }
-  .resp-status.s2xx { background: #e6f7f0; color: #1a9e6b; }
-  .resp-status.s3xx { background: #e8f0fc; color: #2a5aa8; }
-  .resp-status.s4xx { background: #fff3e8; color: #e07a1a; }
-  .resp-status.s5xx { background: #fff0f0; color: #c0392b; }
-  .resp-status.serr { background: #fff0f0; color: #c0392b; }
-  .resp-time { font-size: 12px; color: #9aaac0; }
-  .resp-tabs { display: flex; gap: 2px; margin-left: auto; }
-  .resp-tab { padding: 4px 11px; font-size: 12px; cursor: pointer; border-radius: 5px; color: #7a8aaa; transition: all 0.12s; border: 1px solid transparent; }
-  .resp-tab.active { background: #f0f5ff; color: #2a5aa8; border-color: #d0e0f8; }
-  .response-body { flex: 1; overflow-y: auto; padding: 12px 18px; }
-  .response-empty-state { height: 100%; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 8px; color: #c8d4e0; font-size: 13px; }
-  .response-empty-state svg { width: 28px; height: 28px; opacity: 0.3; }
-  .response-pre { font-family: 'SFMono-Regular', Consolas, 'Microsoft YaHei', monospace; font-size: 12.5px; line-height: 1.7; white-space: pre-wrap; word-break: break-all; color: #2a3a5a; }
-  .json-key  { color: #2a5aa8; }
-  .json-str  { color: #1a9e6b; }
-  .json-num  { color: #e07a1a; }
-  .json-bool { color: #7c3aed; }
-  .json-null { color: #9aaac0; }
-  .resp-hdr-table { width: 100%; border-collapse: collapse; font-size: 12.5px; }
-  .resp-hdr-table td { padding: 6px 10px; border-bottom: 1px solid #f0f4f8; vertical-align: top; }
-  .resp-hdr-table tr:last-child td { border-bottom: none; }
-  .resp-hdr-k { color: #2a5aa8; font-family: monospace; white-space: nowrap; width: 38%; }
-  .resp-hdr-v { color: #1a2a4a; font-family: monospace; word-break: break-all; }
-
-  /* ========== MODALS ========== */
+  /* MODALS */
   .modal-overlay { position: fixed; inset: 0; background: rgba(10,30,80,0.28); backdrop-filter: blur(3px); z-index: 1000; display: flex; align-items: center; justify-content: center; opacity: 0; pointer-events: none; transition: opacity 0.2s; }
   .modal-overlay.open { opacity: 1; pointer-events: auto; }
-  .modal { background: white; border-radius: 14px; box-shadow: 0 8px 40px rgba(10,30,80,0.16); border: 1px solid rgba(220,230,245,0.8); width: 420px; max-width: calc(100vw - 40px); transform: translateY(-12px); transition: transform 0.2s; }
+  .modal { background: white; border-radius: 14px; box-shadow: 0 8px 40px rgba(10,30,80,0.16); border: 1px solid rgba(220,230,245,0.8); width: 420px; max-width: calc(100vw - 40px); transform: translateY(-12px); transition: transform 0.2s; overflow: hidden; }
   .modal-overlay.open .modal { transform: translateY(0); }
   .modal-lg { width: 560px; }
   .modal-header { padding: 18px 22px 14px; border-bottom: 1px solid #f0f4f8; display: flex; align-items: center; justify-content: space-between; }
@@ -220,29 +199,68 @@
   .modal-close:hover { background: #f0f4f8; }
   .modal-body { padding: 18px 22px; }
   .modal-footer { padding: 10px 22px 18px; display: flex; gap: 8px; justify-content: flex-end; }
-  .modal-input { width: 100%; border: 1.5px solid #d8e4f4; border-radius: 7px; padding: 8px 12px; font-size: 13.5px; color: #1a2a4a; font-family: 'PingFang SC', 'Microsoft YaHei', sans-serif; outline: none; background: white; transition: border-color 0.15s; }
-  .modal-input:focus { border-color: #2a5aa8; box-shadow: 0 0 0 3px rgba(42,90,168,0.08); }
-  .modal-label { font-size: 12.5px; color: #5a6a8a; font-weight: 500; margin-bottom: 7px; display: block; }
   .btn-cancel { padding: 7px 16px; border: 1.5px solid #d0dae8; border-radius: 7px; color: #5a6a8a; font-size: 13px; font-weight: 500; background: white; cursor: pointer; font-family: inherit; transition: all 0.12s; }
   .btn-cancel:hover { border-color: #b0bcd0; background: #f6f8fc; }
   .btn-primary { padding: 7px 18px; border: none; border-radius: 7px; background: #2a5aa8; color: white; font-size: 13px; font-weight: 600; cursor: pointer; font-family: inherit; transition: background 0.12s; }
   .btn-primary:hover { background: #1e4a8a; }
+  .btn-primary:disabled { background: #a0b4d0; cursor: not-allowed; }
+  .btn-danger { padding: 7px 18px; border: none; border-radius: 7px; background: #c0392b; color: white; font-size: 13px; font-weight: 600; cursor: pointer; font-family: inherit; transition: background 0.12s; }
+  .btn-danger:hover { background: #a93226; }
+  .modal-input { width: 100%; border: 1.5px solid #d8e4f4; border-radius: 7px; padding: 8px 12px; font-size: 13.5px; color: #1a2a4a; font-family: 'PingFang SC', 'Microsoft YaHei', sans-serif; outline: none; background: white; transition: border-color 0.15s; }
+  .modal-input:focus { border-color: #2a5aa8; box-shadow: 0 0 0 3px rgba(42,90,168,0.08); }
+  .modal-label { font-size: 12.5px; color: #5a6a8a; font-weight: 500; margin-bottom: 7px; display: block; }
 
-  /* Import drop zone */
-  .import-drop { border: 2px dashed #c8d8f0; border-radius: 10px; padding: 36px 24px; text-align: center; cursor: pointer; transition: all 0.15s; color: #9aaac0; }
-  .import-drop:hover, .import-drop.drag-over { border-color: #2a5aa8; background: #f4f8ff; color: #2a5aa8; }
-  .import-drop svg { width: 36px; height: 36px; margin-bottom: 10px; }
-  .import-drop p { font-size: 13.5px; margin-bottom: 5px; }
-  .import-drop span { font-size: 12px; color: #b0bdd0; }
+  .drop-zone { border: 2px dashed #c8d8f0; border-radius: 10px; padding: 36px 24px; text-align: center; cursor: pointer; transition: all 0.15s; color: #9aaac0; }
+  .drop-zone:hover, .drop-zone.drag-over { border-color: #2a5aa8; background: #f4f8ff; color: #2a5aa8; }
+  .drop-zone svg { width: 36px; height: 36px; margin-bottom: 10px; }
 
   @keyframes spin { to { transform: rotate(360deg); } }
   .spinning { display: inline-block; animation: spin 0.65s linear infinite; }
+
+  .toast { position: fixed; top: 20px; right: 20px; z-index: 2000; padding: 10px 18px; border-radius: 8px; font-size: 13px; font-weight: 500; box-shadow: 0 4px 16px rgba(0,0,0,0.12); transform: translateX(120%); transition: transform 0.3s ease; }
+  .toast.show { transform: translateX(0); }
+  .toast.success { background: #e6f7f0; color: #1a9e6b; border: 1px solid #c0e8d5; }
+  .toast.error { background: #fff0f0; color: #c0392b; border: 1px solid #f5c6c6; }
+  .toast.info { background: #eef4ff; color: #2a5aa8; border: 1px solid #c8d8f0; }
+
+  /* TEST FORM */
+  .test-section { padding: 14px 18px; border-bottom: 1px solid #f0f4f8; }
+  .test-base-url-row { display: flex; align-items: center; gap: 8px; margin-bottom: 12px; }
+  .test-base-url-label { font-size: 12px; font-weight: 600; color: #5a6a8a; white-space: nowrap; }
+  .test-base-url-input { flex: 1; border: 1.5px solid #d8e4f4; border-radius: 6px; padding: 6px 10px; font-size: 12.5px; font-family: 'SFMono-Regular', Consolas, monospace; color: #1a2a4a; outline: none; background: white; transition: border-color 0.15s; }
+  .test-base-url-input:focus { border-color: #2a5aa8; box-shadow: 0 0 0 2px rgba(42,90,168,0.07); }
+  .test-param-table { width: 100%; border-collapse: collapse; font-size: 12.5px; }
+  .test-param-table th { text-align: left; padding: 7px 8px; background: #f6f9fc; color: #5a6a8a; font-weight: 500; border-bottom: 1px solid #e8eff8; font-size: 11.5px; white-space: nowrap; }
+  .test-param-table td { padding: 6px 8px; border-bottom: 1px solid #f0f4f8; color: #2a3a5a; vertical-align: middle; }
+  .test-param-table tr:last-child td { border-bottom: none; }
+  .test-param-input { width: 100%; border: 1px solid #e0e8f4; border-radius: 4px; padding: 4px 8px; font-size: 12px; color: #1a2a4a; background: #fafcfe; outline: none; font-family: 'SFMono-Regular', Consolas, monospace; transition: border-color 0.12s; box-sizing: border-box; }
+  .test-param-input:focus { border-color: #2a5aa8; background: white; }
+  .test-body-area { width: 100%; min-height: 80px; border: 1.5px solid #d8e4f4; border-radius: 6px; padding: 8px 10px; font-size: 12px; font-family: 'SFMono-Regular', Consolas, monospace; color: #1a2a4a; resize: vertical; outline: none; background: #fafcfe; transition: border-color 0.15s; box-sizing: border-box; }
+  .test-body-area:focus { border-color: #2a5aa8; background: white; }
+  .test-send-row { display: flex; align-items: center; gap: 10px; padding: 10px 0 0; }
+  .test-send-btn { display: flex; align-items: center; gap: 6px; padding: 8px 22px; border: none; border-radius: 7px; background: #2a5aa8; color: white; font-size: 13px; font-weight: 600; cursor: pointer; font-family: inherit; transition: background 0.15s; }
+  .test-send-btn:hover { background: #1e4a8a; }
+  .test-send-btn:disabled { background: #a0b4d0; cursor: not-allowed; }
+  .test-send-btn svg { width: 14px; height: 14px; fill: currentColor; }
+
+  /* RESPONSE */
+  .test-response { padding: 0 18px 14px; }
+  .test-response-header { display: flex; align-items: center; gap: 10px; padding: 8px 0; }
+  .test-status { font-size: 13px; font-weight: 600; padding: 3px 10px; border-radius: 5px; }
+  .test-status.ok { background: #e6f7f0; color: #1a9e6b; }
+  .test-status.err { background: #fff0f0; color: #c0392b; }
+  .test-status.pending { background: #fff8e8; color: #c08a20; }
+  .test-elapsed { font-size: 12px; color: #9aaac0; }
+  .test-resp-body { background: #1e293b; color: #e2e8f0; border-radius: 8px; padding: 14px 16px; font-family: 'SFMono-Regular', Consolas, monospace; font-size: 12px; line-height: 1.6; overflow-x: auto; max-height: 360px; overflow-y: auto; white-space: pre-wrap; word-break: break-all; }
+  .test-resp-body.empty { background: #f6f9fc; color: #b0bdd0; text-align: center; padding: 24px; }
+  .test-no-base-url { padding: 12px 14px; background: #fff8e8; border: 1px solid #f0d080; border-radius: 7px; color: #c08a20; font-size: 12px; }
 </style>
+<script src="config.js"></script>
 </head>
 <body>
 <div id="iface-page">
 
-  <!-- ========== SIDEBAR ========== -->
+  <!-- SIDEBAR -->
   <div class="sidebar">
     <div class="sidebar-logo">
       <div class="sidebar-logo-icon">
@@ -259,8 +277,8 @@
       <a class="nav-item" id="nav-admin-item" href="admin-page.html" style="display:none"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 1L3 5v6c0 5.55 3.84 10.74 9 12 5.16-1.26 9-6.45 9-12V5l-9-4zm-1 14l-3-3 1.41-1.41L11 12.17l4.59-4.58L17 9l-6 6z"/></svg>管理员界面</a>
     </nav>
     <div style="flex:1"></div>
-    <div class="sidebar-user" onclick="window.location.href='setting-page.html'" title="账号设置">
-      <div class="user-avatar"><svg viewBox="0 0 24 24"><path d="M12 12c2.7 0 5-2.3 5-5s-2.3-5-5-5-5 2.3-5 5 2.3 5 5 5zm0 2c-3.3 0-10 1.7-10 5v2h20v-2c0-3.3-6.7-5-10-5z"/></svg></div>
+    <div class="sidebar-user" onclick="window.location.href='setting-page.html'">
+      <div class="user-avatar" id="sidebar-avatar-el"><svg viewBox="0 0 24 24"><path d="M12 12c2.7 0 5-2.3 5-5s-2.3-5-5-5-5 2.3-5 5 2.3 5 5 5zm0 2c-3.3 0-10 1.7-10 5v2h20v-2c0-3.3-6.7-5-10-5z"/></svg></div>
       <div class="user-info">
         <div class="name" id="sidebar-username">加载中...</div>
         <div class="role" id="sidebar-role">—</div>
@@ -270,700 +288,831 @@
     <button class="logout-btn" onclick="logout()">退出登录</button>
   </div>
 
-  <!-- ========== MAIN ========== -->
+  <!-- MAIN -->
   <div class="iface-main">
-
-    <!-- Topbar -->
     <div class="topbar">
       <a class="back-btn" href="more-features-page.html">
         <svg viewBox="0 0 24 24" fill="currentColor"><path d="M20 11H7.83l5.59-5.59L12 4l-8 8 8 8 1.41-1.41L7.83 13H20v-2z"/></svg>
         返回更多功能
       </a>
       <span class="topbar-title">接口配置</span>
-      <button class="topbar-btn" onclick="openImportModal()">
-        <svg viewBox="0 0 24 24" fill="currentColor"><path d="M9 16h6v-6h4l-7-7-7 7h4zm-4 2h14v2H5z"/></svg>
-        导入
-      </button>
-      <button class="topbar-btn" onclick="exportData()">
-        <svg viewBox="0 0 24 24" fill="currentColor"><path d="M19 9h-4V3H9v6H5l7 7 7-7zM5 18v2h14v-2H5z"/></svg>
-        导出
+      <div class="topbar-tabs" id="main-tabs">
+        <div class="topbar-tab active" data-tab="browse" onclick="switchMainTab('browse')">接口浏览</div>
+        <div class="topbar-tab" data-tab="import" onclick="switchMainTab('import')" id="tab-import" style="display:none">导入管理</div>
+        <div class="topbar-tab" data-tab="permissions" onclick="switchMainTab('permissions')" id="tab-permissions" style="display:none">权限管理</div>
+      </div>
+      <button class="topbar-btn" id="btn-refresh" onclick="refreshTree()" title="刷新接口列表">
+        <svg viewBox="0 0 24 24" fill="currentColor"><path d="M17.65 6.35A7.958 7.958 0 0012 4c-4.42 0-7.99 3.58-7.99 8s3.57 8 7.99 8c3.73 0 6.84-2.55 7.73-6h-2.08A5.99 5.99 0 0112 18c-3.31 0-6-2.69-6-6s2.69-6 6-6c1.66 0 3.14.69 4.22 1.78L13 11h7V4l-2.35 2.35z"/></svg>
       </button>
     </div>
 
-    <!-- Workspace -->
-    <div class="iface-workspace">
-
-      <!-- Left Panel -->
+    <!-- WORKSPACE: Browse Tab -->
+    <div class="iface-workspace" id="panel-browse">
       <div class="iface-left">
         <div class="left-header">
-          <div class="left-header-row">
-            <span class="left-header-title">接口列表</span>
-            <div class="left-actions">
-              <button class="icon-btn" onclick="openGroupModal()" title="新建分组">
-                <svg viewBox="0 0 24 24" fill="currentColor"><path d="M20 6h-2.18c.07-.44.18-.88.18-1.36C18 2.53 15.47 0 12.36 0c-1.73 0-3.27.75-4.36 1.96C6.91.75 5.37 0 3.64 0 .53 0-2 2.53-2 4.64c0 .48.11.92.18 1.36H-2v2h22V6zm-7.64 0h-4.72C6.18 4.9 5.64 4.18 5.64 4.64c0-1.65 1.35-3 3-3 .78 0 1.49.31 2.02.8L9.5 3.7l1.06 1.06.44-.44c.48.6.77 1.35.77 2.16 0 .17 0 .33-.02.52H12.36zM2 8v14h20V8H2zm9 11H9v-2h2v2zm0-4H9v-2h2v2zm4 4h-2v-2h2v2zm0-4h-2v-2h2v2z"/></svg>
-              </button>
-              <button class="icon-btn" onclick="createInterface(null)" title="新建接口">
-                <svg viewBox="0 0 24 24" fill="currentColor"><path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z"/></svg>
-              </button>
-            </div>
-          </div>
-          <button class="add-iface-btn" onclick="createInterface(null)">
-            <svg viewBox="0 0 24 24" fill="currentColor" width="13" height="13"><path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z"/></svg>
-            新建接口
-          </button>
+          <span class="left-header-title" id="left-header-title">接口列表</span>
+          <div class="left-actions" id="left-actions-admin" style="display:none"></div>
         </div>
-        <div class="iface-list" id="iface-list"></div>
+        <div class="iface-list" id="iface-list"><div class="list-loading">加载中...</div></div>
       </div>
-
-      <!-- Right Panel -->
       <div class="iface-right">
-        <!-- Empty state -->
         <div class="right-empty" id="right-empty">
           <svg viewBox="0 0 24 24" fill="currentColor"><path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-5 14H7v-2h7v2zm3-4H7v-2h10v2zm0-4H7V7h10v2z"/></svg>
-          <div class="right-empty-title">选择或新建接口</div>
-          <div class="right-empty-sub">从左侧列表选择接口，或点击「新建接口」开始配置</div>
+          <div class="right-empty-title">选择一个接口查看详情</div>
+          <div class="right-empty-sub">从左侧树形列表中点击接口即可查看完整定义</div>
         </div>
+        <div class="detail-view" id="detail-view" style="display:none"></div>
+      </div>
+    </div>
 
-        <!-- Editor -->
-        <div class="right-editor" id="right-editor" style="display:none">
-
-          <!-- Name + group + actions -->
-          <div class="editor-topbar">
-            <input class="editor-name-input" id="iface-name" placeholder="输入接口名称">
-            <select class="group-select-inline" id="iface-group-select" title="所属分组"></select>
-            <button class="save-btn" onclick="saveCurrentInterface()">保存</button>
-            <button class="del-iface-btn" onclick="deleteCurrentInterface()" title="删除接口">
-              <svg viewBox="0 0 24 24" fill="currentColor" width="14" height="14"><path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/></svg>
+    <!-- WORKSPACE: Import Tab -->
+    <div class="iface-workspace" id="panel-import" style="display:none">
+      <div class="import-panel">
+        <div class="import-intro">
+          <h3>导入系统接口</h3>
+          <p>支持通过 Swagger URL 或上传 OpenAPI JSON 文件导入接口，后端将自动验证格式并索引</p>
+        </div>
+        <div class="import-cards">
+          <!-- Card 1: URL import -->
+          <div class="import-card">
+            <div class="import-card-icon">
+              <svg viewBox="0 0 24 24"><path d="M3.9 12c0-1.71 1.39-3.1 3.1-3.1h4V7H7c-2.76 0-5 2.24-5 5s2.24 5 5 5h4v-1.9H7c-1.71 0-3.1-1.39-3.1-3.1zM8 13h8v-2H8v2zm9-6h-4v1.9h4c1.71 0 3.1 1.39 3.1 3.1s-1.39 3.1-3.1 3.1h-4V17h4c2.76 0 5-2.24 5-5s-2.24-5-5-5z"/></svg>
+            </div>
+            <h4>从 Swagger URL 导入</h4>
+            <p>输入 Swagger 服务的根地址，系统将自动探测 OpenAPI 端点并导入所有接口</p>
+            <input class="import-card-input" id="import-url-input" placeholder="https://192.168.1.160:18889" onkeydown="if(event.key==='Enter')importFromUrl()">
+            <input class="import-card-input" id="import-url-name" placeholder="服务名称（可选，留空则自动识别）">
+            <button class="btn-primary" id="btn-import-url" onclick="importFromUrl()" style="width:100%">
+              <svg viewBox="0 0 24 24" fill="currentColor" width="14" height="14" style="vertical-align:-2px"><path d="M9 16h6v-6h4l-7-7-7 7h4zm-4 2h14v2H5z"/></svg>
+              导入接口
             </button>
           </div>
-
-          <!-- URL bar -->
-          <div class="url-bar">
-            <select class="method-select" id="iface-method" onchange="onMethodChange()">
-              <option>GET</option><option>POST</option><option>PUT</option>
-              <option>DELETE</option><option>PATCH</option><option>HEAD</option>
-            </select>
-            <input class="url-input" id="iface-url" placeholder="https://api.example.com/endpoint">
-            <button class="send-btn" id="send-btn-el" onclick="sendRequest()">发送</button>
+          <!-- Card 2: JSON upload -->
+          <div class="import-card">
+            <div class="import-card-icon">
+              <svg viewBox="0 0 24 24"><path d="M14 2H6c-1.1 0-1.99.9-1.99 2L4 20c0 1.1.89 2 1.99 2H18c1.1 0 2-.9 2-2V8l-6-6zm4 18H6V4h7v5h5v11z"/></svg>
+            </div>
+            <h4>上传 JSON 文件导入</h4>
+            <p>上传 OpenAPI/Swagger 规范的 JSON 文件，系统验证后自动建立索引</p>
+            <div class="drop-zone" id="import-drop-zone"
+              ondragover="event.preventDefault();this.classList.add('drag-over')"
+              ondragleave="this.classList.remove('drag-over')"
+              ondrop="onJsonDrop(event)"
+              onclick="document.getElementById('import-file-input').click()">
+              <svg viewBox="0 0 24 24" fill="currentColor"><path d="M9 16h6v-6h4l-7-7-7 7h4zm-4 2h14v2H5z"/></svg>
+              <p>点击或拖拽 JSON 文件到此处</p>
+              <span style="font-size:11px">支持 OpenAPI 2.0 / 3.0 规范</span>
+            </div>
+            <input type="file" id="import-file-input" accept=".json" style="display:none" onchange="onJsonFileSelect(this)">
+            <input class="import-card-input" id="import-json-name" placeholder="服务名称（可选）" style="margin-top:8px">
           </div>
-
-          <!-- Param tabs -->
-          <div class="params-tabs">
-            <div class="params-tab active" data-tab="params" onclick="switchParamTab('params')">Params <span class="tab-count" id="count-params" style="display:none"></span></div>
-            <div class="params-tab" data-tab="headers" onclick="switchParamTab('headers')">Headers <span class="tab-count" id="count-headers" style="display:none"></span></div>
-            <div class="params-tab" data-tab="body" onclick="switchParamTab('body')" id="tab-btn-body">Body</div>
-            <div class="params-tab" data-tab="auth" onclick="switchParamTab('auth')">Auth</div>
-          </div>
-
-          <!-- Tab panels -->
-          <div class="params-panel">
-
-            <!-- Params -->
-            <div class="tab-content active" id="tab-params">
-              <div>
-                <div class="kv-header-row"><div></div><div class="kv-header-cell">参数名</div><div class="kv-header-cell">参数值</div><div></div></div>
-                <div id="params-kv"></div>
-              </div>
-              <button class="kv-add-btn" onclick="addKvRow('params-kv')">
-                <svg viewBox="0 0 24 24" fill="currentColor"><path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z"/></svg>
-                添加参数
-              </button>
-            </div>
-
-            <!-- Headers -->
-            <div class="tab-content" id="tab-headers">
-              <div>
-                <div class="kv-header-row"><div></div><div class="kv-header-cell">Header 名</div><div class="kv-header-cell">Header 值</div><div></div></div>
-                <div id="headers-kv"></div>
-              </div>
-              <button class="kv-add-btn" onclick="addKvRow('headers-kv')">
-                <svg viewBox="0 0 24 24" fill="currentColor"><path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z"/></svg>
-                添加请求头
-              </button>
-            </div>
-
-            <!-- Body -->
-            <div class="tab-content" id="tab-body">
-              <div class="body-type-row">
-                <button class="body-type-btn active" data-btype="none"  onclick="switchBodyType('none')">无</button>
-                <button class="body-type-btn"        data-btype="json"  onclick="switchBodyType('json')">JSON</button>
-                <button class="body-type-btn"        data-btype="form"  onclick="switchBodyType('form')">Form</button>
-                <button class="body-type-btn"        data-btype="text"  onclick="switchBodyType('text')">Text</button>
-              </div>
-              <div id="body-none-area"><p class="body-none-tip">该请求无请求体</p></div>
-              <div id="body-json-area" style="display:none"><textarea class="body-textarea" id="iface-body" placeholder='{\n  "key": "value"\n}'></textarea></div>
-              <div id="body-form-area" style="display:none">
-                <div class="kv-header-row"><div></div><div class="kv-header-cell">字段名</div><div class="kv-header-cell">字段值</div><div></div></div>
-                <div id="form-kv"></div>
-                <button class="kv-add-btn" onclick="addKvRow('form-kv')" style="margin-top:8px">
-                  <svg viewBox="0 0 24 24" fill="currentColor"><path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z"/></svg>添加字段
-                </button>
-              </div>
-              <div id="body-text-area" style="display:none"><textarea class="body-textarea" id="iface-body-text" placeholder="纯文本内容..."></textarea></div>
-            </div>
-
-            <!-- Auth -->
-            <div class="tab-content" id="tab-auth">
-              <div class="auth-field">
-                <span class="auth-label">认证方式</span>
-                <select class="auth-select" id="auth-type" onchange="onAuthTypeChange()">
-                  <option value="none">无认证</option>
-                  <option value="bearer">Bearer Token</option>
-                  <option value="apikey">API Key</option>
-                  <option value="basic">Basic Auth</option>
-                </select>
-              </div>
-              <div id="auth-bearer-area" style="display:none">
-                <div class="auth-field">
-                  <span class="auth-label">Token</span>
-                  <input class="auth-input" id="auth-bearer-value" placeholder="输入 Bearer Token" style="width:100%">
-                </div>
-              </div>
-              <div id="auth-apikey-area" style="display:none">
-                <div class="auth-field" style="margin-bottom:10px">
-                  <span class="auth-label">Header 名称</span>
-                  <input class="auth-input" id="auth-apikey-name" placeholder="X-API-Key" style="width:200px">
-                </div>
-                <div class="auth-field">
-                  <span class="auth-label">API Key 值</span>
-                  <input class="auth-input" id="auth-apikey-value" placeholder="输入 API Key 值" style="width:100%">
-                </div>
-              </div>
-              <div id="auth-basic-area" style="display:none">
-                <div class="auth-field" style="margin-bottom:10px">
-                  <span class="auth-label">用户名</span>
-                  <input class="auth-input" id="auth-basic-user" placeholder="用户名" style="width:280px">
-                </div>
-                <div class="auth-field">
-                  <span class="auth-label">密码</span>
-                  <input class="auth-input" id="auth-basic-pass" type="password" placeholder="密码" style="width:280px">
-                </div>
-              </div>
-            </div>
-
-          </div><!-- /params-panel -->
-
-          <!-- Response area -->
-          <div class="response-area">
-            <div class="response-header">
-              <span class="response-title">响应</span>
-              <span class="resp-status" id="resp-status"></span>
-              <span class="resp-time" id="resp-time"></span>
-              <div class="resp-tabs">
-                <div class="resp-tab active" data-rtab="body" onclick="switchRespTab('body')">响应体</div>
-                <div class="resp-tab" data-rtab="headers" onclick="switchRespTab('headers')">响应头</div>
-              </div>
-            </div>
-            <div class="response-body" id="response-body">
-              <div class="response-empty-state">
-                <svg viewBox="0 0 24 24" fill="currentColor"><path d="M20 4H4c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2zm0 14H4V8l8 5 8-5v10zm-8-7L4 6h16l-8 5z"/></svg>
-                <span>点击「发送」查看响应结果</span>
-              </div>
-            </div>
-          </div>
-
-        </div><!-- /right-editor -->
-      </div><!-- /iface-right -->
-
-    </div><!-- /iface-workspace -->
-  </div><!-- /iface-main -->
-</div><!-- /iface-page -->
-
-<!-- Modal: 新建分组 -->
-<div class="modal-overlay" id="modal-new-group">
-  <div class="modal">
-    <div class="modal-header">
-      <h3>新建分组</h3>
-      <button class="modal-close" onclick="closeModal('modal-new-group')">✕</button>
+        </div>
+        <div class="import-status" id="import-status"></div>
+      </div>
     </div>
-    <div class="modal-body">
-      <label class="modal-label">分组名称</label>
-      <input class="modal-input" id="group-name-input" placeholder="例如：用户接口、订单接口">
+
+    <!-- WORKSPACE: Permissions Tab -->
+    <div class="iface-workspace" id="panel-permissions" style="display:none">
+      <div class="perm-panel">
+        <div class="perm-user-list" id="perm-user-list">
+          <div class="list-loading" style="padding:20px">加载用户列表...</div>
+        </div>
+        <div class="perm-detail" id="perm-detail-area">
+          <div class="perm-empty" id="perm-empty">选择一个用户查看和编辑接口权限</div>
+        </div>
+      </div>
     </div>
-    <div class="modal-footer">
-      <button class="btn-cancel" onclick="closeModal('modal-new-group')">取消</button>
-      <button class="btn-primary" onclick="createGroup()">创建</button>
-    </div>
+
   </div>
 </div>
 
-<!-- Modal: 导入 -->
-<div class="modal-overlay" id="modal-import">
-  <div class="modal modal-lg">
+<!-- Toast -->
+<div class="toast" id="toast"></div>
+
+<!-- Modal: Confirm Delete -->
+<div class="modal-overlay" id="modal-confirm">
+  <div class="modal">
     <div class="modal-header">
-      <h3>导入接口配置</h3>
-      <button class="modal-close" onclick="closeModal('modal-import')">✕</button>
+      <h3 id="modal-confirm-title">确认删除</h3>
+      <button class="modal-close" onclick="closeModal('modal-confirm')">✕</button>
     </div>
-    <div class="modal-body">
-      <div class="import-drop" id="import-drop-area"
-        ondragover="event.preventDefault();this.classList.add('drag-over')"
-        ondragleave="this.classList.remove('drag-over')"
-        ondrop="onImportDrop(event)"
-        onclick="document.getElementById('import-file-input').click()">
-        <svg viewBox="0 0 24 24" fill="currentColor" style="color:#9aaac0"><path d="M9 16h6v-6h4l-7-7-7 7h4zm-4 2h14v2H5z"/></svg>
-        <p>点击或拖拽 JSON 文件到此处</p>
-        <span>支持由本页面导出的 JSON 格式文件</span>
-      </div>
-      <input type="file" id="import-file-input" accept=".json" style="display:none" onchange="handleImportFileInput(this)">
-      <p style="font-size:12px;color:#9aaac0;margin-top:10px">导入将合并到现有配置，不会删除已有接口</p>
+    <div class="modal-body" id="modal-confirm-body">
+      <p>确认执行此删除操作？</p>
     </div>
     <div class="modal-footer">
-      <button class="btn-cancel" onclick="closeModal('modal-import')">关闭</button>
+      <button class="btn-cancel" onclick="closeModal('modal-confirm')">取消</button>
+      <button class="btn-danger" id="btn-confirm-delete" onclick="executeConfirmDelete()">确认删除</button>
     </div>
   </div>
 </div>
 
 <script>
-  const API_BASE = 'http://localhost:8000';
-  let data = { groups: [], interfaces: [] };
-  let currentId   = null;
-  let curParamTab = 'params';
-  let curBodyType = 'none';
-  let curRespTab  = 'body';
-  let isSending   = false;
-  let lastRespData    = null;
-  let lastRespHeaders = [];
+  const API_BASE = window.APP_CONFIG.api_base;
+  let currentUser = null;
+  let isAdmin = false;
+  let interfaceTree = null;
+  let selectedIfaceId = null;
+  let selectedIfaceData = null;  // 当前选中接口的完整数据（含 spec_info）
+  let testBaseUrl = '';
+  let currentMainTab = 'browse';
+  let confirmDeleteCallback = null;
+  let permissionUsers = [];
 
-  // ── utils ──────────────────────────────────────────
-  function uid() { return Date.now().toString(36) + Math.random().toString(36).slice(2, 5); }
+  // ── Utils ───────────────────────────────────────────
   function esc(s) { return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
-  function authHeaders() { return { 'Authorization': 'Bearer ' + localStorage.getItem('token') }; }
-
-  // ── data ───────────────────────────────────────────
-  async function loadData() {
-    try {
-      const r = await fetch(`${API_BASE}/api/interface-configs`, { headers: authHeaders() });
-      if (r.ok) data = await r.json();
-    } catch(e) {}
-    if (!data.groups)     data.groups = [];
-    if (!data.interfaces) data.interfaces = [];
+  function authHeaders() { return { 'Authorization': 'Bearer ' + localStorage.getItem('token'), 'Content-Type': 'application/json' }; }
+  function toast(msg, type) {
+    const el = document.getElementById('toast');
+    el.textContent = msg; el.className = 'toast ' + (type||'info') + ' show';
+    clearTimeout(el._timeout);
+    el._timeout = setTimeout(() => el.classList.remove('show'), 2800);
   }
-  function saveData() {
-    fetch(`${API_BASE}/api/interface-configs`, {
-      method: 'POST',
-      headers: { ...authHeaders(), 'Content-Type': 'application/json' },
-      body: JSON.stringify(data),
-    }).catch(() => {});
-  }
-
-  // ── left panel ─────────────────────────────────────
-  function renderLeft() {
-    const el = document.getElementById('iface-list');
-    const byGroup = {};
-    data.groups.forEach(g => { byGroup[g.id] = []; });
-    byGroup['__none__'] = [];
-    data.interfaces.forEach(i => {
-      const gid = i.groupId && byGroup[i.groupId] ? i.groupId : '__none__';
-      byGroup[gid].push(i);
-    });
-    let html = '';
-    data.groups.forEach(g => {
-      const list = byGroup[g.id] || [];
-      const open = g.open !== false;
-      html += `<div>
-        <div class="group-header" onclick="toggleGroup('${g.id}')">
-          <span class="group-chevron ${open?'open':''}" id="gchev-${g.id}">›</span>
-          <span class="group-name">${esc(g.name)}</span>
-          <span class="group-count">${list.length}</span>
-          <span class="group-del-btn" onclick="event.stopPropagation();confirmDeleteGroup('${g.id}')" title="删除分组">
-            <svg viewBox="0 0 24 24" fill="currentColor"><path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/></svg>
-          </span>
-        </div>
-        <div id="gfaces-${g.id}" style="${open?'':'display:none'}">${list.map(rowHtml).join('')}</div>
-      </div>`;
-    });
-    const ungrouped = byGroup['__none__'];
-    if (data.groups.length > 0 && ungrouped.length > 0)
-      html += `<div class="ungrouped-label">未分组</div>`;
-    html += ungrouped.map(rowHtml).join('');
-    if (!data.interfaces.length)
-      html += `<div class="list-empty">暂无接口，点击「新建接口」开始</div>`;
-    el.innerHTML = html;
-    rebuildGroupSelect();
-  }
-
-  function rowHtml(i) {
-    const active = i.id === currentId ? ' active' : '';
-    const dis    = i.enabled ? '' : ' disabled';
-    return `<div class="iface-row${active}" id="irow-${i.id}" onclick="selectInterface('${i.id}')">
-      <span class="method-badge ${i.method||'GET'}">${i.method||'GET'}</span>
-      <span class="iface-row-name${dis}" title="${esc(i.name||'未命名接口')}">${esc(i.name||'未命名接口')}</span>
-      <label class="mini-toggle" onclick="event.stopPropagation()">
-        <input type="checkbox" ${i.enabled?'checked':''} onchange="toggleIface('${i.id}',this.checked)">
-        <span class="mini-slider"></span>
-      </label>
-      <span class="iface-row-del" onclick="event.stopPropagation();confirmDeleteIface('${i.id}')" title="删除">
-        <svg viewBox="0 0 24 24" fill="currentColor"><path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
-      </span>
-    </div>`;
-  }
-
-  // ── groups ─────────────────────────────────────────
-  function toggleGroup(gid) {
-    const g = data.groups.find(g => g.id === gid);
-    if (!g) return;
-    g.open = !g.open; saveData();
-    document.getElementById(`gfaces-${gid}`).style.display = g.open ? '' : 'none';
-    document.getElementById(`gchev-${gid}`).classList.toggle('open', g.open);
-  }
-  function openGroupModal() {
-    document.getElementById('group-name-input').value = '';
-    openModal('modal-new-group');
-    setTimeout(() => document.getElementById('group-name-input').focus(), 200);
-  }
-  function createGroup() {
-    const name = document.getElementById('group-name-input').value.trim();
-    if (!name) return;
-    data.groups.push({ id: uid(), name, open: true });
-    saveData(); renderLeft(); closeModal('modal-new-group');
-  }
-  function confirmDeleteGroup(gid) {
-    if (!confirm('删除分组后，该分组下的接口将移至未分组，确认？')) return;
-    data.interfaces.forEach(i => { if (i.groupId === gid) i.groupId = null; });
-    data.groups = data.groups.filter(g => g.id !== gid);
-    saveData(); renderLeft();
-  }
-
-  // ── interfaces ─────────────────────────────────────
-  function createInterface(groupId) {
-    const i = { id: uid(), groupId: groupId||null, name: '', method: 'GET', url: '', enabled: true,
-      params: [], headers: [], bodyType: 'none', body: '', bodyText: '', formRows: [],
-      authType: 'none', authValue: '', authKeyName: 'X-API-Key', authUser: '', authPass: '' };
-    data.interfaces.push(i); saveData(); renderLeft(); selectInterface(i.id);
-    setTimeout(() => document.getElementById('iface-name').focus(), 100);
-  }
-  function toggleIface(id, enabled) {
-    const i = data.interfaces.find(i => i.id === id);
-    if (!i) return; i.enabled = enabled; saveData();
-    const nm = document.querySelector(`#irow-${id} .iface-row-name`);
-    if (nm) nm.classList.toggle('disabled', !enabled);
-  }
-  function confirmDeleteIface(id) {
-    if (!confirm('确认删除该接口？')) return;
-    data.interfaces = data.interfaces.filter(i => i.id !== id);
-    if (currentId === id) { currentId = null; showEmpty(); }
-    saveData(); renderLeft();
-  }
-  function deleteCurrentInterface() { if (currentId) confirmDeleteIface(currentId); }
-
-  // ── select & populate ──────────────────────────────
-  function selectInterface(id) {
-    if (currentId && currentId !== id) autoSave();
-    currentId = id;
-    const i = data.interfaces.find(i => i.id === id);
-    if (!i) return;
-    document.querySelectorAll('.iface-row').forEach(el => el.classList.remove('active'));
-    const row = document.getElementById(`irow-${id}`);
-    if (row) row.classList.add('active');
-    document.getElementById('right-empty').style.display = 'none';
-    document.getElementById('right-editor').style.display = 'flex';
-
-    document.getElementById('iface-name').value = i.name || '';
-    document.getElementById('iface-method').value = i.method || 'GET';
-    document.getElementById('iface-url').value = i.url || '';
-    document.getElementById('iface-group-select').value = i.groupId || '';
-
-    populateKv('params-kv', i.params || []);
-    populateKv('headers-kv', i.headers || []);
-    populateKv('form-kv', i.formRows || []);
-
-    document.getElementById('iface-body').value = i.body || '';
-    document.getElementById('iface-body-text').value = i.bodyText || '';
-    switchBodyType(i.bodyType || 'none');
-
-    document.getElementById('auth-type').value = i.authType || 'none';
-    document.getElementById('auth-bearer-value').value = i.authType === 'bearer' ? (i.authValue||'') : '';
-    document.getElementById('auth-apikey-name').value  = i.authKeyName || 'X-API-Key';
-    document.getElementById('auth-apikey-value').value = i.authType === 'apikey' ? (i.authValue||'') : '';
-    document.getElementById('auth-basic-user').value   = i.authUser || '';
-    document.getElementById('auth-basic-pass').value   = i.authPass || '';
-    onAuthTypeChange();
-    onMethodChange();
-    switchParamTab(curParamTab);
-    updateTabCounts();
-    resetResponse();
-  }
-  function showEmpty() {
-    document.getElementById('right-empty').style.display = 'flex';
-    document.getElementById('right-editor').style.display = 'none';
-  }
-
-  // ── save ───────────────────────────────────────────
-  function autoSave() {
-    if (!currentId) return;
-    const i = data.interfaces.find(i => i.id === currentId);
-    if (i) { Object.assign(i, collectForm()); saveData(); }
-  }
-  function saveCurrentInterface() {
-    if (!currentId) return;
-    const i = data.interfaces.find(i => i.id === currentId);
-    if (!i) return;
-    Object.assign(i, collectForm()); saveData(); renderLeft();
-    const btn = document.querySelector('.save-btn');
-    btn.textContent = '已保存 ✓'; btn.style.color = '#1a9e6b';
-    setTimeout(() => { btn.textContent = '保存'; btn.style.color = ''; }, 1400);
-  }
-  function collectForm() {
-    return {
-      name:       document.getElementById('iface-name').value.trim() || '未命名接口',
-      method:     document.getElementById('iface-method').value,
-      url:        document.getElementById('iface-url').value.trim(),
-      groupId:    document.getElementById('iface-group-select').value || null,
-      params:     getKvRows('params-kv'),
-      headers:    getKvRows('headers-kv'),
-      bodyType:   curBodyType,
-      body:       document.getElementById('iface-body').value,
-      bodyText:   document.getElementById('iface-body-text').value,
-      formRows:   getKvRows('form-kv'),
-      authType:   document.getElementById('auth-type').value,
-      authValue:  document.getElementById('auth-type').value === 'apikey'
-                    ? document.getElementById('auth-apikey-value').value
-                    : document.getElementById('auth-bearer-value').value,
-      authKeyName: document.getElementById('auth-apikey-name').value || 'X-API-Key',
-      authUser:   document.getElementById('auth-basic-user').value,
-      authPass:   document.getElementById('auth-basic-pass').value,
-    };
-  }
-
-  // ── KV rows ────────────────────────────────────────
-  function addKvRow(containerId, row) {
-    const c = document.getElementById(containerId);
-    const div = document.createElement('div');
-    div.className = 'kv-row';
-    div.style.marginBottom = '6px';
-    div.innerHTML = `
-      <input type="checkbox" class="kv-checkbox" ${(row?.enabled!==false)?'checked':''} onchange="updateTabCounts()">
-      <input type="text" class="kv-input" placeholder="Key"   value="${esc(row?.key||'')}" oninput="updateTabCounts()">
-      <input type="text" class="kv-input" placeholder="Value" value="${esc(row?.value||'')}">
-      <button class="kv-del-btn" onclick="this.closest('.kv-row').remove();updateTabCounts()" title="删除">
-        <svg viewBox="0 0 24 24" fill="currentColor"><path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
-      </button>`;
-    c.appendChild(div);
-  }
-  function populateKv(containerId, rows) {
-    document.getElementById(containerId).innerHTML = '';
-    rows.forEach(r => addKvRow(containerId, r));
-  }
-  function getKvRows(containerId) {
-    return Array.from(document.querySelectorAll(`#${containerId} .kv-row`)).map(row => {
-      const inputs = row.querySelectorAll('.kv-input');
-      return { key: inputs[0]?.value||'', value: inputs[1]?.value||'', enabled: row.querySelector('.kv-checkbox')?.checked!==false };
-    });
-  }
-
-  // ── tab switching ──────────────────────────────────
-  function switchParamTab(tab) {
-    curParamTab = tab;
-    document.querySelectorAll('.params-tab').forEach(el => el.classList.toggle('active', el.dataset.tab === tab));
-    document.querySelectorAll('.tab-content').forEach(el => el.classList.toggle('active', el.id === `tab-${tab}`));
-  }
-  function switchBodyType(type) {
-    curBodyType = type;
-    ['none','json','form','text'].forEach(t => {
-      document.getElementById(`body-${t}-area`).style.display = t===type ? '' : 'none';
-      document.querySelector(`.body-type-btn[data-btype="${t}"]`).classList.toggle('active', t===type);
-    });
-  }
-  function switchRespTab(tab) {
-    curRespTab = tab;
-    document.querySelectorAll('.resp-tab').forEach(el => el.classList.toggle('active', el.dataset.rtab===tab));
-    renderRespContent();
-  }
-  function onMethodChange() {
-    const m = document.getElementById('iface-method').value;
-    const sel = document.getElementById('iface-method');
-    const colors = { GET:'#2a5aa8', POST:'#1a9e6b', PUT:'#e07a1a', DELETE:'#c0392b', PATCH:'#7c3aed', HEAD:'#5a6a8a' };
-    const bgs    = { GET:'#eef4ff', POST:'#edfaf3', PUT:'#fff8f0', DELETE:'#fff4f4', PATCH:'#f5f0ff', HEAD:'#f0f4f8' };
-    sel.style.color = colors[m]||'#1a2a4a';
-    sel.style.background = bgs[m]||'#f6f8fc';
-    sel.style.setProperty('--arrow-color', colors[m]||'#1a2a4a');
-    const bodyBtn = document.getElementById('tab-btn-body');
-    if (bodyBtn) bodyBtn.style.opacity = ['GET','HEAD'].includes(m) ? '0.4' : '1';
-    if (['GET','HEAD'].includes(m) && curParamTab === 'body') switchParamTab('params');
-  }
-  function onAuthTypeChange() {
-    const t = document.getElementById('auth-type').value;
-    ['bearer','apikey','basic'].forEach(k => {
-      document.getElementById(`auth-${k}-area`).style.display = k===t ? '' : 'none';
-    });
-  }
-  function updateTabCounts() {
-    const pc = getKvRows('params-kv').filter(r=>r.key&&r.enabled).length;
-    const hc = getKvRows('headers-kv').filter(r=>r.key&&r.enabled).length;
-    const pel = document.getElementById('count-params');
-    const hel = document.getElementById('count-headers');
-    if (pc) { pel.textContent = pc; pel.style.display = ''; } else { pel.style.display = 'none'; }
-    if (hc) { hel.textContent = hc; hel.style.display = ''; } else { hel.style.display = 'none'; }
-  }
-  function rebuildGroupSelect() {
-    const sel = document.getElementById('iface-group-select');
-    if (!sel) return;
-    const val = sel.value;
-    sel.innerHTML = `<option value="">未分组</option>` +
-      data.groups.map(g=>`<option value="${g.id}">${esc(g.name)}</option>`).join('');
-    if (val) sel.value = val;
-  }
-
-  // ── send request ───────────────────────────────────
-  async function sendRequest() {
-    if (isSending) return;
-    const f = collectForm();
-    if (!f.url) { alert('请先输入请求 URL'); return; }
-    isSending = true;
-    const btn = document.getElementById('send-btn-el');
-    btn.disabled = true;
-    btn.innerHTML = '<span class="spinning">↻</span>';
-
-    let url = f.url;
-    const qp = f.params.filter(p=>p.enabled&&p.key);
-    if (qp.length) url += (url.includes('?')?'&':'?') + new URLSearchParams(qp.map(p=>[p.key,p.value]));
-
-    const headers = {};
-    f.headers.filter(h=>h.enabled&&h.key).forEach(h=>{ headers[h.key]=h.value; });
-    if (f.authType==='bearer'&&f.authValue) headers['Authorization']=`Bearer ${f.authValue}`;
-    else if (f.authType==='apikey'&&f.authValue) headers[f.authKeyName||'X-API-Key']=f.authValue;
-    else if (f.authType==='basic') headers['Authorization']='Basic '+btoa(`${f.authUser}:${f.authPass}`);
-
-    let body = undefined;
-    if (!['GET','HEAD'].includes(f.method)) {
-      if (f.bodyType==='json'&&f.body) { body=f.body; if (!headers['Content-Type']) headers['Content-Type']='application/json'; }
-      else if (f.bodyType==='form') {
-        const fd = new FormData();
-        f.formRows.filter(r=>r.enabled&&r.key).forEach(r=>fd.append(r.key,r.value));
-        body = fd;
-      } else if (f.bodyType==='text'&&f.bodyText) { body=f.bodyText; if (!headers['Content-Type']) headers['Content-Type']='text/plain'; }
-    }
-
-    const t0 = Date.now();
-    try {
-      const resp = await fetch(url, { method: f.method, headers, body });
-      const elapsed = Date.now()-t0;
-      const text = await resp.text();
-      lastRespHeaders = [];
-      resp.headers.forEach((v,k)=>lastRespHeaders.push({key:k,value:v}));
-      lastRespData = { status: resp.status, statusText: resp.statusText, time: elapsed, body: text };
-    } catch(err) {
-      lastRespData = { error: err.message };
-      lastRespHeaders = [];
-    } finally {
-      isSending = false; btn.disabled = false; btn.textContent = '发送';
-    }
-    renderRespStatus(); renderRespContent();
-  }
-
-  function renderRespStatus() {
-    const sel = document.getElementById('resp-status');
-    const tim = document.getElementById('resp-time');
-    if (!lastRespData) return;
-    sel.style.display = '';
-    if (lastRespData.error) {
-      sel.className = 'resp-status serr'; sel.textContent = '网络错误'; tim.textContent = '';
-    } else {
-      const s = lastRespData.status;
-      sel.className = `resp-status ${s<300?'s2xx':s<400?'s3xx':s<500?'s4xx':'s5xx'}`;
-      sel.textContent = `${s} ${lastRespData.statusText}`;
-      tim.textContent = `${lastRespData.time} ms`;
-    }
-  }
-  function renderRespContent() {
-    const el = document.getElementById('response-body');
-    if (!lastRespData) { resetResponse(); return; }
-    if (lastRespData.error) {
-      el.innerHTML = `<pre class="response-pre" style="color:#c0392b">网络错误：${esc(lastRespData.error)}\n\n提示：可能是目标服务的 CORS 限制，请确认目标服务允许跨域请求。</pre>`;
-      return;
-    }
-    if (curRespTab === 'headers') {
-      if (!lastRespHeaders.length) { el.innerHTML = '<div class="response-empty-state"><span>暂无响应头</span></div>'; return; }
-      el.innerHTML = `<table class="resp-hdr-table">${lastRespHeaders.map(h=>`<tr><td class="resp-hdr-k">${esc(h.key)}</td><td class="resp-hdr-v">${esc(h.value)}</td></tr>`).join('')}</table>`;
-    } else {
-      let txt = lastRespData.body || '';
-      try {
-        const parsed = JSON.parse(txt);
-        txt = JSON.stringify(parsed, null, 2);
-        el.innerHTML = `<pre class="response-pre">${hlJson(esc(txt))}</pre>`;
-      } catch { el.innerHTML = `<pre class="response-pre">${esc(txt)}</pre>`; }
-    }
-  }
-  function resetResponse() {
-    lastRespData = null; lastRespHeaders = [];
-    document.getElementById('resp-status').style.display = 'none';
-    document.getElementById('resp-status').textContent = '';
-    document.getElementById('resp-time').textContent = '';
-    document.getElementById('response-body').innerHTML =
-      `<div class="response-empty-state">
-        <svg viewBox="0 0 24 24" fill="currentColor"><path d="M20 4H4c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2zm0 14H4V8l8 5 8-5v10zm-8-7L4 6h16l-8 5z"/></svg>
-        <span>点击「发送」查看响应结果</span>
-      </div>`;
-  }
-  function hlJson(s) {
-    return s.replace(/("(\\u[a-fA-F0-9]{4}|\\[^u]|[^\\"])*"(\s*:)?|\b(true|false|null)\b|-?\d+\.?\d*(?:[eE][+-]?\d+)?)/g, m => {
-      if (/^"/.test(m)) return /:$/.test(m) ? `<span class="json-key">${m}</span>` : `<span class="json-str">${m}</span>`;
-      if (/true|false/.test(m)) return `<span class="json-bool">${m}</span>`;
-      if (/null/.test(m)) return `<span class="json-null">${m}</span>`;
-      return `<span class="json-num">${m}</span>`;
-    });
-  }
-
-  // ── import / export ────────────────────────────────
-  function exportData() {
-    const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
-    const a = Object.assign(document.createElement('a'), { href: URL.createObjectURL(blob), download: `iface_configs_${new Date().toISOString().slice(0,10)}.json` });
-    a.click(); URL.revokeObjectURL(a.href);
-  }
-  function openImportModal() { openModal('modal-import'); }
-  function onImportDrop(e) {
-    e.preventDefault();
-    document.getElementById('import-drop-area').classList.remove('drag-over');
-    importFile(e.dataTransfer.files[0]);
-  }
-  function handleImportFileInput(input) { importFile(input.files[0]); input.value = ''; }
-  function importFile(file) {
-    if (!file) return;
-    const reader = new FileReader();
-    reader.onload = ev => {
-      try {
-        const imp = JSON.parse(ev.target.result);
-        if (!imp.interfaces) throw new Error('JSON 格式不正确');
-        const existGids = new Set(data.groups.map(g=>g.id));
-        const existIds  = new Set(data.interfaces.map(i=>i.id));
-        (imp.groups||[]).forEach(g => { if (!existGids.has(g.id)) data.groups.push(g); });
-        (imp.interfaces||[]).forEach(i => { if (!existIds.has(i.id)) data.interfaces.push(i); });
-        saveData(); renderLeft(); closeModal('modal-import');
-        alert(`导入成功：${imp.interfaces.length} 个接口，${(imp.groups||[]).length} 个分组`);
-      } catch(err) { alert('导入失败：' + err.message); }
-    };
-    reader.readAsText(file);
-  }
-
-  // ── modal helpers ──────────────────────────────────
   function openModal(id)  { document.getElementById(id).classList.add('open'); }
   function closeModal(id) { document.getElementById(id).classList.remove('open'); }
 
-  // ── init ───────────────────────────────────────────
-  async function initPage() {
-    let user = null;
-    try { user = JSON.parse(localStorage.getItem('user')||'null'); } catch(e) {}
-    if (!user || !localStorage.getItem('token')) { window.location.href = 'login-page.html'; return; }
-    const rm = { admin:'系统管理员', user:'普通用户', visitor:'访客' };
-    document.getElementById('sidebar-username').textContent = user.display_name || user.username;
-    document.getElementById('sidebar-role').textContent     = rm[user.role] || user.role;
-    if (user.role === 'admin') { const a = document.getElementById('nav-admin-item'); if(a) a.style.display=''; }
-    await loadData();
-    renderLeft();
+  // ── Main tab switching ──────────────────────────────
+  function switchMainTab(tab) {
+    currentMainTab = tab;
+    document.querySelectorAll('#main-tabs .topbar-tab').forEach(el => el.classList.toggle('active', el.dataset.tab === tab));
+    document.getElementById('panel-browse').style.display = tab === 'browse' ? 'flex' : 'none';
+    document.getElementById('panel-import').style.display = tab === 'import' ? 'flex' : 'none';
+    document.getElementById('panel-permissions').style.display = tab === 'permissions' ? 'flex' : 'none';
+    if (tab === 'browse') refreshTree();
+    if (tab === 'permissions') loadPermissionUsers();
   }
+
+  // ── Browse: Tree ────────────────────────────────────
+  async function refreshTree() {
+    if (currentMainTab !== 'browse') return;
+    const list = document.getElementById('iface-list');
+    list.innerHTML = '<div class="list-loading">加载中...</div>';
+    try {
+      const endpoint = isAdmin ? '/api/admin/interfaces/all' : '/api/system-interfaces/tree';
+      const r = await fetch(`${API_BASE}${endpoint}`, { headers: authHeaders() });
+      if (!r.ok) throw new Error(await r.text());
+      const data = await r.json();
+      interfaceTree = data.services || [];
+      renderTree(interfaceTree);
+    } catch(e) {
+      list.innerHTML = `<div class="list-empty">加载失败：${esc(e.message)}</div>`;
+    }
+  }
+
+  function renderTree(services) {
+    const list = document.getElementById('iface-list');
+    if (!services.length) {
+      list.innerHTML = '<div class="list-empty">暂无可用的系统接口<br><span style="font-size:11px">请联系管理员导入接口配置</span></div>';
+      return;
+    }
+    let html = '';
+    services.forEach(svc => {
+      const totalIfaces = svc.files.reduce((sum, f) => sum + f.interfaces.length, 0);
+      html += `<div>
+        <div class="svc-header" onclick="toggleSvc(this, 'svc-${esc(svc.name)}')">
+          <span class="svc-chevron open" id="chev-svc-${esc(svc.name)}">›</span>
+          <svg class="svc-icon" viewBox="0 0 24 24"><path d="M20 6h-8l-2-2H4c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V8c0-1.1-.9-2-2-2z"/></svg>
+          <span class="svc-name">${esc(svc.name)}</span>
+          <span class="svc-count">${totalIfaces}</span>`;
+      if (isAdmin) {
+        html += `<span class="svc-del" onclick="event.stopPropagation();confirmDeleteService('${esc(svc.name)}')" title="删除此服务">
+          <svg viewBox="0 0 24 24" fill="currentColor"><path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/></svg>
+        </span>`;
+      }
+      html += `</div>
+        <div id="svc-${esc(svc.name)}">`;
+
+      svc.files.forEach(file => {
+        html += `<div>
+          <div class="file-header" onclick="toggleFile(this, 'file-${esc(svc.name)}-${esc(file.name)}')">
+            <span class="file-chevron open" id="chev-file-${esc(svc.name)}-${esc(file.name)}">›</span>
+            <span class="file-icon">📄</span>
+            <span class="file-name">${esc(file.name)}</span>
+            <span class="file-count">${file.interfaces.length}</span>`;
+        if (isAdmin) {
+          html += `<span class="file-del" onclick="event.stopPropagation();confirmDeleteFile('${esc(svc.name)}','${esc(file.name)}')" title="删除此文件">
+            <svg viewBox="0 0 24 24" fill="currentColor"><path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/></svg>
+          </span>`;
+        }
+        html += `</div>
+          <div id="file-${esc(svc.name)}-${esc(file.name)}">`;
+
+        file.interfaces.forEach(iface => {
+          const activeClass = selectedIfaceId === iface.id ? ' active' : '';
+          html += `<div class="iface-row${activeClass}" onclick="selectInterface(${iface.id}, '${esc(svc.name)}', '${esc(file.name)}')">
+            <span class="method-badge ${iface.method}">${iface.method}</span>
+            <span class="iface-row-name" title="${esc(iface.path)}">${esc(iface.summary || iface.path).substring(0, 35)}</span>`;
+          if (isAdmin) {
+            html += `<span class="iface-row-del" onclick="event.stopPropagation();confirmDeleteIface(${iface.id})" title="删除此接口">
+              <svg viewBox="0 0 24 24" fill="currentColor"><path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+            </span>`;
+          }
+          html += '</div>';
+        });
+
+        html += '</div></div>';
+      });
+
+      html += '</div></div>';
+    });
+    list.innerHTML = html;
+  }
+
+  function toggleSvc(el, id) {
+    const body = document.getElementById(id);
+    const chev = el.querySelector('.svc-chevron');
+    if (body) { const show = body.style.display === 'none'; body.style.display = show ? '' : 'none'; chev.classList.toggle('open', show); }
+  }
+  function toggleFile(el, id) {
+    const body = document.getElementById(id);
+    const chev = el.querySelector('.file-chevron');
+    if (body) { const show = body.style.display === 'none'; body.style.display = show ? '' : 'none'; chev.classList.toggle('open', show); }
+  }
+
+  // ── Browse: Interface Detail ────────────────────────
+  async function selectInterface(id, svcName, fileName) {
+    selectedIfaceId = id;
+    document.querySelectorAll('.iface-row').forEach(el => el.classList.remove('active'));
+    const row = event.target.closest('.iface-row');
+    if (row) row.classList.add('active');
+
+    document.getElementById('right-empty').style.display = 'none';
+    const dv = document.getElementById('detail-view');
+    dv.style.display = 'flex';
+    dv.innerHTML = '<div style="padding:36px;text-align:center;color:#9aaac0">加载中...</div>';
+
+    try {
+      const r = await fetch(`${API_BASE}/api/system-interfaces/${id}/detail`, { headers: authHeaders() });
+      if (!r.ok) throw new Error('接口不存在');
+      const data = await r.json();
+      selectedIfaceData = data;
+      // 从 spec 信息中提取 base_url
+      const specInfo = data.spec_info || {};
+      const servers = specInfo.servers || (data.spec_file_path ? null : null);
+      // 尝试从 endpoint_detail 的父级获取 servers
+      testBaseUrl = '';
+      if (data.spec_file_path && data.method && data.path) {
+        // base_url from the original spec servers
+        try {
+          // servers info is in spec_info if we stored it... but we didn't.
+          // Let's extract from spec_file_path via a simple heuristic
+          // Actually, the get_interface_detail doesn't return servers. We'll
+          // need to rely on user providing it or default.
+        } catch(e) {}
+      }
+      // The backend get_interface_detail returns spec_info which contains info object.
+      // We need servers. Let's include it by reading the full spec.
+      // For now, use the servicename/path to guess or leave empty for user to fill.
+      renderDetail(data, svcName, fileName);
+    } catch(e) {
+      dv.innerHTML = `<div style="padding:36px;text-align:center;color:#c0392b">加载失败：${esc(e.message)}</div>`;
+    }
+  }
+
+  function renderDetail(data, svcName, fileName) {
+    const dv = document.getElementById('detail-view');
+    const tags = (data.tags || []).map(t => `<span class="param-tag">${esc(t)}</span>`).join('');
+    const params = data.parameters || [];
+    const method = data.method || 'GET';
+    const hasBody = ['POST', 'PUT', 'PATCH'].includes(method);
+
+    // Try to extract base_url from the spec
+    let autoBaseUrl = '';
+    if (data.spec_file_path && data.path) {
+      // We can read the endpoint detail that might contain spec info
+      const specInfo = data.spec_info || {};
+      const endpointDetail = specInfo.endpoint_detail || {};
+      // Actually the get_interface_detail returns `spec_info` which only has the info object
+      // We need servers. For now check if spec_info has servers.
+      if (specInfo.servers && specInfo.servers.length) {
+        autoBaseUrl = specInfo.servers[0].url || '';
+      }
+    }
+
+    let html = `
+      <div class="detail-header">
+        <div class="detail-title-row">
+          <span class="method-badge ${method}">${method}</span>
+          <span class="detail-title">${esc(data.summary || data.path)}</span>
+        </div>
+        <div class="detail-path">${esc(data.path)}</div>
+        <div class="detail-meta" style="margin-top:8px">
+          <span>服务：${esc(svcName || data.service_name)}</span>
+          <span>文件：${esc(fileName || data.file_name)}</span>
+          ${data.operationId ? `<span>ID：${esc(data.operationId)}</span>` : ''}
+        </div>
+        ${tags ? `<div style="margin-top:8px">${tags}</div>` : ''}
+      </div>
+
+      <!-- Base URL -->
+      <div class="test-section">
+        <div class="test-base-url-row">
+          <span class="test-base-url-label">目标地址</span>
+          <input class="test-base-url-input" id="test-base-url" placeholder="http://192.168.1.160:18888"
+            value="${esc(autoBaseUrl)}" onchange="testBaseUrl=this.value">
+        </div>`;
+
+    // Parameters as editable form
+    if (params.length > 0) {
+      html += `<div class="detail-section-title" style="margin-bottom:8px">请求参数（可编辑）</div>
+        <table class="test-param-table">
+          <tr><th>参数名</th><th>位置</th><th style="min-width:160px">值</th><th>类型</th><th>必填</th><th style="min-width:100px">说明</th></tr>`;
+      params.forEach(p => {
+        const pid = 'param-' + esc(p.name);
+        html += `<tr>
+          <td style="font-family:monospace;color:#2a5aa8">${esc(p.name)}</td>
+          <td>${esc(p.in || 'query')}</td>
+          <td><input class="test-param-input" id="${pid}" placeholder="${esc(p.type || 'string')}" value=""></td>
+          <td style="font-family:monospace;font-size:11px">${esc(p.type || 'string')}</td>
+          <td>${p.required ? '<span class="param-required">是</span>' : '否'}</td>
+          <td style="color:#7a8aaa;font-size:11px">${esc((p.description || '-').substring(0, 40))}</td>
+        </tr>`;
+      });
+      html += `</table>`;
+    } else {
+      html += `<div class="detail-section-title" style="margin-bottom:6px">请求参数</div>
+        <p style="font-size:12.5px;color:#b0bdd0">该接口无参数</p>`;
+    }
+
+    // Request body for POST/PUT/PATCH
+    if (hasBody) {
+      const specInfo = data.spec_info || {};
+      const epDetail = specInfo.endpoint_detail || {};
+      let bodyHint = '';
+      if (epDetail.requestBody && epDetail.requestBody.content) {
+        const jsonSchema = (epDetail.requestBody.content['application/json'] || {}).schema;
+        if (jsonSchema) bodyHint = JSON.stringify(jsonSchema, null, 2);
+      }
+      html += `
+        <div class="detail-section-title" style="margin-bottom:6px;margin-top:12px">请求体 (JSON)</div>
+        <textarea class="test-body-area" id="test-body" placeholder='${bodyHint ? esc(bodyHint) : "{\n  \"key\": \"value\"\n}"}' rows="5"></textarea>`;
+    }
+
+    // Send button
+    html += `
+        <div class="test-send-row">
+          <button class="test-send-btn" id="test-send-btn" onclick="sendTestRequest(${data.id}, '${method}')">
+            <svg viewBox="0 0 24 24"><path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"/></svg>
+            发送测试请求
+          </button>
+          <span style="font-size:11px;color:#b0bdd0">请求将从服务端代理发出</span>
+        </div>
+      </div>
+
+      <!-- Response Area -->
+      <div class="test-response" id="test-response" style="display:none">
+        <div class="detail-section-title">测试结果</div>
+        <div class="test-response-header">
+          <span class="test-status pending" id="test-status">—</span>
+          <span class="test-elapsed" id="test-elapsed"></span>
+        </div>
+        <div class="test-resp-body" id="test-resp-body"></div>
+      </div>`;
+
+    dv.innerHTML = html;
+    testBaseUrl = autoBaseUrl;
+  }
+
+  async function sendTestRequest(ifaceId, method) {
+    const baseUrlEl = document.getElementById('test-base-url');
+    const baseUrl = (baseUrlEl ? baseUrlEl.value.trim() : '') || testBaseUrl;
+    if (!baseUrl) {
+      document.getElementById('test-response').style.display = 'block';
+      document.getElementById('test-status').textContent = '未配置目标地址';
+      document.getElementById('test-status').className = 'test-status err';
+      document.getElementById('test-elapsed').textContent = '';
+      document.getElementById('test-resp-body').className = 'test-resp-body empty';
+      document.getElementById('test-resp-body').textContent = '请在上方"目标地址"输入框中填写 API 基础 URL';
+      return;
+    }
+
+    const btn = document.getElementById('test-send-btn');
+    btn.disabled = true;
+    btn.innerHTML = '<span class="spinning">↻</span> 请求中...';
+
+    // Show response area with loading state
+    const respArea = document.getElementById('test-response');
+    respArea.style.display = 'block';
+    document.getElementById('test-status').textContent = '请求中...';
+    document.getElementById('test-status').className = 'test-status pending';
+    document.getElementById('test-elapsed').textContent = '';
+    document.getElementById('test-resp-body').textContent = '正在发送请求...';
+
+    // Collect params + validate required
+    const params = {};
+    if (selectedIfaceData && selectedIfaceData.parameters) {
+      const missing = [];  // 收集缺失的必填参数
+      selectedIfaceData.parameters.forEach(p => {
+        const el = document.getElementById('param-' + esc(p.name));
+        const val = el ? el.value.trim() : '';
+        if (val) {
+          params[p.name] = val;
+        } else if (p.required) {
+          const loc = p.in || 'query';
+          missing.push(p.name + ' (' + loc + ')');
+        }
+      });
+      if (missing.length > 0) {
+        document.getElementById('test-response').style.display = 'block';
+        document.getElementById('test-status').textContent = '缺少必填参数';
+        document.getElementById('test-status').className = 'test-status err';
+        document.getElementById('test-elapsed').textContent = '';
+        document.getElementById('test-resp-body').className = 'test-resp-body empty';
+        document.getElementById('test-resp-body').textContent = '以下必填参数未填写：\n' + missing.map(m => '  • ' + m).join('\n');
+        btn.disabled = false;
+        btn.innerHTML = '<svg viewBox="0 0 24 24"><path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"/></svg>发送测试请求';
+        return;
+      }
+    }
+
+    // Collect body
+    let body = null;
+    if (['POST', 'PUT', 'PATCH'].includes(method)) {
+      const bodyEl = document.getElementById('test-body');
+      if (bodyEl && bodyEl.value.trim()) {
+        try {
+          body = JSON.parse(bodyEl.value.trim());
+        } catch(e) {
+          document.getElementById('test-status').textContent = 'JSON 格式错误';
+          document.getElementById('test-status').className = 'test-status err';
+          document.getElementById('test-resp-body').textContent = '请求体 JSON 格式无效：' + e.message;
+          btn.disabled = false;
+          btn.innerHTML = '<svg viewBox="0 0 24 24"><path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"/></svg>发送测试请求';
+          return;
+        }
+      }
+    }
+
+    try {
+      const r = await fetch(`${API_BASE}/api/system-interfaces/${ifaceId}/test`, {
+        method: 'POST',
+        headers: authHeaders(),
+        body: JSON.stringify({ params, body: body, base_url: baseUrl }),
+      });
+      const result = await r.json();
+
+      if (result.ok) {
+        const resp = result.response || {};
+        const code = resp.status_code || '?';
+        document.getElementById('test-status').textContent = code + ' — ' + (code < 400 ? 'OK' : 'Error');
+        document.getElementById('test-status').className = 'test-status ' + (code < 400 ? 'ok' : 'err');
+        document.getElementById('test-elapsed').textContent = (resp.elapsed_ms != null) ? '耗时：' + resp.elapsed_ms + 'ms' : '';
+        const bodyData = resp.body;
+        if (bodyData !== null && bodyData !== undefined) {
+          document.getElementById('test-resp-body').className = 'test-resp-body';
+          try {
+            document.getElementById('test-resp-body').textContent = JSON.stringify(bodyData, null, 2);
+          } catch(e) {
+            document.getElementById('test-resp-body').textContent = String(bodyData);
+          }
+        } else {
+          document.getElementById('test-resp-body').className = 'test-resp-body empty';
+          document.getElementById('test-resp-body').textContent = '(空响应体)';
+        }
+      } else {
+        document.getElementById('test-status').textContent = '请求失败';
+        document.getElementById('test-status').className = 'test-status err';
+        document.getElementById('test-elapsed').textContent = '';
+        document.getElementById('test-resp-body').className = 'test-resp-body empty';
+        document.getElementById('test-resp-body').textContent = result.message || '未知错误';
+      }
+    } catch(e) {
+      document.getElementById('test-status').textContent = '网络错误';
+      document.getElementById('test-status').className = 'test-status err';
+      document.getElementById('test-resp-body').textContent = '发送请求失败：' + e.message;
+    } finally {
+      btn.disabled = false;
+      btn.innerHTML = '<svg viewBox="0 0 24 24"><path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"/></svg>发送测试请求';
+    }
+  }
+
+  // ── Browse: Delete (Admin) ──────────────────────────
+  function confirmDeleteIface(id) {
+    confirmDeleteCallback = async () => {
+      try {
+        const r = await fetch(`${API_BASE}/api/admin/interfaces/${id}`, { method: 'DELETE', headers: authHeaders() });
+        const data = await r.json();
+        if (r.ok) { toast(data.message || '删除成功', 'success'); refreshTree(); document.getElementById('detail-view').style.display = 'none'; document.getElementById('right-empty').style.display = 'flex'; }
+        else toast(data.message || data.detail, 'error');
+      } catch(e) { toast('删除失败: ' + e.message, 'error'); }
+    };
+    document.getElementById('modal-confirm-title').textContent = '删除接口';
+    document.getElementById('modal-confirm-body').innerHTML = '<p>确认从索引中删除此接口？不会影响原始 JSON 文件。</p>';
+    openModal('modal-confirm');
+  }
+  function confirmDeleteFile(svc, file) {
+    confirmDeleteCallback = async () => {
+      try {
+        const r = await fetch(`${API_BASE}/api/admin/interfaces/file/${encodeURIComponent(svc)}/${encodeURIComponent(file)}`, { method: 'DELETE', headers: authHeaders() });
+        const data = await r.json();
+        if (r.ok) { toast(data.message || '删除成功', 'success'); refreshTree(); }
+        else toast(data.message || data.detail, 'error');
+      } catch(e) { toast('删除失败: ' + e.message, 'error'); }
+    };
+    document.getElementById('modal-confirm-title').textContent = '删除接口文件';
+    document.getElementById('modal-confirm-body').innerHTML = `<p>确认删除 <b>${esc(svc)}/${esc(file)}.json</b>？</p><p style="color:#c0392b;font-size:12px;margin-top:8px">此操作将同时删除 JSON 文件和数据库索引，不可恢复。</p>`;
+    openModal('modal-confirm');
+  }
+  function confirmDeleteService(svc) {
+    confirmDeleteCallback = async () => {
+      try {
+        const r = await fetch(`${API_BASE}/api/admin/interfaces/service/${encodeURIComponent(svc)}`, { method: 'DELETE', headers: authHeaders() });
+        const data = await r.json();
+        if (r.ok) { toast(data.message || '删除成功', 'success'); refreshTree(); }
+        else toast(data.message || data.detail, 'error');
+      } catch(e) { toast('删除失败: ' + e.message, 'error'); }
+    };
+    document.getElementById('modal-confirm-title').textContent = '删除服务目录';
+    document.getElementById('modal-confirm-body').innerHTML = `<p>确认删除整个服务 <b>${esc(svc)}</b> 及其所有接口？</p><p style="color:#c0392b;font-size:12px;margin-top:8px">此操作将删除该目录下的所有 JSON 文件和数据库索引，不可恢复。</p>`;
+    openModal('modal-confirm');
+  }
+  function executeConfirmDelete() {
+    closeModal('modal-confirm');
+    if (confirmDeleteCallback) { confirmDeleteCallback(); confirmDeleteCallback = null; }
+  }
+
+  // ── Import: URL ─────────────────────────────────────
+  async function importFromUrl() {
+    const urlInput = document.getElementById('import-url-input');
+    const nameInput = document.getElementById('import-url-name');
+    const url = urlInput.value.trim();
+    if (!url) { toast('请输入 Swagger 服务地址', 'error'); return; }
+
+    const btn = document.getElementById('btn-import-url');
+    btn.disabled = true; btn.textContent = '导入中...';
+    const status = document.getElementById('import-status');
+    status.innerHTML = '<div class="import-msg loading"><span class="spinning">↻</span> 正在探测 Swagger 端点并下载规范文件...</div>';
+
+    try {
+      const r = await fetch(`${API_BASE}/api/admin/interfaces/import-from-url`, {
+        method: 'POST',
+        headers: authHeaders(),
+        body: JSON.stringify({ url, service_name: nameInput.value.trim() }),
+      });
+      const data = await r.json();
+      if (r.ok) {
+        status.innerHTML = `<div class="import-msg success">${esc(data.message)}</div>`;
+        toast('导入成功！', 'success');
+        urlInput.value = ''; nameInput.value = '';
+      } else {
+        status.innerHTML = `<div class="import-msg error">${esc(data.message || data.detail)}</div>`;
+      }
+    } catch(e) {
+      status.innerHTML = `<div class="import-msg error">导入失败：${esc(e.message)}</div>`;
+    } finally {
+      btn.disabled = false; btn.textContent = '导入接口';
+    }
+  }
+
+  // ── Import: JSON File ───────────────────────────────
+  function onJsonDrop(e) {
+    e.preventDefault();
+    document.getElementById('import-drop-zone').classList.remove('drag-over');
+    if (e.dataTransfer.files.length) processJsonFile(e.dataTransfer.files[0]);
+  }
+  function onJsonFileSelect(input) {
+    if (input.files.length) processJsonFile(input.files[0]);
+    input.value = '';
+  }
+  async function processJsonFile(file) {
+    const nameInput = document.getElementById('import-json-name');
+    const status = document.getElementById('import-status');
+    status.innerHTML = '<div class="import-msg loading"><span class="spinning">↻</span> 正在验证并导入...</div>';
+
+    try {
+      const text = await file.text();
+      // Try parsing to check JSON validity
+      JSON.parse(text);
+
+      const r = await fetch(`${API_BASE}/api/admin/interfaces/import-from-json`, {
+        method: 'POST',
+        headers: { 'Authorization': 'Bearer ' + localStorage.getItem('token'), 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          ...JSON.parse(text),
+          service_name: nameInput.value.trim(),
+        }),
+      });
+      const data = await r.json();
+      if (r.ok) {
+        status.innerHTML = `<div class="import-msg success">${esc(data.message)}</div>`;
+        toast('导入成功！', 'success');
+        nameInput.value = '';
+      } else {
+        status.innerHTML = `<div class="import-msg error">${esc(data.message || data.detail)}</div>`;
+      }
+    } catch(e) {
+      status.innerHTML = `<div class="import-msg error">导入失败：${esc(e.message)}</div>`;
+    }
+  }
+
+  // ── Permissions ─────────────────────────────────────
+  async function loadPermissionUsers() {
+    if (currentMainTab !== 'permissions') return;
+    const list = document.getElementById('perm-user-list');
+    list.innerHTML = '<div class="list-loading" style="padding:20px">加载中...</div>';
+    try {
+      const r = await fetch(`${API_BASE}/api/admin/users`, { headers: authHeaders() });
+      if (!r.ok) throw new Error('无权访问');
+      const users = await r.json();
+      permissionUsers = users.filter(u => u.role !== 'admin');
+      if (!permissionUsers.length) {
+        list.innerHTML = '<div class="list-empty" style="padding:20px">暂无普通用户</div>';
+      } else {
+        let html = '';
+        permissionUsers.forEach(u => {
+          html += `<div class="perm-user-item" data-uid="${u.id}" onclick="selectPermUser(${u.id})">
+            <div class="perm-user-name">${esc(u.display_name || u.username)}</div>
+            <div class="perm-user-role">${u.role === 'visitor' ? '访客' : '用户'}</div>
+          </div>`;
+        });
+        list.innerHTML = html;
+      }
+    } catch(e) {
+      list.innerHTML = `<div class="list-empty" style="padding:20px">加载失败：${esc(e.message)}</div>`;
+    }
+  }
+
+  async function selectPermUser(uid) {
+    document.querySelectorAll('#perm-user-list .perm-user-item').forEach(el => el.classList.remove('active'));
+    const item = document.querySelector(`#perm-user-list .perm-user-item[data-uid="${uid}"]`);
+    if (item) item.classList.add('active');
+
+    const area = document.getElementById('perm-detail-area');
+    area.innerHTML = '<div style="padding:36px;text-align:center;color:#9aaac0">加载中...</div>';
+
+    const u = permissionUsers.find(pu => pu.id === uid);
+
+    try {
+      const r = await fetch(`${API_BASE}/api/admin/user-permissions/${uid}`, { headers: authHeaders() });
+      if (!r.ok) throw new Error(await r.text());
+      const data = await r.json();
+      renderPermTree(data.services, uid);
+    } catch(e) {
+      area.innerHTML = `<div style="padding:36px;text-align:center;color:#c0392b">加载失败：${esc(e.message)}</div>`;
+    }
+  }
+
+  function renderPermTree(services, uid) {
+    const area = document.getElementById('perm-detail-area');
+    const u = permissionUsers.find(pu => pu.id === uid);
+    const userName = u ? (u.display_name || u.username) : `用户 #${uid}`;
+
+    let html = `
+      <div class="perm-detail-header">
+        <div>
+          <div class="perm-detail-title">${esc(userName)} 的接口权限</div>
+          <div class="perm-detail-sub">启用开关为接口授予访问权限，新用户默认无任何访问权限</div>
+        </div>
+        <div class="perm-actions">
+          <button class="perm-btn" onclick="grantAll(${uid})">全选</button>
+          <button class="perm-btn" onclick="revokeAll(${uid})" style="color:#c0392b">全不选</button>
+        </div>
+      </div>
+      <div class="perm-tree" id="perm-tree-content">`;
+
+    if (!services || !services.length) {
+      html += '<div class="perm-empty">暂无可配置的系统接口</div>';
+    } else {
+      services.forEach(svc => {
+        html += `<div>
+          <div class="perm-svc-header" onclick="togglePermSvc(this, 'psvc-${uid}-${esc(svc.name)}')">
+            <span class="perm-svc-chevron open" id="chev-psvc-${uid}-${esc(svc.name)}">›</span>
+            <span class="perm-svc-name">${esc(svc.name)}</span>
+          </div>
+          <div id="psvc-${uid}-${esc(svc.name)}">`;
+
+        svc.files.forEach(file => {
+          html += `<div>
+            <div class="perm-file-header" onclick="togglePermFile(this, 'pfile-${uid}-${esc(svc.name)}-${esc(file.name)}')">
+              <span class="perm-file-chevron open" id="chev-pfile-${uid}-${esc(svc.name)}-${esc(file.name)}">›</span>
+              <span class="perm-file-name">${esc(file.name)}</span>
+            </div>
+            <div id="pfile-${uid}-${esc(svc.name)}-${esc(file.name)}">`;
+
+          file.interfaces.forEach(iface => {
+            html += `<div class="perm-iface-row">
+              <label class="perm-toggle">
+                <input type="checkbox" ${iface.granted ? 'checked' : ''} onchange="togglePerm(${uid}, ${iface.id}, this.checked)">
+                <span class="perm-toggle-slider"></span>
+              </label>
+              <div class="perm-iface-info">
+                <div class="perm-iface-path" style="display:flex;gap:6px;align-items:center">
+                  <span class="method-badge ${iface.method}" style="font-size:9px;min-width:36px;padding:1px 3px">${iface.method}</span>
+                  ${esc(iface.path)}
+                </div>
+                <div class="perm-iface-desc">${esc(iface.summary || '')}</div>
+              </div>
+            </div>`;
+          });
+
+          html += '</div></div>';
+        });
+
+        html += '</div></div>';
+      });
+    }
+
+    html += '</div>';
+    area.innerHTML = html;
+  }
+
+  async function togglePerm(uid, ifaceId, granted) {
+    try {
+      const body = granted
+        ? { granted_ids: [ifaceId], revoked_ids: [] }
+        : { granted_ids: [], revoked_ids: [ifaceId] };
+      const r = await fetch(`${API_BASE}/api/admin/user-permissions/${uid}`, {
+        method: 'PUT',
+        headers: authHeaders(),
+        body: JSON.stringify(body),
+      });
+      if (!r.ok) throw new Error(await r.text());
+    } catch(e) {
+      toast('权限更新失败: ' + e.message, 'error');
+      // Revert checkbox
+      const cb = document.querySelector(`.perm-toggle input[onchange*="${ifaceId}"]`);
+      if (cb) cb.checked = !granted;
+    }
+  }
+
+  async function grantAll(uid) {
+    try {
+      const r = await fetch(`${API_BASE}/api/admin/user-permissions/${uid}/grant-all`, {
+        method: 'PUT', headers: authHeaders()
+      });
+      const data = await r.json();
+      if (r.ok) { toast(data.message || '已全部授权', 'success'); selectPermUser(uid); }
+      else toast(data.message || data.detail, 'error');
+    } catch(e) { toast('操作失败: ' + e.message, 'error'); }
+  }
+
+  async function revokeAll(uid) {
+    if (!confirm('确认撤销该用户的所有接口访问权限？')) return;
+    try {
+      const r = await fetch(`${API_BASE}/api/admin/user-permissions/${uid}/revoke-all`, {
+        method: 'PUT', headers: authHeaders()
+      });
+      const data = await r.json();
+      if (r.ok) { toast(data.message || '已全部撤销', 'success'); selectPermUser(uid); }
+      else toast(data.message || data.detail, 'error');
+    } catch(e) { toast('操作失败: ' + e.message, 'error'); }
+  }
+
+  function togglePermSvc(el, id) {
+    const body = document.getElementById(id);
+    const chev = el.querySelector('.perm-svc-chevron');
+    if (body) { const show = body.style.display === 'none'; body.style.display = show ? '' : 'none'; chev.classList.toggle('open', show); }
+  }
+  function togglePermFile(el, id) {
+    const body = document.getElementById(id);
+    const chev = el.querySelector('.perm-file-chevron');
+    if (body) { const show = body.style.display === 'none'; body.style.display = show ? '' : 'none'; chev.classList.toggle('open', show); }
+  }
+
+  // ── Init ────────────────────────────────────────────
+  function renderSidebarAvatar(avatarData) {
+    const el = document.getElementById('sidebar-avatar-el');
+    if (!el) return;
+    const _path = "M12 12c2.7 0 5-2.3 5-5s-2.3-5-5-5-5 2.3-5 5 2.3 5 5 5zm0 2c-3.3 0-10 1.7-10 5v2h20v-2c0-3.3-6.7-5-10-5z";
+    el.innerHTML = avatarData
+      ? `<img src="${avatarData}" style="width:32px;height:32px;object-fit:cover">`
+      : `<svg viewBox="0 0 24 24"><path d="${_path}"/></svg>`;
+  }
+
+  async function initPage() {
+    try { currentUser = JSON.parse(localStorage.getItem('user')||'null'); } catch(e) { currentUser = null; }
+    if (!currentUser || !localStorage.getItem('token')) { window.location.href = 'login-page.html'; return; }
+
+    isAdmin = currentUser.role === 'admin';
+    const rm = { admin:'系统管理员', user:'普通用户', visitor:'访客' };
+    document.getElementById('sidebar-username').textContent = currentUser.display_name || currentUser.username;
+    document.getElementById('sidebar-role').textContent = rm[currentUser.role] || currentUser.role;
+    renderSidebarAvatar(currentUser.avatar || null);
+
+    if (isAdmin) {
+      document.getElementById('nav-admin-item').style.display = '';
+      document.getElementById('tab-import').style.display = '';
+      document.getElementById('tab-permissions').style.display = '';
+    }
+
+    await refreshTree();
+  }
+
   async function logout() {
     try { await fetch(`${API_BASE}/api/auth/logout`,{method:'POST',headers:{'Authorization':'Bearer '+localStorage.getItem('token')}}); } catch(e) {}
     localStorage.removeItem('token');
     localStorage.removeItem('user');
     window.location.href = 'login-page.html';
   }
+
   document.addEventListener('DOMContentLoaded', () => {
-    document.querySelectorAll('.modal-overlay').forEach(o => o.addEventListener('click', e => { if(e.target===o) o.classList.remove('open'); }));
+    document.querySelectorAll('.modal-overlay').forEach(o => o.addEventListener('click', e => {
+      if(e.target===o) closeModal(o.id);
+    }));
     document.addEventListener('keydown', e => {
-      if (e.key==='Escape') document.querySelectorAll('.modal-overlay.open').forEach(o=>o.classList.remove('open'));
-      if (e.key==='Enter' && document.getElementById('modal-new-group').classList.contains('open')) createGroup();
+      if (e.key==='Escape') document.querySelectorAll('.modal-overlay.open').forEach(o => closeModal(o.id));
     });
   });
+
   window.addEventListener('load', initPage);
 </script>
 </body>

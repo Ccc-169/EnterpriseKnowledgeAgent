@@ -4,6 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>HNGD 智能知识助手系统 - 更多功能</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='6' fill='%234f46e5'/><text x='16' y='23' font-size='18' text-anchor='middle' fill='white' font-family='sans-serif' font-weight='bold'>知</text></svg>">
 <style>
   * { margin: 0; padding: 0; box-sizing: border-box; }
 
@@ -84,6 +85,7 @@
     background: rgba(255,255,255,0.18);
     display: flex; align-items: center; justify-content: center;
     flex-shrink: 0; border: 1.5px solid rgba(255,255,255,0.28);
+    overflow: hidden;
   }
   .user-avatar svg { width: 16px; height: 16px; fill: rgba(255,255,255,0.8); }
   .user-info { flex: 1; min-width: 0; }
@@ -285,6 +287,11 @@
     background: linear-gradient(135deg, #daf4f4 0%, #c0ecec 100%);
   }
 
+  /* Rose - Chat embed */
+  .feat-icon-wrap.embed {
+    background: linear-gradient(135deg, #fce8f3 0%, #f8d4ea 100%);
+  }
+
   /* ========== COMING SOON BANNER ========== */
   .coming-soon-banner {
     background: white;
@@ -363,7 +370,139 @@
     display: flex; align-items: center; justify-content: center; gap: 5px;
     position: relative; z-index: 1;
   }
+
+  /* ========== EMBED MODAL ========== */
+  .embed-overlay {
+    display: none; position: fixed; inset: 0; z-index: 1000;
+    background: rgba(10,20,50,0.45); backdrop-filter: blur(3px);
+    align-items: center; justify-content: center;
+  }
+  .embed-overlay.active { display: flex; }
+
+  .embed-modal {
+    background: white; border-radius: 16px; width: 680px;
+    max-width: calc(100vw - 32px); max-height: 88vh; overflow-y: auto;
+    box-shadow: 0 8px 40px rgba(10,30,80,0.2), 0 2px 12px rgba(10,30,80,0.1);
+    animation: embedIn 0.22s ease;
+  }
+  @keyframes embedIn {
+    from { opacity: 0; transform: translateY(14px) scale(0.98); }
+    to   { opacity: 1; transform: translateY(0) scale(1); }
+  }
+
+  .embed-header {
+    padding: 22px 24px 18px; display: flex; align-items: flex-start;
+    justify-content: space-between; border-bottom: 1px solid #edf0f7;
+  }
+  .embed-header-left { display: flex; align-items: center; gap: 14px; }
+  .embed-header-icon {
+    width: 44px; height: 44px; border-radius: 11px; flex-shrink: 0;
+    background: linear-gradient(135deg, #fce8f3 0%, #f8d4ea 100%);
+    display: flex; align-items: center; justify-content: center;
+  }
+  .embed-header-icon svg { width: 26px; height: 26px; }
+  .embed-header-title h3 { font-size: 17px; font-weight: 700; color: #1a2a4a; margin-bottom: 3px; }
+  .embed-header-title p { font-size: 13px; color: #8a9ab8; }
+  .embed-close-x {
+    width: 30px; height: 30px; border-radius: 7px; border: none; background: transparent;
+    cursor: pointer; color: #9aaac0; font-size: 22px; line-height: 1;
+    display: flex; align-items: center; justify-content: center;
+    transition: all 0.15s; flex-shrink: 0; font-family: inherit;
+  }
+  .embed-close-x:hover { background: #f5f6fa; color: #4a5a7a; }
+
+  .embed-body { padding: 22px 24px 4px; }
+
+  .embed-sec-label {
+    font-size: 11.5px; font-weight: 600; color: #aab8cc;
+    letter-spacing: 0.6px; margin-bottom: 11px; text-transform: uppercase;
+  }
+
+  .embed-mode-row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 22px; }
+  .embed-mode-card {
+    border: 1.5px solid #e4eaf4; border-radius: 12px; padding: 14px 16px;
+    cursor: pointer; transition: all 0.18s;
+  }
+  .embed-mode-card:hover { border-color: #c8d8ee; background: #fafbff; }
+  .embed-mode-card.selected {
+    border-color: #c7336e;
+    background: linear-gradient(135deg, #fff6fa 0%, #fff0f6 100%);
+  }
+  .embed-mode-top { display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px; }
+  .embed-mode-name { font-size: 14px; font-weight: 700; color: #1a2a4a; }
+  .embed-radio {
+    width: 16px; height: 16px; border-radius: 50%;
+    border: 1.5px solid #c8d4e4; background: white;
+    display: flex; align-items: center; justify-content: center; flex-shrink: 0;
+    transition: all 0.15s;
+  }
+  .embed-mode-card.selected .embed-radio { border-color: #c7336e; background: #c7336e; }
+  .embed-radio-dot { width: 6px; height: 6px; border-radius: 50%; background: white; opacity: 0; transition: opacity 0.15s; }
+  .embed-mode-card.selected .embed-radio-dot { opacity: 1; }
+  .embed-mode-illus { margin-bottom: 10px; display: flex; justify-content: center; }
+  .embed-mode-desc { font-size: 12.5px; color: #8a9ab8; line-height: 1.6; }
+
+  .embed-fw-row { display: flex; align-items: center; gap: 8px; margin-bottom: 12px; }
+  .embed-fw-tab {
+    padding: 5px 18px; border-radius: 20px; cursor: pointer;
+    border: 1.5px solid #e4eaf4; background: white;
+    font-size: 13px; font-weight: 500; color: #5a7aaa; transition: all 0.15s;
+    font-family: 'PingFang SC', 'Microsoft YaHei', sans-serif;
+  }
+  .embed-fw-tab:hover { border-color: #c4d4ec; color: #2a5aa8; }
+  .embed-fw-tab.active { background: #1a3a7e; border-color: #1a3a7e; color: white; }
+
+  .embed-code-wrap {
+    position: relative; background: #0f1e38; border-radius: 10px;
+    overflow: hidden; margin-bottom: 12px;
+  }
+  .embed-code-pre {
+    padding: 16px 16px 16px 50px; margin: 0;
+    font-family: 'Fira Code', 'JetBrains Mono', 'Consolas', 'Courier New', monospace;
+    font-size: 12.5px; line-height: 1.75; color: #c8d8f0;
+    overflow-x: auto; white-space: pre; counter-reset: ec-line;
+  }
+  .ec-line { display: block; counter-increment: ec-line; position: relative; }
+  .ec-line::before {
+    content: counter(ec-line); position: absolute; left: -38px;
+    width: 26px; text-align: right; color: #2a4060;
+    font-size: 11px; user-select: none; padding-top: 1px;
+  }
+  .c-cm  { color: #5a7a9a; font-style: italic; }
+  .c-tag { color: #79b8ff; }
+  .c-attr{ color: #b392f0; }
+  .c-str { color: #9ecbff; }
+  .c-kw  { color: #f97583; }
+
+  .embed-copy-btn {
+    position: absolute; top: 10px; right: 10px;
+    padding: 4px 12px; border-radius: 6px; cursor: pointer;
+    background: rgba(255,255,255,0.07); border: 1px solid rgba(255,255,255,0.12);
+    color: rgba(180,210,240,0.8); font-size: 12px; transition: all 0.15s;
+    font-family: 'PingFang SC', 'Microsoft YaHei', sans-serif;
+  }
+  .embed-copy-btn:hover { background: rgba(255,255,255,0.14); color: white; }
+  .embed-copy-btn.copied { background: rgba(30,160,90,0.18); border-color: rgba(30,160,90,0.35); color: #6ee09e; }
+
+  .embed-hint {
+    font-size: 12px; color: #9aaac0; line-height: 1.65;
+    display: flex; align-items: flex-start; gap: 5px;
+  }
+  .embed-hint svg { flex-shrink: 0; margin-top: 1px; }
+
+  .embed-footer {
+    padding: 16px 24px 20px; display: flex; justify-content: flex-end;
+    border-top: 1px solid #edf0f7; margin-top: 18px;
+  }
+  .embed-footer-btn {
+    padding: 8px 26px; border-radius: 20px;
+    border: 1.5px solid #d8e4f4; background: white;
+    font-size: 13.5px; font-weight: 500; color: #3a5a9a; cursor: pointer;
+    transition: all 0.18s; font-family: 'PingFang SC', 'Microsoft YaHei', sans-serif;
+  }
+  .embed-footer-btn:hover { border-color: #2a5aa8; background: #f0f5ff; color: #1a3a7e; }
 </style>
+<script src="config.js"></script>
 </head>
 <body>
 
@@ -413,7 +552,7 @@
     <div style="flex: 1;"></div>
 
     <div class="sidebar-user" onclick="window.location.href='setting-page.html'" title="账号设置">
-      <div class="user-avatar">
+      <div class="user-avatar" id="sidebar-avatar-el">
         <svg viewBox="0 0 24 24"><path d="M12 12c2.7 0 5-2.3 5-5s-2.3-5-5-5-5 2.3-5 5 2.3 5 5 5zm0 2c-3.3 0-10 1.7-10 5v2h20v-2c0-3.3-6.7-5-10-5z"/></svg>
       </div>
       <div class="user-info">
@@ -559,6 +698,33 @@
           <button class="use-btn" onclick="window.location.href='interface_config.html'">立即使用 <span class="arrow">→</span></button>
         </div>
 
+        <!-- Card 6: 对话嵌入 -->
+        <div class="feature-card">
+          <div class="feat-icon-wrap embed">
+            <svg viewBox="0 0 80 80" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <!-- browser window frame -->
+              <rect x="10" y="12" width="60" height="48" rx="7" fill="#c7336e"/>
+              <!-- title bar -->
+              <rect x="10" y="12" width="60" height="14" rx="7" fill="#b02860"/>
+              <rect x="10" y="19" width="60" height="7" fill="#b02860"/>
+              <!-- window dots -->
+              <circle cx="21" cy="19" r="2.5" fill="#f8b8d8"/>
+              <circle cx="30" cy="19" r="2.5" fill="#f8b8d8"/>
+              <!-- inner content area -->
+              <rect x="14" y="28" width="52" height="28" rx="3" fill="white" opacity="0.93"/>
+              <!-- chat bubble (received) -->
+              <rect x="18" y="32" width="26" height="9" rx="4.5" fill="#f5c8e4"/>
+              <!-- chat bubble (sent) -->
+              <rect x="36" y="44" width="24" height="9" rx="4.5" fill="#c7336e"/>
+              <!-- embed angle brackets -->
+              <text x="52" y="24" font-size="9" fill="#f8b8d8" font-family="monospace" font-weight="bold">&lt;/&gt;</text>
+            </svg>
+          </div>
+          <h3>对话嵌入</h3>
+          <p>一键获取可复制的嵌入代码，将智能对话窗口轻松集成到任意网页或应用中。</p>
+          <button class="use-btn" onclick="openEmbedModal()">立即使用 <span class="arrow">→</span></button>
+        </div>
+
       </div>
 
       <!-- Coming Soon Banner -->
@@ -587,6 +753,113 @@
   </div>
 </div>
 
+<!-- ========== EMBED MODAL ========== -->
+<div class="embed-overlay" id="embed-overlay" onclick="if(event.target===this)closeEmbedModal()">
+  <div class="embed-modal">
+
+    <!-- Header -->
+    <div class="embed-header">
+      <div class="embed-header-left">
+        <div class="embed-header-icon">
+          <svg viewBox="0 0 80 80" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <rect x="10" y="12" width="60" height="48" rx="7" fill="#c7336e"/>
+            <rect x="10" y="12" width="60" height="14" rx="7" fill="#b02860"/>
+            <rect x="10" y="19" width="60" height="7" fill="#b02860"/>
+            <circle cx="21" cy="19" r="2.5" fill="#f8b8d8"/>
+            <circle cx="30" cy="19" r="2.5" fill="#f8b8d8"/>
+            <rect x="14" y="28" width="52" height="28" rx="3" fill="white" opacity="0.93"/>
+            <rect x="18" y="32" width="26" height="9" rx="4.5" fill="#f5c8e4"/>
+            <rect x="36" y="44" width="24" height="9" rx="4.5" fill="#c7336e"/>
+          </svg>
+        </div>
+        <div class="embed-header-title">
+          <h3>对话嵌入</h3>
+          <p>选择嵌入方式，将智能对话集成到您的项目</p>
+        </div>
+      </div>
+      <button class="embed-close-x" onclick="closeEmbedModal()">×</button>
+    </div>
+
+    <!-- Body -->
+    <div class="embed-body">
+
+      <!-- Mode selector -->
+      <div class="embed-sec-label">嵌入方式</div>
+      <div class="embed-mode-row">
+
+        <!-- 聊天球 -->
+        <div class="embed-mode-card selected" id="embed-mode-ball" onclick="selectEmbedMode('ball')">
+          <div class="embed-mode-top">
+            <span class="embed-mode-name">聊天球</span>
+            <div class="embed-radio"><div class="embed-radio-dot"></div></div>
+          </div>
+          <div class="embed-mode-illus">
+            <svg width="148" height="54" viewBox="0 0 148 54" fill="none">
+              <!-- mini chat window -->
+              <rect x="2" y="2" width="86" height="50" rx="8" fill="#f4f8ff" stroke="#dce8f4" stroke-width="1.5"/>
+              <rect x="2" y="2" width="86" height="13" rx="8" fill="#e8eef8"/>
+              <rect x="2" y="9" width="86" height="6" fill="#e8eef8"/>
+              <rect x="8" y="20" width="34" height="8" rx="4" fill="#dce8fc"/>
+              <rect x="44" y="28" width="34" height="8" rx="4" fill="#2a5aa8"/>
+              <rect x="8" y="38" width="26" height="6" rx="3" fill="#dce8fc"/>
+              <rect x="8" y="46" width="70" height="3" rx="1.5" fill="#edf2fb"/>
+              <!-- floating ball -->
+              <circle cx="124" cy="27" r="20" fill="#2a5aa8"/>
+              <path d="M116 22h16c.8 0 1.4.6 1.4 1.4v8c0 .8-.6 1.4-1.4 1.4h-2l-3 3.2-3-3.2h-8c-.8 0-1.4-.6-1.4-1.4v-8c0-.8.6-1.4 1.4-1.4z" fill="white"/>
+            </svg>
+          </div>
+          <div class="embed-mode-desc">悬浮可拖动的入口球，点击后在旁侧展开紧凑型对话窗口，不占用页面布局</div>
+        </div>
+
+        <!-- 网页嵌入 -->
+        <div class="embed-mode-card" id="embed-mode-page" onclick="selectEmbedMode('page')">
+          <div class="embed-mode-top">
+            <span class="embed-mode-name">网页嵌入</span>
+            <div class="embed-radio"><div class="embed-radio-dot"></div></div>
+          </div>
+          <div class="embed-mode-illus">
+            <svg width="148" height="54" viewBox="0 0 148 54" fill="none">
+              <rect x="2" y="2" width="144" height="50" rx="8" fill="#f4f8ff" stroke="#dce8f4" stroke-width="1.5"/>
+              <rect x="2" y="2" width="144" height="14" rx="8" fill="#e8eef8"/>
+              <rect x="2" y="10" width="144" height="6" fill="#e8eef8"/>
+              <circle cx="13" cy="10" r="2.5" fill="#c4d4ec"/>
+              <circle cx="22" cy="10" r="2.5" fill="#c4d4ec"/>
+              <circle cx="31" cy="10" r="2.5" fill="#c4d4ec"/>
+              <rect x="8" y="22" width="52" height="8" rx="4" fill="#dce8fc"/>
+              <rect x="88" y="32" width="52" height="8" rx="4" fill="#2a5aa8"/>
+              <rect x="8" y="42" width="40" height="6" rx="3" fill="#dce8fc"/>
+            </svg>
+          </div>
+          <div class="embed-mode-desc">完整对话界面直接嵌入您的页面，仅含对话功能，不含导航、设置等系统功能</div>
+        </div>
+
+      </div>
+
+      <!-- Framework + Code -->
+      <div class="embed-sec-label">框架选择</div>
+      <div class="embed-fw-row">
+        <button class="embed-fw-tab active" id="embed-fw-html" onclick="selectEmbedFw('html')">HTML</button>
+        <button class="embed-fw-tab" id="embed-fw-vue" onclick="selectEmbedFw('vue')">Vue</button>
+      </div>
+      <div class="embed-code-wrap">
+        <pre class="embed-code-pre" id="embed-code-pre"></pre>
+        <button class="embed-copy-btn" id="embed-copy-btn" onclick="copyEmbedCode()">复制代码</button>
+      </div>
+      <div class="embed-hint">
+        <svg viewBox="0 0 16 16" width="14" height="14" fill="currentColor"><path d="M8 1a7 7 0 100 14A7 7 0 008 1zm.75 10.5h-1.5v-5h1.5v5zm0-6.5h-1.5V3.5h1.5V5z"/></svg>
+        <span id="embed-hint-text"></span>
+      </div>
+
+    </div>
+
+    <!-- Footer -->
+    <div class="embed-footer">
+      <button class="embed-footer-btn" onclick="closeEmbedModal()">关 闭</button>
+    </div>
+
+  </div>
+</div>
+
 <script>
   function updateClock() {
     const now = new Date(), pad = n => String(n).padStart(2, '0');
@@ -596,6 +869,15 @@
   updateClock();
   setInterval(updateClock, 1000);
 
+  function renderSidebarAvatar(avatarData) {
+    const el = document.getElementById('sidebar-avatar-el');
+    if (!el) return;
+    const _path = "M12 12c2.7 0 5-2.3 5-5s-2.3-5-5-5-5 2.3-5 5 2.3 5 5 5zm0 2c-3.3 0-10 1.7-10 5v2h20v-2c0-3.3-6.7-5-10-5z";
+    el.innerHTML = avatarData
+      ? `<img src="${avatarData}" style="width:32px;height:32px;object-fit:cover">`
+      : `<svg viewBox="0 0 24 24"><path d="${_path}"/></svg>`;
+  }
+
   function initSidebar() {
     let user = null;
     try { user = JSON.parse(localStorage.getItem('user') || 'null'); } catch(e) {}
@@ -603,6 +885,7 @@
     const roleMap = { admin: '系统管理员', user: '普通用户', visitor: '访客' };
     document.getElementById('sidebar-username').textContent = user.display_name || user.username;
     document.getElementById('sidebar-role').textContent = roleMap[user.role] || user.role;
+    renderSidebarAvatar(user.avatar || null);
     if (user.role === 'admin') {
       const adminItem = document.getElementById('nav-admin-item');
       if (adminItem) adminItem.style.display = '';
@@ -610,12 +893,203 @@
   }
 
   async function logout() {
-    try { await fetch('http://localhost:8000/api/auth/logout', { method: 'POST', headers: { 'Authorization': 'Bearer ' + localStorage.getItem('token') } }); } catch(e) {}
+    try { await fetch(window.APP_CONFIG.api_base + '/api/auth/logout', { method: 'POST', headers: { 'Authorization': 'Bearer ' + localStorage.getItem('token') } }); } catch(e) {}
     localStorage.clear();
     window.location.href = 'login-page.html';
   }
 
   window.addEventListener('load', initSidebar);
+
+  // ========== EMBED MODAL ==========
+  let _eMode = 'ball', _eFw = 'html';
+
+  function _eCodes() {
+    const base = window.APP_CONFIG.api_base;
+    return {
+      ball: {
+        html: `<!-- 在 <body> 末尾粘贴以下两段代码 -->
+<script>
+  window.HNGDChatConfig = {
+    server: '${base}',
+    token:  'hngd-embed-2024'
+  };
+<\/script>
+<script src="${base}/static/chat-ball.js"><\/script>`,
+        vue: `<!-- 在 App.vue 或入口组件的 onMounted 中注入 -->
+<template>
+  <div>
+    <!-- 其他页面内容 -->
+  </div>
+</template>
+
+<script setup>
+import { onMounted } from 'vue'
+
+onMounted(() => {
+  window.HNGDChatConfig = {
+    server: '${base}',
+    token:  'hngd-embed-2024'
+  }
+  const s = document.createElement('script')
+  s.src = '${base}/static/chat-ball.js'
+  document.body.appendChild(s)
+})
+<\/script>`
+      },
+      page: {
+        html: `<!-- 将以下代码粘贴到需要展示对话的位置 -->
+<iframe
+  src="${base}/embed/chat?token=hngd-embed-2024"
+  width="100%"
+  height="680"
+  frameborder="0"
+  allowtransparency="true"
+  style="
+    border: 1px solid #e0e8f4;
+    border-radius: 12px;
+    display: block;
+  "
+></iframe>`,
+        vue: `<!-- 在需要展示对话的 Vue 组件中 -->
+<template>
+  <iframe
+    src="${base}/embed/chat?token=hngd-embed-2024"
+    width="100%"
+    height="680"
+    frameborder="0"
+    allowtransparency="true"
+    style="border-radius:12px; border:1px solid #e0e8f4; display:block;"
+  />
+</template>
+
+<script setup>
+// 无需额外依赖，直接使用 iframe 嵌入
+<\/script>`
+      }
+    };
+  }
+
+  const _eHints = {
+    ball: {
+      html: '粘贴到 HTML 文件 &lt;body&gt; 末尾，无需其他依赖，刷新后右下角出现悬浮球。',
+      vue:  '在 App.vue 的 onMounted 中动态注入脚本，球将出现在页面右下角。'
+    },
+    page: {
+      html: '将 iframe 粘贴到页面中需要展示对话的位置，token 参数用于身份验证。',
+      vue:  '在 Vue 模板中直接使用 iframe 标签即可，无需额外安装依赖。'
+    }
+  };
+
+  // 单次扫描 token，避免多轮正则互相破坏已注入的 span 标签
+  function _highlight(raw) {
+    // 按行处理，每行单独 token 化
+    return raw.split('\n').map(line => {
+      const out = [];
+      let i = 0;
+      while (i < line.length) {
+        // HTML/Vue 注释（行内注释片段，跨行不处理）
+        if (line.startsWith('<!--', i)) {
+          const end = line.indexOf('-->', i);
+          const chunk = end === -1 ? line.slice(i) : line.slice(i, end + 3);
+          out.push(`<span class="c-cm">${_e(chunk)}</span>`);
+          i += chunk.length;
+        // 单行 JS 注释
+        } else if (line.startsWith('//', i)) {
+          out.push(`<span class="c-cm">${_e(line.slice(i))}</span>`);
+          i = line.length;
+        // 双引号字符串
+        } else if (line[i] === '"') {
+          const end = line.indexOf('"', i + 1);
+          const chunk = end === -1 ? line.slice(i) : line.slice(i, end + 1);
+          out.push(`<span class="c-str">${_e(chunk)}</span>`);
+          i += chunk.length;
+        // 单引号字符串
+        } else if (line[i] === "'") {
+          const end = line.indexOf("'", i + 1);
+          const chunk = end === -1 ? line.slice(i) : line.slice(i, end + 1);
+          out.push(`<span class="c-str">${_e(chunk)}</span>`);
+          i += chunk.length;
+        // HTML 标签 < 开头
+        } else if (line[i] === '<') {
+          const end = line.indexOf('>', i);
+          const chunk = end === -1 ? line.slice(i) : line.slice(i, end + 1);
+          out.push(`<span class="c-tag">${_e(chunk)}</span>`);
+          i += chunk.length;
+        // JS 关键字
+        } else {
+          const kwMatch = line.slice(i).match(/^(import|from|export|const|let|var|setup)\b/);
+          if (kwMatch) {
+            out.push(`<span class="c-kw">${kwMatch[1]}</span>`);
+            i += kwMatch[1].length;
+          } else {
+            out.push(_e(line[i]));
+            i++;
+          }
+        }
+      }
+      return `<span class="ec-line">${out.join('')}</span>`;
+    }).join('\n');
+  }
+
+  function _e(s) {
+    return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+  }
+
+  function _esc(s) { return _e(s); }
+
+  function _renderCode() {
+    document.getElementById('embed-code-pre').innerHTML = _highlight(_eCodes()[_eMode][_eFw]);
+    document.getElementById('embed-hint-text').textContent = _eHints[_eMode][_eFw];
+    const btn = document.getElementById('embed-copy-btn');
+    btn.textContent = '复制代码'; btn.classList.remove('copied');
+  }
+
+  function openEmbedModal() {
+    _eMode = 'ball'; _eFw = 'html';
+    document.querySelectorAll('.embed-mode-card').forEach(c => c.classList.remove('selected'));
+    document.getElementById('embed-mode-ball').classList.add('selected');
+    document.querySelectorAll('.embed-fw-tab').forEach(t => t.classList.remove('active'));
+    document.getElementById('embed-fw-html').classList.add('active');
+    _renderCode();
+    document.getElementById('embed-overlay').classList.add('active');
+  }
+
+  function closeEmbedModal() {
+    document.getElementById('embed-overlay').classList.remove('active');
+  }
+
+  function selectEmbedMode(mode) {
+    _eMode = mode;
+    document.querySelectorAll('.embed-mode-card').forEach(c => c.classList.remove('selected'));
+    document.getElementById('embed-mode-' + mode).classList.add('selected');
+    _renderCode();
+  }
+
+  function selectEmbedFw(fw) {
+    _eFw = fw;
+    document.querySelectorAll('.embed-fw-tab').forEach(t => t.classList.remove('active'));
+    document.getElementById('embed-fw-' + fw).classList.add('active');
+    _renderCode();
+  }
+
+  function copyEmbedCode() {
+    const raw = _eCodes()[_eMode][_eFw];
+    const btn = document.getElementById('embed-copy-btn');
+    (navigator.clipboard
+      ? navigator.clipboard.writeText(raw)
+      : Promise.reject()
+    ).catch(() => {
+      const ta = document.createElement('textarea');
+      ta.value = raw; document.body.appendChild(ta);
+      ta.select(); document.execCommand('copy'); document.body.removeChild(ta);
+    });
+    btn.textContent = '已复制 ✓'; btn.classList.add('copied');
+    setTimeout(() => { btn.textContent = '复制代码'; btn.classList.remove('copied'); }, 2000);
+  }
+
+  document.addEventListener('keydown', e => {
+    if (e.key === 'Escape') closeEmbedModal();
+  });
 </script>
 
 </body>

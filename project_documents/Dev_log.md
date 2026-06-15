@@ -1,12 +1,163 @@
 ﻿# 开发日志列表
 :
 
-<<<<<<< HEAD
-## 2026-06-02 (记忆系统博客优化)
+## 2026-06-12 (服务地址统一配置)
 
-**内容**：优化 `blog/blog_05_记忆系统_长短期与混合记忆.md`，补全三层存储模型（STM/LTM/Hybrid），新增经验记忆缓存（cache_service）分析、语义降权标签说明、完整消息保存时间线、两周长期记忆（Dify RAG + Q&A向量匹配）对比。
+**功能**：消除项目中所有硬编码服务地址，实现换部署环境只需修改两个文件。
+
+**方案**：
+- 后端：`core/config.py` 新增 `RAGFLOW_API_BASE`、`RAGFLOW_API_KEY`、`RAGFLOW_DATASET_ID`、`DIFY_API_BASE` 统一导出，消除 `rag_agent.py`、`doc_agent.py`、`kb_search.py`、`ragflow_service.py`、`dify_service.py` 中各自散落的 `os.environ.get()` 调用。
+- 前端：新建 `html_files/config.js`，声明 `window.APP_CONFIG = { api_base, alarm_base }`，作为前端唯一配置文件。9 个 HTML/JS 文件引入该文件并替换硬编码常量。
+- `more-features-page.html` 的嵌入代码示例改为函数 `_eCodes()` 动态拼接，展示给用户的复制代码随配置自动更新。
+- `.env` 顶部新增服务地址区块；`.env.example` 重构，将服务地址配置提到最前并注明前端配置入口。
+
+**换环境操作**：修改 `.env` 中的 `RAGFLOW_API_BASE`、`EXECUTOR_URL`，以及 `html_files/config.js` 中的 `api_base`、`alarm_base`，其余文件无需改动。
+
+**修改文件**：`core/config.py`、`agents/rag_agent.py`、`agents/doc_agent.py`、`data/kb_search.py`、`data/ragflow_service.py`、`data/dify_service.py`、`html_files/config.js`（新建）、`html_files/login-page.html`、`html_files/home-page.html`、`html_files/admin-page.html`、`html_files/setting-page.html`、`html_files/interface_config.html`、`html_files/more-features-page.html`、`html_files/chat-embed.html`、`html_files/chat-ball.js`、`html_files/implant_test.html`、`.env`、`.env.example`
+
+**时间**：2026-06-12
 
 ---
+
+## 2026-06-10 (接口配置页参数类型列)
+
+**功能**：接口配置页 Params 面板新增"类型"列，支持为每个参数指定数据类型；已配置接口的参数加载时自动显示类型。
+
+**方案**：
+- Params 行从 5 列扩为 6 列（checkbox | 参数名 | **类型** | 参数值 | 说明 | 删除），grid 更新为 `18px 1fr 90px 1fr 1.4fr 26px`。
+- 类型下拉选项：`string`、`int`、`float`、`bool`、`list`、`object`、`any`，蓝色 monospace 样式与系统统一。
+- 旧数据兼容：无 `type` 字段时自动 fallback 为 `string`，打开旧接口不报错，保存一次后自动补全。
+- 数据模型扩展：`params` 数组每项新增 `type` 字段，随整体 JSON blob 持久化，无需后端改动。
+- 导入格式示例同步更新，展示带 `type` 字段的参数写法。
+
+**修改文件**：`html_files/interface_config.html`
+
+**时间**：2026-06-10
+
+---
+
+## 2026-06-10 (管理员界面删除用户功能)
+
+**功能**：管理员界面"用户管理"新增删除用户，级联清除该用户的全部历史数据，需二次确认。
+
+**方案**：
+- 删除入口置于"编辑用户"弹窗底部的危险操作区（非表格行内），减少误触风险。
+- 当前登录账户自动隐藏删除入口，防止管理员自删。
+- 删除确认弹窗要求管理员手动键入目标用户名后"确认删除"按钮才激活，为最强防误触机制。
+- 级联删除顺序：messages → conversations → audit_logs → document_history → users，单事务保证原子性。
+- 配色与风格沿用系统现有设计，危险按钮使用深红色（`#c0392b`）。
+
+**后端** (`auth/auth_service.py`, `api.py`)：
+- `auth_service.py`：新增 `delete_user(user_id)` 函数，事务内按顺序级联删除，用户不存在返回 `False`。
+- `api.py`：导入 `delete_user`，新增 `DELETE /api/admin/users/{target_id}` 端点；禁止删除自身账户（400），用户不存在（404），成功写入 admin_op 审计日志。
+
+**前端** (`html_files/admin-page.html`)：
+- 新增 CSS：`btn-danger-modal`、`danger-zone`、`btn-open-delete`、`delete-warning-box`。
+- 编辑弹窗底部加"危险操作"分区 + "删除此用户"入口按钮。
+- 新增删除确认弹窗（`modal-delete-user`）：展示将删除的数据范围 → 手动输入用户名验证 → 确认删除。
+
+**修改文件**：`auth/auth_service.py`、`api.py`、`html_files/admin-page.html`
+
+**时间**：2026-06-10
+
+---
+
+## 2026-06-05 (对话嵌入功能)
+
+**功能**：新增"对话嵌入"，支持将智能对话以聊天球或网页 iframe 两种方式嵌入到外部前端项目。
+
+**方案**：
+- 聊天球（`chat-ball.js`）：单轮对话，每次发送生成新 thread_id；Shadow DOM 隔离样式；3 层动画（渐变旋转 + 脉冲环 + 悬浮抖动）；支持拖拽，默认右下角。
+- 网页嵌入（`chat-embed.html`）：多轮对话，thread_id 存 sessionStorage，刷新重置。
+- 两者均通过 `POST /api/embed/chat` 接口通信，`embed_token` 鉴权，底层复用 `agent.chat()`（Router 自动分发 rag_agent / data_agent）。
+
+**后端** (`api.py`)：
+- 新增 `POST /api/embed/chat`：embed_token 校验，无 thread_id → 单轮，有 thread_id → 多轮。
+- 新增 `GET /embed/chat`：返回 `chat-embed.html`。
+- 新增 `GET /static/chat-ball.js`：返回聊天球脚本，外部只需对接 8000 端口。
+
+**新增文件**：`html_files/chat-ball.js`、`html_files/chat-embed.html`、`html_files/implant_test.html`（测试页）
+
+**修改文件**：`api.py`、`.env`（新增 `EMBED_TOKEN`）、`html_files/more-features-page.html`（新增对话嵌入功能卡片及弹窗）
+
+**时间**：2026-06-05
+
+---
+
+## 2026-06-03 (data_agent 多轮对话幻觉修复)
+
+## 2026-06-03 (用户头像功能)
+
+**功能**：用户设置页新增"更换头像"弹窗，支持上传图片或选择预置色块头像，保存后侧边栏实时同步。
+
+**方案**：头像以 base64 data URL 存入 SQLite `users.avatar` 列，不引入文件系统依赖。
+
+**后端**：
+- `core/database.py`：`init_db` 新增 `ALTER TABLE users ADD COLUMN avatar TEXT` 幂等迁移。
+- `auth/auth_service.py`：`authenticate_user` 返回值补充 `avatar` 字段；新增 `update_avatar(user_id, avatar_data)` 函数（限 400KB，校验 data URL 前缀）。
+- `api.py`：`LoginResponse` 加 `avatar: str | None`；登录接口返回 avatar；新增 `PUT /api/user/avatar` 端点（校验 `data:` 前缀，写审计日志）；导入 `update_avatar`。
+
+**前端**：
+- `setting-page.html`：新增 avatar modal —— 上传区（Canvas 压缩到 200×200 JPEG 0.82）、6 个预置渐变色块（对应系统配色）、实时预览环；`initPage` 调用 `renderBigAvatar` / `renderSidebarAvatar` 初始化头像显示；保存后同步 localStorage + 所有头像 DOM。
+- `home-page.html`：侧边栏 `.user-avatar` 加 `id`、`overflow:hidden`；新增 `renderSidebarAvatar()`；登录初始化和 `visibilitychange`（从 setting 页返回时）双触发同步。
+- `login-page.html`：登录成功写 localStorage 时补存 `avatar` 字段。
+
+**修改文件**：`core/database.py`、`auth/auth_service.py`、`api.py`、`html_files/setting-page.html`、`html_files/home-page.html`、`html_files/login-page.html`
+
+**时间**：2026-06-03
+
+---
+
+## 2026-06-03 (api_agent：HTTP 接口查询智能体)
+
+**功能**：新增 `api_agent`，通过调用已配置的 HTTP 接口获取实时数据并回答用户问题，对接 `interface_config.html` 中管理的接口配置。
+
+**方案**：
+- `agents/api_agent.py`（新建）：ReAct Agent，包含两个工具：
+  - `list_interfaces`：读取 `project_documents/interface_configs.json`，列出所有已启用接口的 ID、名称、HTTP 方法、URL 及参数（区分默认/可选）。
+  - `call_interface`：按接口 ID 发起 HTTP 请求（支持 GET/POST/PUT/PATCH/DELETE），自动携带配置中已启用的默认参数，支持通过 `extra_params`（JSON 字符串）覆盖或追加参数；处理 Bearer/API Key 认证、自定义请求头、JSON/Form body；超时 15s，错误信息直接返回给 LLM。
+  - 使用 `requests.Session` 复用连接，配置文件每次工具调用时实时读取（支持热更新）。
+- `agents/registry.py`：AGENT_REGISTRY 新增 `api_agent` 条目（`required_role: [user, admin]`）。
+- `agent.py`：导入并实例化 `api_agent`；`chat_direct()` 的 `agent_map` 新增 `"api_agent"` 键。
+- `api.py`：`ChatRequest.mode` 注释补充 `"api"` 选项；`chat_stream` 的 `mode_calls` 新增 `"api"` → `chat_direct("api_agent", ...)`。
+
+**修改文件**：`agents/api_agent.py`（新建）、`agents/registry.py`、`agent.py`、`api.py`
+
+**时间**：2026-06-03
+
+---
+
+## 2026-06-02 (记忆系统博客优化)
+>>>>>>> 8c7a45c6e18c5575b2ea81327870b9bdb49a1507
+
+**问题**：data_agent 在多轮对话中出现数据幻觉——用户追问具体数据时 LLM 不调用工具，直接基于历史回复编造答案。
+
+**根因**：
+- `agent.py` 的 `_build_messages_with_history` 把 SQLite `messages` 表中**全部历史消息**一次性注入 LLM 上下文
+- 历史 AI 回复中的数值和结论（如"全月无异常记录"）被 LLM 当作**已验证事实**，跳过工具调用直接推理
+- `create_react_agent` 的 `tool_choice: "auto"` 在上下文被污染后失效，`should_continue` 节点因无 `tool_calls` 直接结束
+- 形成了**幻觉传播链**：Turn N 的编造内容 → Turn N+1 的上下文 → Turn N+1 基于旧编造内容继续编造
+
+**方案**：
+
+1. `agent.py` — 历史 AI 回复语义降权标签：
+   - 旧：`[历史回答，仅供参考上下文，回答新问题必须重新调用工具获取数据]`（硬性命令，会让纯对话问题被迫调工具）
+   - 新：`[历史回复，其中的数据和结论为当时查询结果，不代表当前真实状态]`（事实声明，LLM 自行判断是否需要工具）
+
+2. `agents/data_agent.py` — System Prompt 约束精细化：
+   - 旧：一刀切 "任何涉及数据值的问题必须先调工具"（过于刚性）
+   - 新：分 a/b/c 三级——数据问题调工具 / 纯对话问题无需 / 不确定优先调（参考 OpenAI/Anthropic 的 Guardrails 分层思想）
+   - 新增约束 5：明确"历史数据值为**当时**查询结果，新问题必须重新获取"
+
+**设计理念**：不给 LLM 下硬性"必须调工具"的命令，而是通过**语义降权标签**和**分层约束**让 LLM 的 `tool_choice: auto` 机制正确工作——旧回复中的结论被标记为"非事实"，涉及数据时自然倾向调工具，纯对话问题自然跳过。
+
+**修改文件**：`agent.py`（`_build_messages_with_history` 历史标记语义）、`agents/data_agent.py`（硬性约束细化为分层判断标准）
+
+**时间**：2026-06-03
+
+---
+
+<<<<<<< HEAD
 
 ## 2026-05-29 (经验记忆缓存：相似问题向量匹配)
 
@@ -21,61 +172,6 @@
 **修改文件**：core/database.py、agents/rag_agent.py、pages/chat_page.py；新建data/cache_service.py
 
 **时间**：2026-05-29 16:30
-=======
-## 2026-06-02 (接口配置页面)
-
-**新增**：`more-features-page.html` 增加第 5 张功能卡"接口配置"（青绿色图标），点击"立即使用"跳转 `interface_config.html`。
-
-**新增** `html_files/interface_config.html`：类 Apifox 的接口管理与调试页面，功能包括：
-- 左栏接口列表：分组折叠/展开/删除，接口启用开关，悬停删除
-- 右栏编辑器：接口名称、所属分组、HTTP 方法（颜色跟随方法变化）、URL
-- 配置 Tabs：Params（Query 参数）/ Headers / Body（JSON·Form·Text·无）/ Auth（Bearer·API Key·Basic）
-- Tab 计数徽章：有效键值对数量实时显示
-- 在线调试：浏览器 `fetch` 发送请求，响应体 JSON 语法高亮，响应头独立 Tab，状态码颜色区分（2xx/4xx/5xx）
-- 导入/导出：一键导出全部配置为 JSON 文件，支持拖拽或点击导入并合并
-- 持久化：全部存 `localStorage`（key: `hngd_iface_configs`），无后端依赖
-
-**新增** `alarm_api.py`：示例 FastAPI 后端（端口 8002），提供 `GET /api/alarms/count` 接口，传入 `start_date`/`end_date`（必填）和 `level`（选填 0/1/2），返回模拟报警数量，用于接口配置页面的功能验证。
-
-**修改文件**：`html_files/more-features-page.html`（新增第 5 张功能卡 + CSS `feat-icon-wrap.api`）、`html_files/interface_config.html`（新增）、`alarm_api.py`（新增）
-
-**时间**：2026-06-02
-
----
-
-## 2026-06-02 (管理员界面新增本地数据文件块)
-
-**新增**：`admin-page.html` 的"知识库管理"大块内部，Dify 知识库列表下方新增"本地数据文件"子块，展示 `DATA_DIR` 环境变量目录下的文件列表，支持分页浏览。
-
-**实现要点**：
-- 后端 `api.py` 新增 `GET /api/admin/data-files`（需管理员权限），读取 `DATA_DIR` 环境变量，列举目录下一级文件，返回文件名、扩展名、大小（KB）；目录未配置或不存在返回 503，与 KB 接口错误处理方式保持一致。
-- 前端分页采用**纯前端分页**：数据一次性请求后存入 `lfState.files`，翻页和切换每页数量（5/10 条）均在本地完成，不重复请求接口。
-- 文件类型徽章：xlsx/xls → 绿色，csv → 蓝色，其他 → 灰色，复用已有 `.action-badge` 色系。
-- 分页控件样式复用已有 `.doc-pagination` + `.btn-page`，布局与知识库文档列表保持一致。
-
-**修改文件**：`api.py`（新增 `admin_list_data_files` 端点）、`html_files/admin-page.html`（CSS 新增文件类型徽章、HTML 新增子块和分页控件、JS 新增 `loadLocalFiles` / `renderLocalFiles` / `lfGoPage` / `lfChangePageSize`）
-
-**时间**：2026-06-02
-
----
-
-## 2026-06-01 (home-page 使用指南悬浮弹窗)
-
-**新增**：点击 topbar 右侧"使用指南"按钮，在其正下方弹出包含 5 条核心使用说明的悬浮卡片，点击页面任意处关闭。
-
-**实现要点**：
-- 弹窗采用 `position: fixed` + JS `getBoundingClientRect()` 动态定位，规避 `body` / `.main-content` 的 `overflow: hidden` 裁切问题。
-- 定位策略：`left = max(8, rect.right - 300)`，即弹窗右边缘与按钮右边缘对齐，向左展开，保证不超出右侧视口。
-- 开合动画：`opacity` + `translateY(-10px)` + `scale(0.98)` 三属性联动，过渡曲线 `cubic-bezier(0.34, 1.18, 0.64, 1)` 带轻微弹性，时长 0.22–0.28s。
-- 关闭逻辑：`document` 全局 click 关闭，弹窗内部 `stopPropagation()` 防误触。
-
-**修改文件**：`html_files/home-page.html`（CSS 新增弹窗样式、HTML 增加弹窗结构、JS 新增 `toggleGuide` 与全局关闭监听）。
-
-**时间**：2026-06-01
-
----
-
->>>>>>> 5a3215f4d5106b08473a6401e8f819cbfbac4dbd
 ## 2026-06-01 (Streamlit → HTML 前端迁移)
 
 将原 Streamlit 多页面应用迁移为独立 HTML + REST API 架构，涵盖四个模块：
@@ -833,3 +929,37 @@
 - 修改 `.env.example` 补充可选的 `DIFY_API_BASE` 配置说明（默认 `https://api.dify.ai/v1`）
 
 **时间**：2026-05-17 12:40 - 13:00
+
+---
+
+## 2026-06-11 (知识库后端从 Dify 迁移至 RAGFlow)
+
+**功能**：将 rag_agent、doc_agent 及管理员知识库页面的检索后端从 Dify 切换为自建 RAGFlow 实例（192.168.1.155）。
+
+**方案**：
+- **检索接口**：`POST /datasets/{id}/retrieve`（Dify）→ `POST /retrieval`（RAGFlow）；请求体 `query` → `question`，`top_k` 嵌套对象 → 平铺 `page_size`，`dataset_ids` 数组传参；响应 `records[]` → `data.chunks[]` + `data.doc_aggs[]` 合并重组为内部统一格式，业务层无感知。
+- **文档列表接口**：路径不变，响应从 `data[]` 改为 `data.docs[]`，翻页终止条件改为与 `total` 对比；状态字段 `indexing_status=="completed"` → `run=="DONE"`。
+- **知识库列表接口**：路径不变，分页参数 `limit` → `page_size`。
+- **新增** `data/ragflow_service.py`，替代 `data/dify_service.py`；函数签名保持不变，调用方 `api.py`、`admin_page.py` 仅改 import。
+- **环境变量**：`DIFY_DATASET_KEY`/`DIFY_KB_ID`/`DIFY_API_BASE` → `RAGFLOW_API_KEY`/`RAGFLOW_DATASET_ID`/`RAGFLOW_API_BASE`；`.env.example` 注释旧 Dify 变量，补充 RAGFlow 变量。
+
+**修改文件**：`agents/rag_agent.py`、`agents/doc_agent.py`、`data/kb_search.py`、`data/ragflow_service.py`（新建）、`api.py`、`pages/admin_page.py`、`.env.example`
+
+**时间**：2026-06-11
+
+---
+
+## 2026-06-11 (对接真实数据接口)
+
+**功能**：实现从 Swagger 服务导入真实 API 规范、在线测试、接口查询与必填校验。
+
+**方案**：
+- **导入引擎**：支持 Swagger URL 自动探测（`/v3/api-docs`、`/v2/api-docs`、`/swagger.json`、`/api-docs`），也支持直接粘贴 JSON 规范；解析后按服务名归类保存到 `data_interface/`。
+- **混合存储**：`data_interface/` JSON 文件为 Source of Truth，启动时自动扫描并同步到 SQLite `data_interfaces` 索引表，支持按用户权限过滤可见接口。
+- **在线测试**：前端"接口查询"页面选择接口 → 填参 → 发送请求，后端通过 `requests` 真实调用目标服务并展示响应（状态码、耗时、响应体）。
+- **必填校验**：前后端双重校验 `parameters[].required`，不填则拦截提示，不再静默发送缺失参数的请求。
+- **安全隔离**：`data_interface/` 纳入 `.gitignore`，不随代码推送；他人部署后通过"从 Swagger URL 导入"即可重建。
+
+**修改/新增文件**：`data/interface_service.py`、`html_files/interface_config.html`、`scripts/import_swagger_specs.py`、`.gitignore`
+
+**时间**：2026-06-11
