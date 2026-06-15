@@ -306,7 +306,7 @@ async def chat_stream(req: ChatRequest, request: Request, user: dict = Depends(v
     """
     async def event_gen():
         # 延迟导入避免模块加载时阻塞（agent.py 会初始化 LLM）
-        from agent import chat, chat_direct
+        from agent import chat_direct
 
         # 1. 处理 conversation_id
         conv_id = req.conversation_id
@@ -338,7 +338,7 @@ async def chat_stream(req: ChatRequest, request: Request, user: dict = Depends(v
         cancel_event = chat_registry.register(user["user_id"])
 
         mode_calls = {
-            "rag":   lambda: chat(req.message, thread_id, user_context=user_context, cancel_event=cancel_event),
+            "rag":   lambda: chat_direct("rag_agent",  req.message, thread_id, user_context=user_context, cancel_event=cancel_event),
             "data":  lambda: chat_direct("data_agent", req.message, thread_id, user_context=user_context, cancel_event=cancel_event),
             "write": lambda: chat_direct("rag_agent",  req.message, thread_id, user_context=user_context, cancel_event=cancel_event),
             "api":   lambda: chat_direct("api_agent",  req.message, thread_id, user_context=user_context, cancel_event=cancel_event),

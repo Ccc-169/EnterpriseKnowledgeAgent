@@ -1,6 +1,50 @@
 ﻿# 开发日志列表
 :
 
+## 2026-06-14 (修复 rag_search 重复调用 28 次)
+
+**背景**：上一轮 Router 循环修复后，trace 显示同一问题 rag_search 仍被调用 28 次（同一查询词、同一 tool_call id `call_ohykswt4` 出现 15 次），耗时 66 秒、消耗 246k token。
+
+**根因**：双层叠加导致 ReAct 反复重放历史工具调用。
+1. `chat_direct` 的 `config["configurable"]["thread_id"]` 用的是业务 `thread_id`（如 `conversation-13`），SqliteSaver 每次调用都会加载该 thread 上一轮留下的 checkpoint（含带 `tool_calls` 的 AIMessage + ToolMessage），然后与 `_build_messages_with_history` 手动注入的历史**叠加合并**。
+2. LangGraph ReAct 循环看到 checkpoint 里"未处理完"的 tool_call → 重新执行 rag_search → 得到相同结果 → 再次认为未完成 → 循环 28 次。
+3. `parallel_tool_calls=False` 和 `recursion_limit=18` 均无法拦截（前者只管单轮并发，后者每次重放也算正常步骤）。
+
+**方案**（`agent.py` 两处修改，合计 ~10 行）：
+- `_build_messages_with_history`：历史 AIMessage 注入时显式加 `tool_calls=[]`，防止被 ReAct 识别为未完成调用（防御层）。
+- `chat_direct` 的 checkpoint thread_id 改为每次请求唯一（`thread_id:uuid8`），SqliteSaver 无旧状态可加载，彻底切断重放来源（隔离层）。多轮记忆职责完全归 `_build_messages_with_history` + 业务 DB，两者职责清晰分离，不再双轨叠加。
+
+**预期效果**：同一问题 rag_search 从 28 次降至 1 次，耗时从 66 秒降至约 10 秒，token 消耗大幅下降。
+
+**修改文件**：`agent.py`
+
+**时间**：2026-06-14
+
+---
+
+## 2026-06-14 (修复 Router 路由失控死循环)
+
+**背景**：生产 trace（问题"HN-CSMP 智能体需求一期内容分类总结"）显示一次提问触发 98 次 LLM 调用、28 次重复检索、supervisor↔rag_agent 互相交接 106/86 次、耗时 114 秒、消耗 70 万 token，最终用户只收到报错 `执行失败：'NoneType' object has no attribute 'get'`。第一次 rag_search 其实已返回完整正确答案，但系统未收口。
+
+**根因**：
+1. 主因——rag 模式走 `create_supervisor` 的循环编排：每次子智能体交回控制权后都重新唤起 supervisor 的 LLM 决策，是否终止完全托付给模型自觉。qwen3.6:35b（本地中等模型）无视 prompt 的"最多两次转发"约束，无限横跳，且单轮一次吐出多个 transfer（`Send` 并行派发）放大失控。
+2. `node_data` 可能为 None（纯路由帧无 state 更新），消费代码 `node_data.get("messages")` 崩溃 → 即前端那句报错。
+3. `recursion_limit=50` 唯一硬兜底，过高，单卡下放任跑近 2 分钟。
+
+**方案**（前端模式直派 + 多层熔断/防御，仅改 `api.py`、`agent.py`）：
+- 前端"知识库检索"(rag) 模式从 `chat()`（走 supervisor）改为 `chat_direct("rag_agent")`。改后前端四模式（rag/data/write/api）全部直派 `chat_direct`，"前端选哪个、后端调哪个"，前端路径不再调用 supervisor，横跳从根上消除。
+- `recursion_limit` 50 → 18（`agent.py` 两处），子 agent 内部 ReAct 失控时 18 步内熔断。
+- llm 构造加 `model_kwargs={"parallel_tool_calls": False}`（已实测 Ollama 返回 200 兼容），禁止单轮并行工具调用，堵住"重复检索/多重交接"放大器。
+- 两处 stream 消费循环 `node_data.get(...)` → `(node_data or {}).get(...)`，防御 None chunk。
+
+**取舍**：CLI(`main.py`)、Streamlit(`pages/chat_page.py`) 仍走 `chat()`/supervisor（选项 A，本次不改其调用方式），但 recursion_limit=18、parallel_tool_calls=False、None 防御对其同样生效，失控时 18 步内熔断、不会再拖 2 分钟。supervisor `router` 对象保留不删，仅前端不再调用，改动面最小、可回退。
+
+**修改文件**：`api.py`、`agent.py`
+
+**时间**：2026-06-14
+
+---
+
 ## 2026-06-14 (对话任务可取消 + 并发闸门 + 等待计时)
 
 **背景**：本地 Ollama 以 `-np 1` 启动，全系统任意时刻只能生成 1 条回复。原实现下用户切页/删对话/反复新建后，后台 agent 任务仍在跑且无并发控制，一个"幽灵任务"即独占唯一生成槽，拖垮所有真实用户（详见 `problem_document/problem_record_5.md`、`plan.md`）。
