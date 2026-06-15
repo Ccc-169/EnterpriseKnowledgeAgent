@@ -1036,3 +1036,21 @@
 **修改/新增文件**：`data/interface_service.py`、`html_files/interface_config.html`、`scripts/import_swagger_specs.py`、`.gitignore`
 
 **时间**：2026-06-11
+
+---
+
+## 2026-06-15 (更多功能页前端动效升级)
+
+**功能**：依据 `html_files/style.md` 动效规范，对"更多功能"页 (`more-features-page.html`) 进行动画升级，仅改前端、不动后端及业务逻辑。
+
+**方案**：
+- **关键帧库**：注入 `fadeInUp / fadeInX / cardPop / iconBounce / rippleAnim` 及 `.ripple` 基础样式，全部动画仅用 `transform`/`opacity`，零布局位移。
+- **入场错峰 (stagger)**：侧边栏 6 个导航项 `fadeInX`（延迟 50→350ms）；页面标题 `fadeInUp`；6 张功能卡片 `cardPop` 回弹（延迟 100→450ms）；coming-soon 横幅与底注 `fadeInUp` 收尾（500/580ms）。
+- **卡片 hover 增强**：图标 `iconBounce` 弹跳 + `::after` 斜向高光扫过 (`left: -75% → 135%`)。
+- **点击反馈**：`.use-btn`、`.embed-footer-btn` 加 `:active` 缩放；JS 事件委托在点击坐标注入 ripple 水波纹，0.6s 后移除（不触碰现有 onclick）。
+- **模态框入场**：`embedIn` 改用回弹曲线 `cubic-bezier(0.34,1.15,0.64,1)`。
+- **无障碍降级**：`@media (prefers-reduced-motion: reduce)` 关闭全部动画并强制 `opacity:1` 防止入场元素卡在隐藏态；ripple JS 同步检测该偏好后跳过。
+
+**修改文件**：`html_files/more-features-page.html`
+
+**时间**：2026-06-15

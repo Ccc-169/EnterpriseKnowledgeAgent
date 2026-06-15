@@ -5,9 +5,9 @@ from datetime import datetime  # 必须添加这行导入
 load_dotenv()
 
 
-client = Client(api_key=os.environ["LANGSMITH_API_KEY"])
+client = Client(api_key=os.environ["LANGCHAIN_API_KEY"])
 # 填入你截图中的 Run ID (通常在 URL 中可以看到)
-run_id = "019e8256-e161-7f93-8571-7a9d310abc5a" 
+run_id = "019ec633-8b45-73d1-9d96-65fa675c07de" 
 
 def get_full_trace(run_id):
     # 获取当前节点
