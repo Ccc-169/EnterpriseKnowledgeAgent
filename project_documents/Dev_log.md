@@ -1,5 +1,32 @@
 ﻿# 开发日志列表
 :
+---
+
+## 2026-06-15 (接口导入支持自定义 openapi-ui 智能探测 + 按标签选择导入)
+
+**背景**：此前"从 Swagger URL 导入"仅支持标准 Swagger 端点（`/v3/api-docs`、`/v2/api-docs`、`/swagger.json`、`/api-docs`），无法适配公司内部基于自定义 openapi-ui（`/api/document`）的服务。这类系统以"服务→标签→接口"三层结构组织，一个地址下可能有数十个标签，此前用户无法导入。
+
+**功能**：
+1. 智能端点探测：自动识别标准 Swagger 和自定义 openapi-ui 两种模式。
+2. 服务-标签选择弹窗：自定义模式下弹窗展示所有服务及其标签，支持全选/取消全选/按需勾选。
+3. 按标签精确导入：用户选中标签后，逐标签下载 OpenAPI 规范并索引入库。
+
+**方案**（`data/interface_service.py` 新增 2 个函数、改造 1 个函数；`api.py` 新增 2 个端点；`html_files/interface_config.html` 新增弹窗 UI）：
+- **`discover_swagger_services()`**：两阶段探测——先依次拼标准路径（`/v3/api-docs` 等）；全部失败则 `GET /api/document`，若返回 `{"data": [{"title": ..., "tags": [...]}]}` 则为自定义模式，直接拿到全量服务-标签元数据的目录。
+- **`import_from_swagger_url()` 改造**：三路分支——标准命中→全量导入（行为不变）；自定义命中→返回 `type="custom_select"` + `services` 列表，由前端接管；都失败→报错。
+- **`import_selected_tags()`**：接收用户勾选的 `[{query, tag_name, tag_desc}]`，对每个标签请求 `GET /api/document/content/{query}` 下载完整 OpenAPI JSON，验证后保存到 `data_interface/{service_name}/{tag_name}.json`，解析 endpoints 写入 SQLite 索引。
+- **前端弹窗**：`modal-service-select` 按服务分组渲染标签行、自定义 checkbox 交互；`tagLookupMap` 查找表避免 onclick 传参被特殊字符破坏；`selectAllTags`/`deselectAllTags` 一键全选/取消；`submitSelectedTags` 调用新端点 `/api/admin/interfaces/import-selected-tags`。
+- **API 端点**：新增 `POST /api/admin/interfaces/discover-services`（公开探测）、`POST /api/admin/interfaces/import-selected-tags`（按标签导入）。
+
+**关键取舍**：
+- 自定义模式不自动全量导入——一个服务可能有几十个标签、数百个接口，用户按需选择避免信息过载。
+- 标签导入时分文件独立保存，而非合并为一个文件——每个标签对应一个 `.json`，便于后续按标签管理/删除。
+- `tagLookupMap` 用 `data-tag-key` 属性传 key 而非直接写在 onclick 参数中，防御标签名含引号/尖括号导致的 HTML 注入风险。
+
+**修改文件**：`data/interface_service.py`、`api.py`、`html_files/interface_config.html`
+
+**时间**：2026-06-15
+
 
 ## 2026-06-10 (接口配置页参数类型列)
 
@@ -928,3 +955,4 @@
 **修改/新增文件**：`data/interface_service.py`、`html_files/interface_config.html`、`scripts/import_swagger_specs.py`、`.gitignore`
 
 **时间**：2026-06-11
+

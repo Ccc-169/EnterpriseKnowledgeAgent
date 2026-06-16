@@ -42,8 +42,10 @@ from data.interface_service import (
     sync_data_interfaces_index,
     get_interface_tree,
     get_interface_detail,
+    discover_swagger_services,
     import_from_swagger_url,
     import_from_json_content,
+    import_selected_tags,
     delete_single_interface,
     delete_interface_file,
     delete_service_directory,
@@ -184,6 +186,16 @@ class InterfaceTestRequest(BaseModel):
     params:   dict = {}
     body:     dict | None = None
     base_url: str = ""
+
+
+class DiscoverServicesRequest(BaseModel):
+    url: str
+
+
+class ImportSelectedTagsRequest(BaseModel):
+    url:          str
+    service_name: str
+    selected_queries: list[dict]  # [{"query": "...", "tag_name": "...", "tag_desc": "..."}]
 
 
 # ── 文档编写辅助 ───────────────────────────────────────
@@ -706,6 +718,31 @@ def api_interface_test(interface_id: int, req: InterfaceTestRequest, user: dict 
 
 
 # ── 管理员 — 接口导入 ──────────────────────────────────────
+@app.post("/api/admin/interfaces/discover-services")
+def admin_discover_services(req: DiscoverServicesRequest, user: dict = Depends(require_admin)):
+    """探测 Swagger 端点类型并返回可用服务列表（用于自定义 openapi-ui）。"""
+    if not req.url:
+        raise HTTPException(status_code=400, detail="URL 不能为空")
+    result = discover_swagger_services(req.url)
+    return result
+
+
+@app.post("/api/admin/interfaces/import-selected-tags")
+def admin_import_selected_tags(req: ImportSelectedTagsRequest, user: dict = Depends(require_admin)):
+    """管理员从自定义 openapi-ui 中选择标签导入接口。"""
+    if not req.url:
+        raise HTTPException(status_code=400, detail="URL 不能为空")
+    if not req.service_name:
+        raise HTTPException(status_code=400, detail="必须指定服务名称")
+    if not req.selected_queries:
+        raise HTTPException(status_code=400, detail="必须选择至少一个标签")
+    result = import_selected_tags(req.url, req.service_name, req.selected_queries)
+    if not result["ok"]:
+        raise HTTPException(status_code=400, detail=result.get("message", "导入失败"))
+    log_event(user["user_id"], user["username"], "import_interfaces_selected_tags", status="success")
+    return result
+
+
 @app.post("/api/admin/interfaces/import-from-url")
 def admin_import_from_url(req: SwaggerImportRequest, user: dict = Depends(require_admin)):
     """管理员通过 Swagger URL 导入接口。"""
@@ -713,7 +750,9 @@ def admin_import_from_url(req: SwaggerImportRequest, user: dict = Depends(requir
         raise HTTPException(status_code=400, detail="URL 不能为空")
     result = import_from_swagger_url(req.url, req.service_name)
     if not result["ok"]:
-        raise HTTPException(status_code=400, detail=result["message"])
+        # 如果不是 custom_select 类型，才报 400；custom_select 需要返回给前端处理
+        if result.get("type") != "custom_select":
+            raise HTTPException(status_code=400, detail=result["message"])
     log_event(user["user_id"], user["username"], "import_interfaces_url", status="success")
     return result
 
