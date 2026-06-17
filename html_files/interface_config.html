@@ -280,6 +280,7 @@
   .select-summary { padding: 8px 20px; font-size: 12px; color: #5a6a8a; border-top: 1px solid #f0f4f8; text-align: center; }
   .loading-center { text-align: center; padding: 40px; color: #9aaac0; }
 </style>
+<script src="config.js"></script>
 </head>
 <body>
 <div id="iface-page">
@@ -451,7 +452,7 @@
 </div>
 
 <script>
-  const API_BASE = 'http://localhost:8000';
+  const API_BASE = window.APP_CONFIG.api_base;
   let currentUser = null;
   let isAdmin = false;
   let interfaceTree = null;

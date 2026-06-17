@@ -1,5 +1,96 @@
 ﻿# 开发日志列表
 :
+
+## 2026-06-14 (修复 rag_search 重复调用 28 次)
+
+**背景**：上一轮 Router 循环修复后，trace 显示同一问题 rag_search 仍被调用 28 次（同一查询词、同一 tool_call id `call_ohykswt4` 出现 15 次），耗时 66 秒、消耗 246k token。
+
+**根因**：双层叠加导致 ReAct 反复重放历史工具调用。
+1. `chat_direct` 的 `config["configurable"]["thread_id"]` 用的是业务 `thread_id`（如 `conversation-13`），SqliteSaver 每次调用都会加载该 thread 上一轮留下的 checkpoint（含带 `tool_calls` 的 AIMessage + ToolMessage），然后与 `_build_messages_with_history` 手动注入的历史**叠加合并**。
+2. LangGraph ReAct 循环看到 checkpoint 里"未处理完"的 tool_call → 重新执行 rag_search → 得到相同结果 → 再次认为未完成 → 循环 28 次。
+3. `parallel_tool_calls=False` 和 `recursion_limit=18` 均无法拦截（前者只管单轮并发，后者每次重放也算正常步骤）。
+
+**方案**（`agent.py` 两处修改，合计 ~10 行）：
+- `_build_messages_with_history`：历史 AIMessage 注入时显式加 `tool_calls=[]`，防止被 ReAct 识别为未完成调用（防御层）。
+- `chat_direct` 的 checkpoint thread_id 改为每次请求唯一（`thread_id:uuid8`），SqliteSaver 无旧状态可加载，彻底切断重放来源（隔离层）。多轮记忆职责完全归 `_build_messages_with_history` + 业务 DB，两者职责清晰分离，不再双轨叠加。
+
+**预期效果**：同一问题 rag_search 从 28 次降至 1 次，耗时从 66 秒降至约 10 秒，token 消耗大幅下降。
+
+**修改文件**：`agent.py`
+
+**时间**：2026-06-14
+
+---
+
+## 2026-06-14 (修复 Router 路由失控死循环)
+
+**背景**：生产 trace（问题"HN-CSMP 智能体需求一期内容分类总结"）显示一次提问触发 98 次 LLM 调用、28 次重复检索、supervisor↔rag_agent 互相交接 106/86 次、耗时 114 秒、消耗 70 万 token，最终用户只收到报错 `执行失败：'NoneType' object has no attribute 'get'`。第一次 rag_search 其实已返回完整正确答案，但系统未收口。
+
+**根因**：
+1. 主因——rag 模式走 `create_supervisor` 的循环编排：每次子智能体交回控制权后都重新唤起 supervisor 的 LLM 决策，是否终止完全托付给模型自觉。qwen3.6:35b（本地中等模型）无视 prompt 的"最多两次转发"约束，无限横跳，且单轮一次吐出多个 transfer（`Send` 并行派发）放大失控。
+2. `node_data` 可能为 None（纯路由帧无 state 更新），消费代码 `node_data.get("messages")` 崩溃 → 即前端那句报错。
+3. `recursion_limit=50` 唯一硬兜底，过高，单卡下放任跑近 2 分钟。
+
+**方案**（前端模式直派 + 多层熔断/防御，仅改 `api.py`、`agent.py`）：
+- 前端"知识库检索"(rag) 模式从 `chat()`（走 supervisor）改为 `chat_direct("rag_agent")`。改后前端四模式（rag/data/write/api）全部直派 `chat_direct`，"前端选哪个、后端调哪个"，前端路径不再调用 supervisor，横跳从根上消除。
+- `recursion_limit` 50 → 18（`agent.py` 两处），子 agent 内部 ReAct 失控时 18 步内熔断。
+- llm 构造加 `model_kwargs={"parallel_tool_calls": False}`（已实测 Ollama 返回 200 兼容），禁止单轮并行工具调用，堵住"重复检索/多重交接"放大器。
+- 两处 stream 消费循环 `node_data.get(...)` → `(node_data or {}).get(...)`，防御 None chunk。
+
+**取舍**：CLI(`main.py`)、Streamlit(`pages/chat_page.py`) 仍走 `chat()`/supervisor（选项 A，本次不改其调用方式），但 recursion_limit=18、parallel_tool_calls=False、None 防御对其同样生效，失控时 18 步内熔断、不会再拖 2 分钟。supervisor `router` 对象保留不删，仅前端不再调用，改动面最小、可回退。
+
+**修改文件**：`api.py`、`agent.py`
+
+**时间**：2026-06-14
+
+---
+
+## 2026-06-14 (对话任务可取消 + 并发闸门 + 等待计时)
+
+**背景**：本地 Ollama 以 `-np 1` 启动，全系统任意时刻只能生成 1 条回复。原实现下用户切页/删对话/反复新建后，后台 agent 任务仍在跑且无并发控制，一个"幽灵任务"即独占唯一生成槽，拖垮所有真实用户（详见 `problem_document/problem_record_5.md`、`plan.md`）。
+
+**功能**：
+1. 对话生成可协作式取消（切页、点停止、删除正在生成的对话均真正中断后台任务）。
+2. 应用层唯一生成槽信号量闸门，对齐 `-np 1`，排队有序并显示"前方 N 人"。
+3. 客户端断开自动取消，资源（信号量/注册项/线程/定时器）全路径回收，无泄漏。
+4. 等待计时：思考中实时显示"已等待 X.X 秒"，回复结束在该条消息底部定格"用时 X.X 秒"徽章，减少干等待体感。
+
+**方案**：
+- 配置：`core/config.py` 新增 `CHAT_MAX_CONCURRENCY`（默认 1）、`CHAT_CANCEL_ON_DISCONNECT`、`CHAT_THREAD_POOL_SIZE`、`CHAT_DISCONNECT_POLL_SEC`，全部 env 可调，便于回滚。
+- 取消注册中心：新建 `core/chat_registry.py`，维护 `dict[user_id -> threading.Event]`，`register` 自动 set 旧事件实现单飞，`unregister` 仅删本事件避免误删新任务，提供 `cancel`/`waiting_count`。
+- 协作式取消：`agent.py` 的 `chat` / `chat_direct` 新增 `cancel_event=None` 参数（默认值保证文档/CLI/Streamlit 等现有调用零影响），两处 `stream` 循环顶部插 `if cancel_event and cancel_event.is_set(): break`，复用已有"提取已收集答案"逻辑。
+- 闸门与断开检测：`api.py` `/api/chat/stream` 注入 `Request`，模块级 `asyncio.Semaphore(CHAT_MAX_CONCURRENCY)`；进槽前推送 `queued` 位次；进槽后 `create_task` 跑线程并按 `CHAT_DISCONNECT_POLL_SEC` 轮询 `request.is_disconnected()`，断开则 set 事件、`await task` 等线程在 chunk 边界收尾再释放槽；`try/finally` 中 `unregister`。新增 `POST /api/chat/stop`。落库前 `get_conversation` 校验，孤儿对话不写库，取消任务不写库。启动时设置线程池上限。
+- 前端：`home-page.html` 发送按钮加 `id` + 停止态 `.is-stopping`（红灰渐变，布局零位移），`sendChat` 加 `AbortController`，新增 `stopChat()`；处理 `queued` 事件显示排队提示；`beforeunload`(keepalive) + 切对话/新建/删对话钩子触发 `stopChat`，落实"切页即取消"。等待计时：`startWaitTimer`/`stopWaitTimer`/`renderWaiting`/`elapsedStr` 每 200ms 刷新，`appendAiShell` 新增 `usedSec` 参数渲染"用时"徽章，`finally` 无条件停表防泄漏。
+
+**关键取舍**：
+- 切页即取消是有意取舍——回到对话页只能看到部分内容或无回复，换取不被幽灵任务拖垮。
+- 取消只在 chunk 边界生效，单个 LLM 长请求内部仍不可中断（架构固有限制）。
+- 等待计时为前端端到端耗时，仅实时会话显示，历史重载不显示（DB 未存耗时字段）。
+- 本改动解决"队列有序、不被拖垮"，解决不了"单卡一次只能生成一条"的物理瓶颈，50 人流畅需运维降上下文换槽或上 vLLM。
+
+**修改文件**：`core/config.py`、`core/chat_registry.py`（新建）、`agent.py`、`api.py`、`html_files/home-page.html`、`problem_document/plan.md`（新建）
+
+**时间**：2026-06-14
+
+---
+
+## 2026-06-12 (服务地址统一配置)
+
+**功能**：消除项目中所有硬编码服务地址，实现换部署环境只需修改两个文件。
+
+**方案**：
+- 后端：`core/config.py` 新增 `RAGFLOW_API_BASE`、`RAGFLOW_API_KEY`、`RAGFLOW_DATASET_ID`、`DIFY_API_BASE` 统一导出，消除 `rag_agent.py`、`doc_agent.py`、`kb_search.py`、`ragflow_service.py`、`dify_service.py` 中各自散落的 `os.environ.get()` 调用。
+- 前端：新建 `html_files/config.js`，声明 `window.APP_CONFIG = { api_base, alarm_base }`，作为前端唯一配置文件。9 个 HTML/JS 文件引入该文件并替换硬编码常量。
+- `more-features-page.html` 的嵌入代码示例改为函数 `_eCodes()` 动态拼接，展示给用户的复制代码随配置自动更新。
+- `.env` 顶部新增服务地址区块；`.env.example` 重构，将服务地址配置提到最前并注明前端配置入口。
+
+**换环境操作**：修改 `.env` 中的 `RAGFLOW_API_BASE`、`EXECUTOR_URL`，以及 `html_files/config.js` 中的 `api_base`、`alarm_base`，其余文件无需改动。
+
+**修改文件**：`core/config.py`、`agents/rag_agent.py`、`agents/doc_agent.py`、`data/kb_search.py`、`data/ragflow_service.py`、`data/dify_service.py`、`html_files/config.js`（新建）、`html_files/login-page.html`、`html_files/home-page.html`、`html_files/admin-page.html`、`html_files/setting-page.html`、`html_files/interface_config.html`、`html_files/more-features-page.html`、`html_files/chat-embed.html`、`html_files/chat-ball.js`、`html_files/implant_test.html`、`.env`、`.env.example`
+
+**时间**：2026-06-12
+
+---
 ---
 
 ## 2026-06-15 (接口导入支持自定义 openapi-ui 智能探测 + 按标签选择导入)
@@ -941,6 +1032,23 @@
 
 ---
 
+## 2026-06-11 (知识库后端从 Dify 迁移至 RAGFlow)
+
+**功能**：将 rag_agent、doc_agent 及管理员知识库页面的检索后端从 Dify 切换为自建 RAGFlow 实例（192.168.1.155）。
+
+**方案**：
+- **检索接口**：`POST /datasets/{id}/retrieve`（Dify）→ `POST /retrieval`（RAGFlow）；请求体 `query` → `question`，`top_k` 嵌套对象 → 平铺 `page_size`，`dataset_ids` 数组传参；响应 `records[]` → `data.chunks[]` + `data.doc_aggs[]` 合并重组为内部统一格式，业务层无感知。
+- **文档列表接口**：路径不变，响应从 `data[]` 改为 `data.docs[]`，翻页终止条件改为与 `total` 对比；状态字段 `indexing_status=="completed"` → `run=="DONE"`。
+- **知识库列表接口**：路径不变，分页参数 `limit` → `page_size`。
+- **新增** `data/ragflow_service.py`，替代 `data/dify_service.py`；函数签名保持不变，调用方 `api.py`、`admin_page.py` 仅改 import。
+- **环境变量**：`DIFY_DATASET_KEY`/`DIFY_KB_ID`/`DIFY_API_BASE` → `RAGFLOW_API_KEY`/`RAGFLOW_DATASET_ID`/`RAGFLOW_API_BASE`；`.env.example` 注释旧 Dify 变量，补充 RAGFlow 变量。
+
+**修改文件**：`agents/rag_agent.py`、`agents/doc_agent.py`、`data/kb_search.py`、`data/ragflow_service.py`（新建）、`api.py`、`pages/admin_page.py`、`.env.example`
+
+**时间**：2026-06-11
+
+---
+
 ## 2026-06-11 (对接真实数据接口)
 
 **功能**：实现从 Swagger 服务导入真实 API 规范、在线测试、接口查询与必填校验。
@@ -955,4 +1063,22 @@
 **修改/新增文件**：`data/interface_service.py`、`html_files/interface_config.html`、`scripts/import_swagger_specs.py`、`.gitignore`
 
 **时间**：2026-06-11
+
+---
+
+## 2026-06-15 (更多功能页前端动效升级)
+
+**功能**：依据 `html_files/style.md` 动效规范，对"更多功能"页 (`more-features-page.html`) 进行动画升级，仅改前端、不动后端及业务逻辑。
+
+**方案**：
+- **关键帧库**：注入 `fadeInUp / fadeInX / cardPop / iconBounce / rippleAnim` 及 `.ripple` 基础样式，全部动画仅用 `transform`/`opacity`，零布局位移。
+- **入场错峰 (stagger)**：侧边栏 6 个导航项 `fadeInX`（延迟 50→350ms）；页面标题 `fadeInUp`；6 张功能卡片 `cardPop` 回弹（延迟 100→450ms）；coming-soon 横幅与底注 `fadeInUp` 收尾（500/580ms）。
+- **卡片 hover 增强**：图标 `iconBounce` 弹跳 + `::after` 斜向高光扫过 (`left: -75% → 135%`)。
+- **点击反馈**：`.use-btn`、`.embed-footer-btn` 加 `:active` 缩放；JS 事件委托在点击坐标注入 ripple 水波纹，0.6s 后移除（不触碰现有 onclick）。
+- **模态框入场**：`embedIn` 改用回弹曲线 `cubic-bezier(0.34,1.15,0.64,1)`。
+- **无障碍降级**：`@media (prefers-reduced-motion: reduce)` 关闭全部动画并强制 `opacity:1` 防止入场元素卡在隐藏态；ripple JS 同步检测该偏好后跳过。
+
+**修改文件**：`html_files/more-features-page.html`
+
+**时间**：2026-06-15
 
