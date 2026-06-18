@@ -2,13 +2,15 @@
 # 启动：uvicorn api:app --port 8000
 import asyncio
 import json
+import os
+import uuid
 from datetime import datetime, timedelta
 from pathlib import Path
 
 from dotenv import load_dotenv
 from fastapi import Depends, FastAPI, File, Form, HTTPException, Request, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import StreamingResponse
+from fastapi.responses import FileResponse, StreamingResponse
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from jose import JWTError, jwt
 from pydantic import BaseModel
@@ -21,8 +23,8 @@ init_db()
 
 from audit.audit_service import log_event
 from auth.auth_service import (
-    authenticate_user, update_display_name, update_password,
-    create_user, list_users, update_user_role, toggle_user_active,
+    authenticate_user, update_display_name, update_password, update_avatar,
+    create_user, list_users, update_user_role, toggle_user_active, delete_user,
 )
 from audit.audit_service import get_logs, get_summary_stats
 from data.document_service import generate_title_from_requirements, save_document
@@ -36,11 +38,29 @@ from data.conversation_service import (
     save_message,
     update_conversation_title,
 )
+from data.interface_service import (
+    sync_data_interfaces_index,
+    get_interface_tree,
+    get_interface_detail,
+    discover_swagger_services,
+    import_from_swagger_url,
+    import_from_json_content,
+    import_selected_tags,
+    delete_single_interface,
+    delete_interface_file,
+    delete_service_directory,
+    get_user_interface_permissions,
+    set_user_interface_permissions,
+    set_user_all_interface_access,
+    list_all_services,
+    test_interface,
+)
 
 # ── JWT 配置 ──────────────────────────────────────────
 _SECRET_KEY         = "hngd-knowledge-agent-secret"   # 生产环境改为环境变量
 _ALGORITHM          = "HS256"
 _TOKEN_EXPIRE_HOURS = 8
+_EMBED_TOKEN        = os.getenv("EMBED_TOKEN", "hngd-embed-2024")
 
 
 def _create_token(user: dict) -> str:
@@ -63,6 +83,15 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+
+# ── 会话并发控制 ───────────────────────────────────────
+from core import config as _cfg
+from core import chat_registry
+
+# 应用层唯一生成槽闸门：严格对齐 Ollama -np 1。所有 /api/chat/stream 进入生成前
+# 必须 acquire；幽灵任务在 chunk 边界被取消后释放，真实用户排队拿槽。
+_chat_semaphore = asyncio.Semaphore(_cfg.CHAT_MAX_CONCURRENCY)
 
 
 # ── JWT 鉴权依赖 ───────────────────────────────────────
@@ -102,12 +131,13 @@ class LoginResponse(BaseModel):
     username:     str
     role:         str
     display_name: str
+    avatar:       str | None = None
 
 
 class ChatRequest(BaseModel):
     message:         str
     conversation_id: int | None = None
-    mode:            str = "rag"   # "rag" | "data" | "write"
+    mode:            str = "rag"   # "rag" | "data" | "write" | "api"
 
 
 class DocContentRequest(BaseModel):
@@ -118,6 +148,10 @@ class DocContentRequest(BaseModel):
 
 class UpdateDisplayNameRequest(BaseModel):
     display_name: str
+
+
+class UpdateAvatarRequest(BaseModel):
+    avatar: str
 
 
 class UpdatePasswordRequest(BaseModel):
@@ -138,6 +172,39 @@ class UpdateRoleRequest(BaseModel):
 
 class UpdateActiveRequest(BaseModel):
     is_active: bool
+
+
+class EmbedChatRequest(BaseModel):
+    message:     str
+    thread_id:   str | None = None
+    embed_token: str
+
+
+# ── 系统接口管理相关模型 ─────────────────────────────────
+class SwaggerImportRequest(BaseModel):
+    url:          str
+    service_name: str = ""
+
+
+class PermissionUpdateRequest(BaseModel):
+    granted_ids: list[int] = []
+    revoked_ids: list[int] = []
+
+
+class InterfaceTestRequest(BaseModel):
+    params:   dict = {}
+    body:     dict | None = None
+    base_url: str = ""
+
+
+class DiscoverServicesRequest(BaseModel):
+    url: str
+
+
+class ImportSelectedTagsRequest(BaseModel):
+    url:          str
+    service_name: str
+    selected_queries: list[dict]  # [{"query": "...", "tag_name": "...", "tag_desc": "..."}]
 
 
 # ── 文档编写辅助 ───────────────────────────────────────
@@ -183,6 +250,7 @@ def login(req: LoginRequest):
         username     = user["username"],
         role         = user["role"],
         display_name = user["display_name"],
+        avatar       = user.get("avatar"),
     )
 
 
@@ -229,12 +297,20 @@ def get_conv_messages(conv_id: int, user: dict = Depends(verify_token)):
 
 # ── 流式对话接口 ───────────────────────────────────────
 @app.post("/api/chat/stream")
-async def chat_stream(req: ChatRequest, user: dict = Depends(verify_token)):
+async def chat_stream(req: ChatRequest, request: Request, user: dict = Depends(verify_token)):
     """
     发送消息，以 SSE 流式返回思考步骤和最终回答。
 
+    并发模型（对齐 Ollama -np 1）：
+      - 注册取消事件（单飞：挤掉同一用户的旧任务）
+      - 进入唯一生成槽信号量前，若被占用则推送 queued 排队位次
+      - 拿到槽后在线程池跑 LangGraph，并发轮询客户端是否断开（切页/关页）
+      - 断开或主动停止 → 设置 cancel_event → agent.stream 在 chunk 边界退出
+      - 任何退出路径都在 finally 释放信号量与注册项（资源回收硬保证）
+
     SSE 事件类型：
       init   — 含 conversation_id 和 title（首条消息时对话自动命名）
+      queued — 排队中，position 为前方人数
       step   — LangGraph 工具调用/返回步骤（对应 steps_log）
       answer — 最终回答，含 warning 和 agent 字段
       done   — 流结束信号
@@ -242,7 +318,7 @@ async def chat_stream(req: ChatRequest, user: dict = Depends(verify_token)):
     """
     async def event_gen():
         # 延迟导入避免模块加载时阻塞（agent.py 会初始化 LLM）
-        from agent import chat, chat_direct
+        from agent import chat_direct
 
         # 1. 处理 conversation_id
         conv_id = req.conversation_id
@@ -262,7 +338,7 @@ async def chat_stream(req: ChatRequest, user: dict = Depends(verify_token)):
         # 4. 推送 init 事件（前端更新 conversation_id 和标题）
         yield _sse({"type": "init", "conversation_id": conv_id, "title": title})
 
-        # 5. 根据 mode 选择调用方式（与 chat_page.py 逻辑一致）
+        # 5. 根据 mode 选择调用方式（cancel_event 注入实现协作式取消）
         thread_id    = f"conversation-{conv_id}"
         user_context = {
             "user_id":  user["user_id"],
@@ -270,45 +346,86 @@ async def chat_stream(req: ChatRequest, user: dict = Depends(verify_token)):
             "role":     user["role"],
         }
 
+        # 注册取消事件（单飞：自动取消该用户旧任务）
+        cancel_event = chat_registry.register(user["user_id"])
+
         mode_calls = {
-            "rag":   lambda: chat(req.message, thread_id, user_context=user_context),
-            "data":  lambda: chat_direct("data_agent", req.message, thread_id, user_context=user_context),
-            "write": lambda: chat_direct("rag_agent",  req.message, thread_id, user_context=user_context),
+            "rag":   lambda: chat_direct("rag_agent",  req.message, thread_id, user_context=user_context, cancel_event=cancel_event),
+            "data":  lambda: chat_direct("data_agent", req.message, thread_id, user_context=user_context, cancel_event=cancel_event),
+            "write": lambda: chat_direct("rag_agent",  req.message, thread_id, user_context=user_context, cancel_event=cancel_event),
+            "api":   lambda: chat_direct("api_agent",  req.message, thread_id, user_context=user_context, cancel_event=cancel_event),
         }
         call_fn = mode_calls.get(req.mode, mode_calls["rag"])
 
-        # 6. 在线程池中运行同步 LangGraph（避免阻塞事件循环）
         try:
-            response, steps, agent_used = await asyncio.to_thread(call_fn)
-        except Exception as e:
-            yield _sse({"type": "error", "text": f"执行失败：{e}"})
+            # 6. 进入唯一生成槽前，若被占用则推送排队位次（前方人数）
+            if _chat_semaphore.locked():
+                position = max(0, chat_registry.waiting_count() - _cfg.CHAT_MAX_CONCURRENCY)
+                yield _sse({"type": "queued", "position": position})
+
+            async with _chat_semaphore:
+                # 排队期间可能已被单飞挤掉或用户已停止：直接退出，不占用生成
+                if cancel_event.is_set():
+                    yield _sse({"type": "done"})
+                    return
+
+                # 7. 线程池中运行同步 LangGraph，并发监控客户端断开
+                task = asyncio.create_task(asyncio.to_thread(call_fn))
+                aborted = False
+                while True:
+                    done, _ = await asyncio.wait({task}, timeout=_cfg.CHAT_DISCONNECT_POLL_SEC)
+                    if task in done:
+                        break
+                    # 主动停止（/stop 已 set）或客户端断开 → 取消
+                    if cancel_event.is_set():
+                        aborted = True
+                    elif _cfg.CHAT_CANCEL_ON_DISCONNECT and await request.is_disconnected():
+                        cancel_event.set()
+                        aborted = True
+                    if aborted:
+                        await task   # 等待工作线程在 chunk 边界收尾后再释放槽
+                        break
+
+                # 取消的任务：不写库（避免半截回复污染历史），直接结束
+                if aborted or cancel_event.is_set():
+                    yield _sse({"type": "done"})
+                    return
+
+                try:
+                    response, steps, agent_used = task.result()
+                except Exception as e:
+                    yield _sse({"type": "error", "text": f"执行失败：{e}"})
+                    yield _sse({"type": "done"})
+                    return
+
+            # 8. 推送思考步骤
+            for step in (steps or []):
+                yield _sse({"type": "step", "text": step})
+
+            # 9. 推送最终回答
+            is_warning = any(kw in response for kw in ("未能找到", "未找到", "没有找到"))
+            yield _sse({
+                "type":    "answer",
+                "text":    response,
+                "warning": is_warning,
+                "agent":   agent_used or "",
+            })
+
+            # 10. 保存助手消息 + 写审计日志（孤儿校验：对话被删则丢弃，不写孤儿数据）
+            if get_conversation(conv_id, user["user_id"]):
+                save_message(conv_id, "assistant", response, steps_log=steps, agent_used=agent_used)
+                log_event(
+                    user_id    = user["user_id"],
+                    username   = user["username"],
+                    action     = "chat",
+                    agent_used = agent_used,
+                    question   = req.message,
+                )
+
             yield _sse({"type": "done"})
-            return
-
-        # 7. 推送思考步骤
-        for step in (steps or []):
-            yield _sse({"type": "step", "text": step})
-
-        # 8. 推送最终回答
-        is_warning = any(kw in response for kw in ("未能找到", "未找到", "没有找到"))
-        yield _sse({
-            "type":    "answer",
-            "text":    response,
-            "warning": is_warning,
-            "agent":   agent_used or "",
-        })
-
-        # 9. 保存助手消息 + 写审计日志
-        save_message(conv_id, "assistant", response, steps_log=steps, agent_used=agent_used)
-        log_event(
-            user_id    = user["user_id"],
-            username   = user["username"],
-            action     = "chat",
-            agent_used = agent_used,
-            question   = req.message,
-        )
-
-        yield _sse({"type": "done"})
+        finally:
+            # 资源回收硬保证：任何退出路径（正常/取消/异常/GeneratorExit）都清理注册项
+            chat_registry.unregister(user["user_id"], cancel_event)
 
     return StreamingResponse(
         event_gen(),
@@ -318,6 +435,16 @@ async def chat_stream(req: ChatRequest, user: dict = Depends(verify_token)):
             "X-Accel-Buffering": "no",    # 禁止 Nginx 缓冲，确保实时推送
         },
     )
+
+
+@app.post("/api/chat/stop")
+async def chat_stop(user: dict = Depends(verify_token)):
+    """主动停止当前用户正在进行的对话生成。
+
+    设置该用户的 cancel_event，agent.stream 在下一个 chunk 边界退出。
+    """
+    stopped = chat_registry.cancel(user["user_id"])
+    return {"ok": True, "stopped": stopped}
 
 
 # ── 用户设置接口 ───────────────────────────────────────
@@ -331,6 +458,18 @@ def api_update_display_name(req: UpdateDisplayNameRequest, user: dict = Depends(
         raise HTTPException(status_code=400, detail=msg)
     log_event(user["user_id"], user["username"], "update_display_name")
     return {"ok": True, "display_name": req.display_name.strip()}
+
+
+@app.put("/api/user/avatar")
+def api_update_avatar(req: UpdateAvatarRequest, user: dict = Depends(verify_token)):
+    """更新当前用户的头像（base64 图片或 SVG data URL）。"""
+    if not req.avatar or not req.avatar.startswith("data:"):
+        raise HTTPException(status_code=400, detail="头像格式无效")
+    ok, msg = update_avatar(user["user_id"], req.avatar)
+    if not ok:
+        raise HTTPException(status_code=400, detail=msg)
+    log_event(user["user_id"], user["username"], "update_avatar")
+    return {"ok": True}
 
 
 @app.put("/api/user/password")
@@ -511,6 +650,18 @@ def admin_toggle_active(target_id: int, req: UpdateActiveRequest, user: dict = D
     return {"ok": True}
 
 
+@app.delete("/api/admin/users/{target_id}")
+def admin_delete_user(target_id: int, user: dict = Depends(require_admin)):
+    """删除用户及其全部历史数据（对话、消息、审计日志、文档历史），不可撤销。"""
+    if target_id == user["user_id"]:
+        raise HTTPException(status_code=400, detail="不能删除当前登录账户")
+    ok = delete_user(target_id)
+    if not ok:
+        raise HTTPException(status_code=404, detail="用户不存在")
+    log_event(user["user_id"], user["username"], "admin_op", status="success")
+    return {"ok": True}
+
+
 # ── 管理员接口 — 审计日志 ───────────────────────────────
 @app.get("/api/admin/logs")
 def admin_get_logs(
@@ -539,11 +690,11 @@ async def admin_list_datasets(
     limit: int  = 20,
     user:  dict = Depends(require_admin),
 ):
-    """获取 Dify 知识库列表（分页）。未配置 DIFY_DATASET_KEY 时返回 503。"""
+    """获取 RAGFlow 知识库列表（分页）。未配置 RAGFLOW_API_KEY 时返回 503。"""
     import os
-    if not os.environ.get("DIFY_DATASET_KEY"):
-        raise HTTPException(status_code=503, detail="未配置 DIFY_DATASET_KEY，请在 .env 文件中配置后重启服务")
-    from data.dify_service import list_datasets
+    if not os.environ.get("RAGFLOW_API_KEY"):
+        raise HTTPException(status_code=503, detail="未配置 RAGFLOW_API_KEY，请在 .env 文件中配置后重启服务")
+    from data.ragflow_service import list_datasets
     try:
         return await asyncio.to_thread(list_datasets, page, limit)
     except RuntimeError as e:
@@ -559,9 +710,9 @@ async def admin_list_documents(
 ):
     """获取指定知识库的文档列表（分页）。"""
     import os
-    if not os.environ.get("DIFY_DATASET_KEY"):
-        raise HTTPException(status_code=503, detail="未配置 DIFY_DATASET_KEY，请在 .env 文件中配置后重启服务")
-    from data.dify_service import list_documents
+    if not os.environ.get("RAGFLOW_API_KEY"):
+        raise HTTPException(status_code=503, detail="未配置 RAGFLOW_API_KEY，请在 .env 文件中配置后重启服务")
+    from data.ragflow_service import list_documents
     try:
         return await asyncio.to_thread(list_documents, dataset_id, page, limit)
     except RuntimeError as e:
@@ -593,7 +744,193 @@ def admin_list_data_files(user: dict = Depends(require_admin)):
     return {"dir": str(data_dir), "files": files}
 
 
-# ── 接口配置存取 ──────────────────────────────────────────
+# ── 启动时同步接口索引 ──────────────────────────────────────
+@app.on_event("startup")
+def on_startup():
+    """应用启动时扫描 data_interface/ 目录，同步接口索引到数据库。"""
+    try:
+        count = sync_data_interfaces_index(force=False)
+        if count > 0:
+            print(f"[STARTUP] 接口索引已同步，新增/更新 {count} 条记录")
+    except Exception as e:
+        print(f"[STARTUP] 接口索引同步失败: {e}")
+
+    # 设置 to_thread 默认线程池上限。线程在等 Ollama 时不耗 CPU，真正闸门是信号量。
+    try:
+        from concurrent.futures import ThreadPoolExecutor
+        loop = asyncio.get_event_loop()
+        loop.set_default_executor(
+            ThreadPoolExecutor(max_workers=_cfg.CHAT_THREAD_POOL_SIZE,
+                               thread_name_prefix="chat")
+        )
+        print(f"[STARTUP] 对话线程池上限设为 {_cfg.CHAT_THREAD_POOL_SIZE}")
+    except Exception as e:
+        print(f"[STARTUP] 线程池设置失败: {e}")
+
+
+# ── 系统接口浏览（所有登录用户可用）───────────────────────
+@app.get("/api/system-interfaces/tree")
+def api_interface_tree(user: dict = Depends(verify_token)):
+    """返回当前用户有权访问的接口树结构。"""
+    return get_interface_tree(user["user_id"], user["role"])
+
+
+@app.get("/api/system-interfaces/{interface_id}/detail")
+def api_interface_detail(interface_id: int, user: dict = Depends(verify_token)):
+    """返回单个接口的完整定义。"""
+    detail = get_interface_detail(interface_id)
+    if not detail:
+        raise HTTPException(status_code=404, detail="接口不存在")
+    return detail
+
+
+@app.post("/api/system-interfaces/{interface_id}/test")
+def api_interface_test(interface_id: int, req: InterfaceTestRequest, user: dict = Depends(verify_token)):
+    """代理发送接口测试请求，返回目标服务的响应。"""
+    result = test_interface(
+        interface_id,
+        params=req.params,
+        body=req.body,
+        base_url_override=req.base_url,
+    )
+    return result
+
+
+# ── 管理员 — 接口导入 ──────────────────────────────────────
+@app.post("/api/admin/interfaces/discover-services")
+def admin_discover_services(req: DiscoverServicesRequest, user: dict = Depends(require_admin)):
+    """探测 Swagger 端点类型并返回可用服务列表（用于自定义 openapi-ui）。"""
+    if not req.url:
+        raise HTTPException(status_code=400, detail="URL 不能为空")
+    result = discover_swagger_services(req.url)
+    return result
+
+
+@app.post("/api/admin/interfaces/import-selected-tags")
+def admin_import_selected_tags(req: ImportSelectedTagsRequest, user: dict = Depends(require_admin)):
+    """管理员从自定义 openapi-ui 中选择标签导入接口。"""
+    if not req.url:
+        raise HTTPException(status_code=400, detail="URL 不能为空")
+    if not req.service_name:
+        raise HTTPException(status_code=400, detail="必须指定服务名称")
+    if not req.selected_queries:
+        raise HTTPException(status_code=400, detail="必须选择至少一个标签")
+    result = import_selected_tags(req.url, req.service_name, req.selected_queries)
+    if not result["ok"]:
+        raise HTTPException(status_code=400, detail=result.get("message", "导入失败"))
+    log_event(user["user_id"], user["username"], "import_interfaces_selected_tags", status="success")
+    return result
+
+
+@app.post("/api/admin/interfaces/import-from-url")
+def admin_import_from_url(req: SwaggerImportRequest, user: dict = Depends(require_admin)):
+    """管理员通过 Swagger URL 导入接口。"""
+    if not req.url:
+        raise HTTPException(status_code=400, detail="URL 不能为空")
+    result = import_from_swagger_url(req.url, req.service_name)
+    if not result["ok"]:
+        # 如果不是 custom_select 类型，才报 400；custom_select 需要返回给前端处理
+        if result.get("type") != "custom_select":
+            raise HTTPException(status_code=400, detail=result["message"])
+    log_event(user["user_id"], user["username"], "import_interfaces_url", status="success")
+    return result
+
+
+@app.post("/api/admin/interfaces/import-from-json")
+async def admin_import_from_json(request: Request, user: dict = Depends(require_admin)):
+    """管理员上传 OpenAPI JSON 文件导入接口。"""
+    try:
+        body = await request.json()
+    except Exception:
+        raise HTTPException(status_code=400, detail="请求体必须是 JSON 格式")
+
+    service_name = body.pop("service_name", "")
+    result = import_from_json_content(json.dumps(body, ensure_ascii=False), service_name=service_name)
+    if not result["ok"]:
+        raise HTTPException(status_code=400, detail=result["message"])
+    log_event(user["user_id"], user["username"], "import_interfaces_json", status="success")
+    return result
+
+
+# ── 管理员 — 接口删除 ──────────────────────────────────────
+@app.delete("/api/admin/interfaces/{interface_id}")
+def admin_delete_single_interface(interface_id: int, user: dict = Depends(require_admin)):
+    """管理员删除单个接口（仅从索引中移除）。"""
+    result = delete_single_interface(interface_id)
+    if not result["ok"]:
+        raise HTTPException(status_code=404, detail=result["message"])
+    log_event(user["user_id"], user["username"], "delete_interface", status="success")
+    return result
+
+
+@app.delete("/api/admin/interfaces/file/{service_name}/{file_name}")
+def admin_delete_interface_file(service_name: str, file_name: str, user: dict = Depends(require_admin)):
+    """管理员删除一个接口文件（文件 + 索引）。"""
+    result = delete_interface_file(service_name, file_name)
+    if not result["ok"]:
+        raise HTTPException(status_code=404, detail=result["message"])
+    log_event(user["user_id"], user["username"], "delete_interface_file", status="success")
+    return result
+
+
+@app.delete("/api/admin/interfaces/service/{service_name}")
+def admin_delete_service(service_name: str, user: dict = Depends(require_admin)):
+    """管理员删除整个服务目录（目录 + 全部索引）。"""
+    result = delete_service_directory(service_name)
+    if not result["ok"]:
+        raise HTTPException(status_code=404, detail=result["message"])
+    log_event(user["user_id"], user["username"], "delete_service", status="success")
+    return result
+
+
+# ── 管理员 — 用户接口权限管理 ──────────────────────────────
+@app.get("/api/admin/user-permissions/{user_id}")
+def admin_get_user_permissions(user_id: int, user: dict = Depends(require_admin)):
+    """查看指定用户的接口权限。"""
+    return get_user_interface_permissions(user_id)
+
+
+@app.put("/api/admin/user-permissions/{user_id}")
+def admin_set_user_permissions(
+    user_id: int,
+    req: PermissionUpdateRequest,
+    user: dict = Depends(require_admin),
+):
+    """批量设置用户的接口权限（授权 + 撤销）。"""
+    result = set_user_interface_permissions(user_id, req.granted_ids, req.revoked_ids)
+    log_event(user["user_id"], user["username"], "update_permissions", status="success")
+    return result
+
+
+@app.put("/api/admin/user-permissions/{user_id}/grant-all")
+def admin_grant_all(user_id: int, user: dict = Depends(require_admin)):
+    """一键授予用户所有接口的访问权限。"""
+    result = set_user_all_interface_access(user_id, granted=True)
+    log_event(user["user_id"], user["username"], "grant_all_permissions", status="success")
+    return result
+
+
+@app.put("/api/admin/user-permissions/{user_id}/revoke-all")
+def admin_revoke_all(user_id: int, user: dict = Depends(require_admin)):
+    """一键撤销用户所有接口的访问权限。"""
+    result = set_user_all_interface_access(user_id, granted=False)
+    log_event(user["user_id"], user["username"], "revoke_all_permissions", status="success")
+    return result
+
+
+@app.get("/api/admin/services/list")
+def admin_list_services(user: dict = Depends(require_admin)):
+    """列出所有已索引的服务名。"""
+    return {"services": list_all_services()}
+
+
+@app.get("/api/admin/interfaces/all")
+def admin_get_all_interfaces(user: dict = Depends(require_admin)):
+    """管理员查看所有接口（用于管理面板）。"""
+    return get_interface_tree(user["user_id"], user["role"])
+
+
+# ── 接口配置存取（保留原有功能）──────────────────────────────
 _IFACE_CONFIGS_PATH = Path(__file__).parent / "project_documents" / "interface_configs.json"
 
 
@@ -617,3 +954,48 @@ async def save_interface_configs(request: Request, user: dict = Depends(verify_t
         encoding="utf-8",
     )
     return {"ok": True}
+
+
+# ── 嵌入式对话接口（无需 JWT，embed_token 鉴权）──────────────
+_EMBED_HTML = Path(__file__).parent / "html_files" / "chat-embed.html"
+
+
+@app.get("/embed/chat")
+def embed_chat_page():
+    """提供网页嵌入版对话页面，供 iframe 加载。"""
+    if not _EMBED_HTML.exists():
+        raise HTTPException(status_code=404, detail="嵌入页面尚未部署")
+    return FileResponse(_EMBED_HTML, media_type="text/html")
+
+
+@app.get("/static/chat-ball.js")
+def serve_chat_ball_js():
+    """提供聊天球 widget 脚本，外部前端通过 <script src> 引入。"""
+    js_path = Path(__file__).parent / "html_files" / "chat-ball.js"
+    if not js_path.exists():
+        raise HTTPException(status_code=404, detail="chat-ball.js 尚未部署")
+    return FileResponse(js_path, media_type="application/javascript")
+
+
+@app.post("/api/embed/chat")
+async def embed_chat(req: EmbedChatRequest):
+    """
+    嵌入式对话接口，支持两种调用模式：
+    - 单轮（聊天球）：不传 thread_id，每次生成新 UUID，对话无上下文
+    - 多轮（网页嵌入）：传入 thread_id，LangGraph 保留会话内上下文
+    """
+    if req.embed_token != _EMBED_TOKEN:
+        raise HTTPException(status_code=401, detail="embed_token 无效")
+
+    thread_id    = req.thread_id or f"embed-{uuid.uuid4().hex}"
+    user_context = {"user_id": 0, "username": "embed_guest", "role": "visitor"}
+
+    from agent import chat as agent_chat
+    try:
+        response, _steps, _agent = await asyncio.to_thread(
+            lambda: agent_chat(req.message, thread_id, user_context=user_context)
+        )
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"对话失败：{e}")
+
+    return {"response": response, "thread_id": thread_id}

@@ -4,6 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>HNGD 智能知识助手系统</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='6' fill='%234f46e5'/><text x='16' y='23' font-size='18' text-anchor='middle' fill='white' font-family='sans-serif' font-weight='bold'>知</text></svg>">
 <style>
   * { margin: 0; padding: 0; box-sizing: border-box; }
 
@@ -261,6 +262,7 @@
     justify-content: center;
     flex-shrink: 0;
     border: 1.5px solid rgba(255,255,255,0.28);
+    overflow: hidden;
   }
 
   .user-avatar svg { width: 16px; height: 16px; fill: rgba(255,255,255,0.8); }
@@ -457,7 +459,7 @@
   .mode-indicator {
     position: absolute;
     top: 3px; bottom: 3px; left: 3px;
-    width: calc(33.333% - 2px);
+    width: calc(25% - 2px);
     background: white;
     border-radius: 7px;
     box-shadow: 0 1px 6px rgba(42,90,168,0.12), 0 0 0 1px rgba(42,90,168,0.05);
@@ -614,6 +616,23 @@
   }
 
   .send-btn svg { width: 17px; height: 17px; fill: white; }
+
+  /* 停止态：尺寸/圆角/阴影与发送态一致，布局零位移 */
+  .send-btn.is-stopping {
+    background: linear-gradient(135deg, #c0506a, #a8425a);
+    box-shadow: 0 2px 8px rgba(168,66,90,0.28);
+  }
+  .send-btn.is-stopping:hover {
+    box-shadow: 0 4px 12px rgba(168,66,90,0.38);
+  }
+
+  /* 等待计时 / 用时徽章 */
+  .wait-timer { margin-top: 6px; font-size: 12px; color: #8a96aa; }
+  .msg-time {
+    margin-top: 8px; font-size: 11px; color: #9aa5b8;
+    display: inline-flex; align-items: center; gap: 4px;
+  }
+  .msg-time svg { width: 12px; height: 12px; fill: #9aa5b8; }
 
   /* Suggestion chips */
   .suggestion-chips {
@@ -1108,8 +1127,77 @@
     border-color: rgba(210,80,80,0.28);
     color: rgba(255,150,150,0.9);
   }
+
+  /* ════════════ 动效升级 ════════════ */
+
+  /* ── 关键帧库 ── */
+  @keyframes fadeInUp  { from { opacity: 0; transform: translateY(14px); } to { opacity: 1; transform: translateY(0); } }
+  @keyframes fadeInX   { from { opacity: 0; transform: translateX(-12px); } to { opacity: 1; transform: translateX(0); } }
+  @keyframes cardPop   { from { opacity: 0; transform: translateY(16px) scale(0.96); } to { opacity: 1; transform: translateY(0) scale(1); } }
+  @keyframes msgInL    { from { opacity: 0; transform: translateX(-14px) translateY(4px); } to { opacity: 1; transform: translateX(0) translateY(0); } }
+  @keyframes msgInR    { from { opacity: 0; transform: translateX(14px) translateY(4px); } to { opacity: 1; transform: translateX(0) translateY(0); } }
+  @keyframes iconBounce{ 0% { transform: translateY(0); } 40% { transform: translateY(-5px) scale(1.08); } 70% { transform: translateY(1px); } 100% { transform: translateY(0); } }
+  @keyframes rippleAnim{ to { transform: scale(2.6); opacity: 0; } }
+
+  /* ── 侧边栏入场（错峰）── */
+  .nav-menu .nav-item { animation: fadeInX 0.45s ease both; }
+  .nav-menu .nav-item:nth-child(1) { animation-delay: 0.04s; }
+  .nav-menu .nav-item:nth-child(2) { animation-delay: 0.10s; }
+  .nav-menu .nav-item:nth-child(3) { animation-delay: 0.16s; }
+  .nav-menu .nav-item:nth-child(4) { animation-delay: 0.22s; }
+  .nav-menu .nav-item:nth-child(5) { animation-delay: 0.28s; }
+  .nav-menu .nav-item:nth-child(6) { animation-delay: 0.34s; }
+  .nav-item:active { transform: scale(0.97); }
+
+  /* ── 对话列表项入场 ── */
+  .conv-item { animation: fadeInX 0.35s ease both; }
+  .conv-item:active { transform: scale(0.985); }
+
+  /* ── 问候语入场 ── */
+  .greeting-section h2 { animation: fadeInUp 0.55s ease both 0.08s; }
+  .greeting-section p  { animation: fadeInUp 0.55s ease both 0.18s; }
+
+  /* ── 功能卡片：错峰入场 + 高光 + 图标弹跳 ── */
+  .feature-card { position: relative; overflow: hidden; animation: cardPop 0.5s cubic-bezier(0.34,1.15,0.64,1) both; }
+  .feature-card:nth-child(1) { animation-delay: 0.10s; }
+  .feature-card:nth-child(2) { animation-delay: 0.18s; }
+  .feature-card:nth-child(3) { animation-delay: 0.26s; }
+  .feature-card:nth-child(4) { animation-delay: 0.34s; }
+  .feature-card::after {
+    content: ''; position: absolute; top: 0; left: -75%; width: 50%; height: 100%;
+    background: linear-gradient(120deg, transparent, rgba(255,255,255,0.55), transparent);
+    transform: skewX(-20deg); transition: left 0.65s ease; pointer-events: none;
+  }
+  .feature-card:hover::after { left: 135%; }
+  .feature-card:hover .feature-icon { animation: iconBounce 0.55s ease; }
+
+  /* ── 消息气泡滑入 ── */
+  .msg-row.ai   { animation: msgInL 0.4s cubic-bezier(0.34,1.15,0.64,1) both; }
+  .msg-row.user { animation: msgInR 0.4s cubic-bezier(0.34,1.15,0.64,1) both; }
+
+  /* ── 建议 chip 入场 + hover 浮起 ── */
+  .chip { animation: fadeInUp 0.4s ease both; }
+  .chip:hover { transform: translateY(-2px); }
+
+  /* ── 发送按钮 ripple ── */
+  .send-btn { position: relative; overflow: hidden; }
+  .send-btn:active { transform: scale(0.94); }
+  .ripple {
+    position: absolute; border-radius: 50%; transform: scale(0);
+    background: rgba(255,255,255,0.45); pointer-events: none;
+    animation: rippleAnim 0.6s ease-out; will-change: transform, opacity;
+  }
+
+  /* ── 模式 tab 切换内容淡入 ── */
+  .chat-messages.visible { animation: fadeInUp 0.4s ease; }
+
+  /* ── 无障碍降级 ── */
+  @media (prefers-reduced-motion: reduce) {
+    *, .feature-card, .msg-row, .nav-item, .conv-item { animation: none !important; }
+  }
 </style>
 <script src="https://cdn.jsdelivr.net/npm/marked@9/marked.min.js"></script>
+<script src="config.js"></script>
 </head>
 <body>
 
@@ -1175,7 +1263,7 @@
 
     <!-- 用户信息 -->
     <div class="sidebar-user" onclick="window.location.href='setting-page.html'" title="账号设置">
-      <div class="user-avatar">
+      <div class="user-avatar" id="sidebar-avatar-el">
         <svg viewBox="0 0 24 24"><path d="M12 12c2.7 0 5-2.3 5-5s-2.3-5-5-5-5 2.3-5 5 2.3 5 5 5zm0 2c-3.3 0-10 1.7-10 5v2h20v-2c0-3.3-6.7-5-10-5z"/></svg>
       </div>
       <div class="user-info">
@@ -1421,13 +1509,14 @@
         <button class="mode-tab active" data-mode="rag"   onclick="switchMode('rag',   this)">📚 知识库检索</button>
         <button class="mode-tab"        data-mode="data"  onclick="switchMode('data',  this)">📊 数据统计</button>
         <button class="mode-tab"        data-mode="write" onclick="switchMode('write', this)">✍️ 仿写</button>
+        <button class="mode-tab"        data-mode="api"   onclick="switchMode('api',   this)">🔌 接口查询</button>
       </div>
 
       <!-- 输入框（write 模式下隐藏）-->
       <div id="chat-input-wrap">
         <div class="chat-input-area">
           <input type="text" id="chat-input" placeholder="请输入您的问题..." />
-          <button class="send-btn" onclick="sendChat()">
+          <button class="send-btn" id="send-btn" onclick="sendChat()">
             <svg viewBox="0 0 24 24"><path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"/></svg>
           </button>
         </div>
@@ -1468,7 +1557,7 @@
 </div>
 
 <script>
-  const API_BASE = 'http://localhost:8000';
+  const API_BASE = window.APP_CONFIG.api_base;
 
   // ── 状态 ─────────────────────────────────────────────
   let conversations = [];
@@ -1476,6 +1565,28 @@
   let currentMode   = 'rag';
   let currentUser   = null;
   let isSending     = false;
+  let chatController = null;   // 当前对话的 AbortController
+  let chatStartTime = 0;       // 本次提问起始时间戳
+  let waitTimer     = null;    // 等待计时器 interval
+  let queueHint     = '';      // 排队提示文案（与计时器共存）
+
+  const SEND_ICON = '<svg viewBox="0 0 24 24"><path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"/></svg>';
+  const STOP_ICON = '<svg viewBox="0 0 24 24"><rect x="6" y="6" width="12" height="12" rx="2"/></svg>';
+
+  // 切换发送按钮到「停止」态
+  function setBtnStop() {
+    const btn = document.getElementById('send-btn');
+    btn.classList.add('is-stopping');
+    btn.innerHTML = STOP_ICON;
+    btn.setAttribute('onclick', 'stopChat()');
+  }
+  // 恢复发送按钮到「发送」态
+  function setBtnSend() {
+    const btn = document.getElementById('send-btn');
+    btn.classList.remove('is-stopping');
+    btn.innerHTML = SEND_ICON;
+    btn.setAttribute('onclick', 'sendChat()');
+  }
 
   // ── Auth 工具 ─────────────────────────────────────────
   function authHeaders() {
@@ -1503,6 +1614,7 @@
     const roleMap = { admin: '系统管理员', user: '普通用户', visitor: '访客' };
     document.getElementById('sidebar-username').textContent = currentUser.display_name || currentUser.username;
     document.getElementById('sidebar-role').textContent     = roleMap[currentUser.role] || currentUser.role;
+    renderSidebarAvatar(currentUser.avatar || null);
 
     if (currentUser.role === 'admin') {
       const adminItem = document.getElementById('nav-admin-item');
@@ -1516,6 +1628,24 @@
 
     startClock();
     loadConversations();
+
+    // 从 setting 页返回时同步最新头像
+    document.addEventListener('visibilitychange', () => {
+      if (!document.hidden) {
+        let u = null;
+        try { u = JSON.parse(localStorage.getItem('user') || 'null'); } catch(e) {}
+        if (u) renderSidebarAvatar(u.avatar || null);
+      }
+    });
+  }
+
+  function renderSidebarAvatar(avatarData) {
+    const el = document.getElementById('sidebar-avatar-el');
+    if (!el) return;
+    const _path = "M12 12c2.7 0 5-2.3 5-5s-2.3-5-5-5-5 2.3-5 5 2.3 5 5 5zm0 2c-3.3 0-10 1.7-10 5v2h20v-2c0-3.3-6.7-5-10-5z";
+    el.innerHTML = avatarData
+      ? `<img src="${avatarData}" style="width:32px;height:32px;object-fit:cover">`
+      : `<svg viewBox="0 0 24 24"><path d="${_path}"/></svg>`;
   }
 
   // ── 时钟 ──────────────────────────────────────────────
@@ -1535,11 +1665,12 @@
   }
 
   // ── Agent 模式切换 ────────────────────────────────────
-  const modeIndex = { rag: 0, data: 1, write: 2 };
+  const modeIndex = { rag: 0, data: 1, write: 2, api: 3 };
   const modePlaceholder = {
     rag:   '请输入您的问题，我将从企业知识库中为您检索...',
     data:  '请描述您想分析的数据需求，如：统计上月考勤...',
     write: '请输入仿写需求，我将参考知识库风格为您创作...',
+    api:   '请描述您想查询的数据，如：当前有多少条报警、各区域设备状态如何...',
   };
 
   function switchMode(mode, btn) {
@@ -1608,6 +1739,7 @@
 
   // ── 新建对话（延迟创建：仅清空前端状态，首条消息时由后端自动创建）──
   function newConversation() {
+    if (isSending) stopChat();   // 切走前主动取消，避免幽灵任务占槽
     const msgBox = document.getElementById('chat-messages');
     const hasMessages = msgBox.querySelectorAll('.msg-row').length > 0;
 
@@ -1630,6 +1762,7 @@
   // ── 切换对话 ──────────────────────────────────────────
   async function selectConversation(id) {
     if (activeConvId === id) return;
+    if (isSending) stopChat();   // 切走前主动取消，避免幽灵任务占槽
     activeConvId = id;
 
     const conv = conversations.find(c => c.id === id);
@@ -1665,6 +1798,7 @@
   // ── 删除对话 ──────────────────────────────────────────
   async function deleteConversation(e, id) {
     e.stopPropagation();
+    if (isSending && activeConvId === id) stopChat();   // 删除正在生成的对话时取消任务
     try {
       const res = await fetch(`${API_BASE}/api/conversations/${id}`, {
         method: 'DELETE', headers: authHeaders(),
@@ -1696,12 +1830,15 @@
     if (!text) return;
 
     isSending = true;
+    chatController = new AbortController();
+    setBtnStop();                 // 发送态 → 停止态
     input.value    = '';
     input.disabled = true;
 
     const convIdForRequest = activeConvId;   // 可能为 null（由 init 事件更新）
     appendMessage('user', text);
     appendTyping();
+    startWaitTimer();            // 开始等待计时，减少干等待体感
 
     const stepsAccum = [];
 
@@ -1710,6 +1847,7 @@
         method: 'POST',
         headers: authHeaders(),
         body: JSON.stringify({ message: text, conversation_id: convIdForRequest, mode: currentMode }),
+        signal: chatController.signal,
       });
 
       if (res.status === 401) { handleUnauth(); return; }
@@ -1750,19 +1888,36 @@
             updateChatMessagesVisibility();
             renderConversations();
 
+          } else if (event.type === 'queued') {
+            // 排队中：更新等待气泡文案（前方 N 人），计时继续
+            queueHint = event.position > 0
+              ? `排队中（前方 ${event.position} 人）…`
+              : '排队中…';
+            renderWaiting();
+
           } else if (event.type === 'step') {
             stepsAccum.push(event.text);
 
           } else if (event.type === 'answer') {
+            stopWaitTimer();
+            const usedSec = elapsedStr();    // 定格总耗时
             removeTyping();
-            appendMessage('ai', event.text, stepsAccum, event.warning);
+            const contentEl = appendAiShell(stepsAccum, event.warning, usedSec);
             const conv = conversations.find(c => c.id === activeConvId);
             if (conv) { conv.updated_at = new Date().toISOString(); renderConversations(); }
+            typewriterMarkdown(contentEl, event.text, () => {
+              isSending      = false;
+              chatController = null;
+              setBtnSend();
+              input.disabled = false;
+              input.focus();
+            });
 
           } else if (event.type === 'done') {
             done = true; break;
 
           } else if (event.type === 'error') {
+            stopWaitTimer();
             removeTyping();
             appendMessage('ai', `⚠️ ${event.text}`, null, true);
             done = true; break;
@@ -1770,26 +1925,56 @@
         }
       }
     } catch(e) {
-      removeTyping();
-      appendMessage('ai', '⚠️ 网络错误，请检查服务是否启动', null, true);
-      console.error(e);
+      // 用户主动停止/切页导致的 abort 不算错误，保留已显示的部分内容
+      if (e.name !== 'AbortError') {
+        removeTyping();
+        appendMessage('ai', '⚠️ 网络错误，请检查服务是否启动', null, true);
+        console.error(e);
+      }
     } finally {
-      isSending     = false;
-      input.disabled = false;
-      input.focus();
+      // 正常流程的输入框恢复由打字机 onDone 回调负责；
+      // 此处兜底 error/abort/exception 路径（isSending 已为 false 时幂等）
+      stopWaitTimer();   // 任何退出路径都停表，防定时器泄漏
+      if (isSending) {
+        isSending      = false;
+        chatController = null;
+        setBtnSend();
+        removeTyping();
+        input.disabled = false;
+        input.focus();
+      }
     }
   }
+
+  // 主动停止当前对话生成：通知后端取消 + 中断本地 SSE 读取
+  async function stopChat() {
+    if (!isSending) return;
+    try {
+      await fetch(`${API_BASE}/api/chat/stop`, { method: 'POST', headers: authHeaders() });
+    } catch (e) { /* 网络失败也要中断本地 */ }
+    if (chatController) chatController.abort();   // 触发 sendChat 的 AbortError 分支收尾
+  }
+
+  // 切页/关页时主动取消，避免幽灵任务独占 -np 1 生成槽
+  window.addEventListener('beforeunload', () => {
+    if (isSending) {
+      // 用 keepalive 确保卸载期间请求仍能发出
+      try {
+        fetch(`${API_BASE}/api/chat/stop`, {
+          method: 'POST', headers: authHeaders(), keepalive: true,
+        });
+      } catch (e) {}
+    }
+  });
 
   // ── 消息渲染 ──────────────────────────────────────────
   function appendMessage(role, text, steps = null, isWarning = false) {
     const box = document.getElementById('chat-messages');
 
-    // AI 回复渲染 Markdown；用户消息转义
     const contentHtml = (role === 'ai' && typeof marked !== 'undefined')
       ? marked.parse(String(text))
       : escHtml(String(text)).replace(/\n/g, '<br>');
 
-    // 思考步骤折叠
     let stepsHtml = '';
     if (steps && steps.length > 0) {
       const items = steps.map(s => `<div class="step-item">${escHtml(s)}</div>`).join('');
@@ -1811,6 +1996,77 @@
     updateChatMessagesVisibility();
   }
 
+  // 创建 AI 消息气泡（不填内容），返回 contentEl 供打字机写入
+  function appendAiShell(steps = null, isWarning = false, usedSec = null) {
+    const box = document.getElementById('chat-messages');
+
+    let stepsHtml = '';
+    if (steps && steps.length > 0) {
+      const items = steps.map(s => `<div class="step-item">${escHtml(s)}</div>`).join('');
+      stepsHtml = `<details class="steps-detail">
+        <summary>查看推理过程（${steps.length} 步）</summary>${items}
+      </details>`;
+    }
+
+    const timeHtml = usedSec != null
+      ? `<div class="msg-time"><svg viewBox="0 0 24 24"><path d="M12 2a10 10 0 100 20 10 10 0 000-20zm1 11h-4v-2h2V7h2z"/></svg>用时 ${usedSec} 秒</div>`
+      : '';
+
+    const row = document.createElement('div');
+    row.className = 'msg-row ai';
+    row.innerHTML = `
+      <div class="msg-avatar">AI</div>
+      <div class="msg-bubble${isWarning ? ' msg-warning' : ''}">
+        <div class="msg-content"></div>
+        ${stepsHtml}
+        ${timeHtml}
+      </div>`;
+    box.appendChild(row);
+    updateChatMessagesVisibility();
+    return row.querySelector('.msg-content');
+  }
+
+  // 打字机效果：逐步将 text 渲染到 el，完成后回调 onDone
+  function typewriterMarkdown(el, text, onDone) {
+    const box   = document.getElementById('chat-messages');
+    const chars = [...text];   // 按 Unicode 码点拆分，正确处理中文/emoji
+    let   pos   = 0;
+    let   lastRender = 0;
+    const CHUNK = 4;           // 每帧追加字符数
+    const FPS   = 16;          // ms 间隔（~60fps）
+    const RERENDER_EVERY = 30; // 每追加多少字符重渲一次 Markdown
+
+    function tick() {
+      if (pos >= chars.length) {
+        // 最终完整渲染一次，确保 Markdown 正确
+        if (typeof marked !== 'undefined') {
+          el.innerHTML = marked.parse(text);
+        }
+        box.scrollTop = box.scrollHeight;
+        if (onDone) onDone();
+        return;
+      }
+
+      pos = Math.min(pos + CHUNK, chars.length);
+      const accumulated = chars.slice(0, pos).join('');
+
+      // 间隔重渲 Markdown，避免每帧都 parse
+      if (pos - lastRender >= RERENDER_EVERY || pos === chars.length) {
+        if (typeof marked !== 'undefined') {
+          el.innerHTML = marked.parse(accumulated);
+        } else {
+          el.textContent = accumulated;
+        }
+        lastRender = pos;
+      }
+
+      box.scrollTop = box.scrollHeight;
+      setTimeout(tick, FPS);
+    }
+
+    tick();
+  }
+
   function appendTyping() {
     const box = document.getElementById('chat-messages');
     const row = document.createElement('div');
@@ -1830,6 +2086,35 @@
     const el = document.getElementById('typing-indicator');
     if (el) el.remove();
     updateChatMessagesVisibility();
+  }
+
+  // 已等待秒数（一位小数）
+  function elapsedStr() {
+    return ((Date.now() - chatStartTime) / 1000).toFixed(1);
+  }
+
+  // 刷新等待气泡：思考动画 + 排队提示（可选）+ 实时计时
+  function renderWaiting() {
+    const el = document.getElementById('typing-indicator');
+    if (!el) return;
+    const bubble = el.querySelector('.msg-bubble');
+    if (!bubble) return;
+    const q = queueHint ? `<div class="wait-timer">${queueHint}</div>` : '';
+    bubble.innerHTML =
+      `<div class="msg-typing"><span></span><span></span><span></span></div>` +
+      q +
+      `<div class="wait-timer">已等待 ${elapsedStr()} 秒</div>`;
+  }
+
+  // 开始/停止等待计时
+  function startWaitTimer() {
+    chatStartTime = Date.now();
+    queueHint = '';
+    renderWaiting();
+    waitTimer = setInterval(renderWaiting, 200);
+  }
+  function stopWaitTimer() {
+    if (waitTimer) { clearInterval(waitTimer); waitTimer = null; }
   }
 
   function updateChatMessagesVisibility() {
@@ -2192,6 +2477,19 @@
   });
 
   window.addEventListener('load', initPage);
+
+  // ─── 发送按钮点击波纹（与 send/stop 切换互不干扰）───
+  document.getElementById('send-btn').addEventListener('click', function(e) {
+    const d = Math.max(this.offsetWidth, this.offsetHeight);
+    const rect = this.getBoundingClientRect();
+    const r = document.createElement('span');
+    r.className = 'ripple';
+    r.style.width = r.style.height = d + 'px';
+    r.style.left = (e.clientX - rect.left - d / 2) + 'px';
+    r.style.top  = (e.clientY - rect.top  - d / 2) + 'px';
+    this.appendChild(r);
+    setTimeout(() => r.remove(), 600);
+  });
 </script>
 
 </body>

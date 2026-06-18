@@ -125,28 +125,42 @@ def verify_answer(llm, question: str, retrieved_context: str, answer: str) -> st
 
 # ── 检索核心 ──────────────────────────────────────────────────────────────
 
-def _retrieve_from_dify(base_url: str, api_key: str, kb_id: str, query: str) -> list:
-    """调用 Dify 知识库检索 API，返回记录列表。"""
+def _retrieve_from_ragflow(base_url: str, api_key: str, dataset_id: str, query: str) -> list:
+    """调用 RAGFlow 知识库检索 API，返回记录列表（统一为 Dify records 格式）。"""
     resp = requests.post(
-        f"{base_url}/datasets/{kb_id}/retrieve",
+        f"{base_url}/retrieval",
         headers={
             "Authorization": f"Bearer {api_key}",
             "Content-Type": "application/json",
         },
         json={
-            "query": query,
-            "retrieval_model": {
-                "search_method": "semantic_search",
-                "reranking_enable": False,
-                "top_k": 10,
-                "score_threshold_enabled": False,
-            },
+            "question": query,
+            "dataset_ids": [dataset_id],
+            "page": 1,
+            "page_size": 10,
+            "similarity_threshold": 0.2,
+            "vector_similarity_weight": 0.3,
+            "keyword": False,
         },
     )
     if resp.status_code != 200:
-        print(f"[DifyRetrieve] 请求失败: {resp.status_code} {resp.text}")
+        print(f"[RAGFlowRetrieve] 请求失败: {resp.status_code} {resp.text}")
         return []
-    return resp.json().get("records", [])
+    data = resp.json().get("data", {})
+    chunks = data.get("chunks", [])
+    # 构建 doc_id → doc_name 映射
+    doc_name_map = {d["doc_id"]: d["doc_name"] for d in data.get("doc_aggs", [])}
+    # 转换为内部统一格式
+    records = []
+    for c in chunks:
+        records.append({
+            "score": c.get("similarity", 0),
+            "segment": {
+                "content": c.get("content", ""),
+                "document": {"name": doc_name_map.get(c.get("document_id", ""), "未知文档")},
+            },
+        })
+    return records
 
 
 def _format_records(records: list) -> str:
@@ -175,9 +189,7 @@ def _log_records(records: list, query: str) -> None:
 
 def create_rag_agent(llm):
 
-    DIFY_BASE_URL = "https://api.dify.ai/v1"
-    DIFY_API_KEY  = os.environ["DIFY_DATASET_KEY"]
-    DIFY_KB_ID    = os.environ["DIFY_KB_ID"]
+    from core.config import RAGFLOW_API_BASE as RAGFLOW_BASE_URL, RAGFLOW_API_KEY, RAGFLOW_DATASET_ID
 
     # ── 答案质量后校验（v2.0：仅日志记录，不修改答案）─
     def _post_check_answer(raw_answer: str, context_text: str = "") -> str:
@@ -223,13 +235,13 @@ def create_rag_agent(llm):
         search_query = rewritten["rewritten_query"]
 
         # Step 2: 首次检索（用改写后的查询）
-        records = _retrieve_from_dify(DIFY_BASE_URL, DIFY_API_KEY, DIFY_KB_ID, search_query)
+        records = _retrieve_from_ragflow(RAGFLOW_BASE_URL, RAGFLOW_API_KEY, RAGFLOW_DATASET_ID, search_query)
         _log_records(records, search_query)
 
         # Step 3: 回退检索（用原始查询）
         if not records:
             print(f"[DifyRetrieve] 改写查询无结果，尝试原始查询: {query}")
-            records = _retrieve_from_dify(DIFY_BASE_URL, DIFY_API_KEY, DIFY_KB_ID, query)
+            records = _retrieve_from_ragflow(RAGFLOW_BASE_URL, RAGFLOW_API_KEY, RAGFLOW_DATASET_ID, query)
             _log_records(records, query)
 
         if not records:
@@ -253,7 +265,7 @@ def create_rag_agent(llm):
 
             # HALLUCINATION 或 INSUFFICIENT：换一种表达方式重新检索
             retry_query = f"请详细介绍关于以下内容的规定：{query}"
-            retry_records = _retrieve_from_dify(DIFY_BASE_URL, DIFY_API_KEY, DIFY_KB_ID, retry_query)
+            retry_records = _retrieve_from_ragflow(RAGFLOW_BASE_URL, RAGFLOW_API_KEY, RAGFLOW_DATASET_ID, retry_query)
             _log_records(retry_records, retry_query)
 
             if not retry_records:
@@ -295,15 +307,16 @@ def create_rag_agent(llm):
         page, all_docs = 1, []
         while True:
             resp = requests.get(
-                f"{DIFY_BASE_URL}/datasets/{DIFY_KB_ID}/documents",
-                headers={"Authorization": f"Bearer {DIFY_API_KEY}"},
-                params={"page": page, "limit": 20},
+                f"{RAGFLOW_BASE_URL}/datasets/{RAGFLOW_DATASET_ID}/documents",
+                headers={"Authorization": f"Bearer {RAGFLOW_API_KEY}"},
+                params={"page": page, "page_size": 20},
             )
             if resp.status_code != 200:
                 return f"查询失败：{resp.status_code} {resp.text}"
-            data = resp.json()
-            all_docs.extend(data.get("data", []))
-            if not data.get("has_more", False):
+            data = resp.json().get("data", {})
+            docs = data.get("docs", [])
+            all_docs.extend(docs)
+            if len(all_docs) >= data.get("total", 0):
                 break
             page += 1
 
@@ -314,7 +327,7 @@ def create_rag_agent(llm):
 
         result_lines = []
         for doc in all_docs:
-            status = "✓" if doc.get("indexing_status") == "completed" else "⏳"
+            status = "✓" if doc.get("run") == "DONE" else "⏳"
             result_lines.append(f"{status} {doc['name']}")
 
         return f"知识库共有 {len(result_lines)} 个文档：\n" + "\n".join(result_lines)

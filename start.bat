@@ -1,36 +1,45 @@
 @echo off
 chcp 65001 >nul 2>&1
-echo === 启动 HNGD 企业知识库智能体系统 ===
 
-REM 检查 venv 是否存在，不存在则创建
+echo === Starting HNGD Knowledge Agent System ===
+
 if not exist "venv\" (
-    echo 创建虚拟环境...
+    echo Creating virtual environment...
     python -m venv venv
 )
 
-REM 激活虚拟环境并安装依赖
-echo 安装/更新依赖...
+echo Activating venv...
 call venv\Scripts\activate.bat
 
-REM 清理占用端口的残留进程
-echo 清理残留进程...
+echo Killing stale processes on ports 8000 8001 8002 8080...
 for /f "tokens=5" %%p in ('netstat -ano ^| findstr ":8000 " ^| findstr "LISTENING"') do taskkill /PID %%p /F >nul 2>&1
 for /f "tokens=5" %%p in ('netstat -ano ^| findstr ":8001 " ^| findstr "LISTENING"') do taskkill /PID %%p /F >nul 2>&1
+for /f "tokens=5" %%p in ('netstat -ano ^| findstr ":8002 " ^| findstr "LISTENING"') do taskkill /PID %%p /F >nul 2>&1
+for /f "tokens=5" %%p in ('netstat -ano ^| findstr ":8080 " ^| findstr "LISTENING"') do taskkill /PID %%p /F >nul 2>&1
 
-REM 初始化数据库
+echo Initializing database...
 python scripts/init_db.py
 
-echo 启动代码沙箱服务（端口 8001）...
+echo Starting code sandbox (port 8001)...
 start /b venv\Scripts\python -m uvicorn code_executor:app --port 8001
 
-timeout /t 1 /nobreak > nul
-
-echo 启动业务 API 服务（端口 8000）...
+echo Starting business API (port 8000)...
 start /b venv\Scripts\python -m uvicorn api:app --port 8000
 
-timeout /t 1 /nobreak > nul
+echo Starting alarm API (port 8002)...
+start /b venv\Scripts\python -m uvicorn alarm_api:app --port 8002
 
-echo 启动前端静态文件服务（端口 8080）...
-timeout /t 1 /nobreak > nul
+echo Starting static file server (port 8080)...
+start /b venv\Scripts\python -m http.server 8080
+
+echo Waiting for services to be ready...
+timeout /t 5 /nobreak > nul
+
+echo Opening browser...
 start http://localhost:8080/html_files/login-page.html
-venv\Scripts\python -m http.server 8080
+
+echo.
+echo =========================================
+echo  System started. Press any key to exit.
+echo =========================================
+pause > nul

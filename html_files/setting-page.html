@@ -4,6 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>HNGD 智能知识助手系统 - 用户设置</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='6' fill='%234f46e5'/><text x='16' y='23' font-size='18' text-anchor='middle' fill='white' font-family='sans-serif' font-weight='bold'>知</text></svg>">
 <style>
   * { margin: 0; padding: 0; box-sizing: border-box; }
 
@@ -125,6 +126,7 @@
     justify-content: center;
     flex-shrink: 0;
     border: 1.5px solid rgba(255,255,255,0.28);
+    overflow: hidden;
   }
 
   .user-avatar svg { width: 16px; height: 16px; fill: rgba(255,255,255,0.8); }
@@ -289,6 +291,7 @@
     justify-content: center;
     flex-shrink: 0;
     border: 2px solid rgba(42,90,168,0.15);
+    overflow: hidden;
   }
 
   .big-avatar svg { width: 36px; height: 36px; fill: white; }
@@ -611,6 +614,65 @@
   .btn-primary-modal:hover { background: #1e4a8a; }
   .btn-primary-modal:disabled { background: #a0b4d0; cursor: not-allowed; }
 
+  /* ========== AVATAR MODAL ========== */
+  .avatar-modal-preview {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    margin-bottom: 20px;
+    padding: 14px 16px;
+    background: #f8fafd;
+    border-radius: 10px;
+    border: 1px solid #eaf0f8;
+  }
+  .avatar-preview-ring {
+    width: 64px; height: 64px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, #4a7fd4, #2a5aa8);
+    display: flex; align-items: center; justify-content: center;
+    flex-shrink: 0;
+    border: 2px solid rgba(42,90,168,0.2);
+    overflow: hidden;
+  }
+  .avatar-preview-ring img { width: 64px; height: 64px; object-fit: cover; }
+  .avatar-preview-ring svg { width: 32px; height: 32px; fill: white; }
+  .avatar-preview-info strong { display: block; font-size: 13.5px; font-weight: 600; color: #1a2a4a; margin-bottom: 4px; }
+  .avatar-preview-info span  { font-size: 12px; color: #9aaac0; }
+
+  .avatar-upload-area {
+    border: 2px dashed #d8e4f4;
+    border-radius: 10px;
+    padding: 20px 16px;
+    text-align: center;
+    cursor: pointer;
+    transition: border-color 0.18s, background 0.18s;
+    background: #f8fafd;
+    margin-bottom: 18px;
+    position: relative;
+  }
+  .avatar-upload-area:hover { border-color: #2a5aa8; background: #f0f5ff; }
+  .avatar-upload-area input[type="file"] {
+    position: absolute; inset: 0; opacity: 0; cursor: pointer; width: 100%; height: 100%;
+  }
+  .upload-icon { color: #b0c8e8; margin-bottom: 8px; }
+  .upload-icon svg { width: 28px; height: 28px; }
+  .upload-text { font-size: 13.5px; color: #2a5aa8; font-weight: 500; margin-bottom: 3px; }
+  .upload-hint { font-size: 12px; color: #9aaac0; }
+
+  .avatar-presets-label { font-size: 12.5px; color: #5a6a8a; font-weight: 500; margin-bottom: 10px; }
+  .avatar-presets { display: flex; gap: 10px; }
+  .avatar-preset-swatch {
+    width: 38px; height: 38px; border-radius: 50%; cursor: pointer;
+    border: 2.5px solid transparent;
+    transition: transform 0.15s, border-color 0.15s, box-shadow 0.15s;
+    flex-shrink: 0;
+  }
+  .avatar-preset-swatch:hover { transform: scale(1.12); }
+  .avatar-preset-swatch.selected {
+    border-color: #2a5aa8;
+    box-shadow: 0 0 0 2px rgba(42,90,168,0.22);
+  }
+
   /* ========== FOOTER ========== */
   .footer-note {
     text-align: center;
@@ -624,7 +686,53 @@
     position: relative;
     z-index: 1;
   }
+
+  /* ════════════ 动效升级（后台克制版）════════════ */
+
+  /* ── 关键帧库 ── */
+  @keyframes fadeInUp { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: translateY(0); } }
+  @keyframes cardPop  { from { opacity: 0; transform: translateY(14px) scale(0.97); } to { opacity: 1; transform: translateY(0) scale(1); } }
+  @keyframes rippleAnim { to { transform: scale(2.6); opacity: 0; } }
+
+  /* ── 页头 / 卡片错峰入场 ── */
+  .page-header { animation: fadeInUp 0.5s ease both; }
+  .card { animation: cardPop 0.48s cubic-bezier(0.34,1.12,0.64,1) both; transition: transform 0.2s, box-shadow 0.2s; }
+  .cards-grid .card:nth-child(1) { animation-delay: 0.08s; }
+  .cards-grid .card:nth-child(2) { animation-delay: 0.16s; }
+  .cards-grid .card:nth-child(3) { animation-delay: 0.24s; }
+  .card:hover { transform: translateY(-2px); box-shadow: 0 4px 20px rgba(30,60,120,0.09); }
+
+  /* ── 大头像 hover 光环 ── */
+  .big-avatar { transition: transform 0.25s cubic-bezier(0.34,1.15,0.64,1), box-shadow 0.25s; }
+  .avatar-section:hover .big-avatar { transform: scale(1.05); box-shadow: 0 0 0 4px rgba(42,90,168,0.12); }
+
+  /* ── 预置头像色块入场错峰 ── */
+  .avatar-preset-swatch { animation: cardPop 0.4s ease both; }
+  .avatar-preset-swatch:nth-child(1) { animation-delay: 0.02s; }
+  .avatar-preset-swatch:nth-child(2) { animation-delay: 0.06s; }
+  .avatar-preset-swatch:nth-child(3) { animation-delay: 0.10s; }
+  .avatar-preset-swatch:nth-child(4) { animation-delay: 0.14s; }
+  .avatar-preset-swatch:nth-child(5) { animation-delay: 0.18s; }
+  .avatar-preset-swatch:nth-child(6) { animation-delay: 0.22s; }
+
+  /* ── 输入框聚焦图标微交互（修改密码等无图标，主要作用于带 prefix 的场景）── */
+
+  /* ── 按钮点击反馈 ── */
+  .avatar-btn, .btn-primary-modal { position: relative; overflow: hidden; }
+  .avatar-btn:active, .btn-primary-modal:active, .btn-cancel:active { transform: scale(0.96); }
+  .ripple {
+    position: absolute; border-radius: 50%; transform: scale(0);
+    background: rgba(42,90,168,0.18); pointer-events: none;
+    animation: rippleAnim 0.6s ease-out; will-change: transform, opacity;
+  }
+  .btn-primary-modal .ripple { background: rgba(255,255,255,0.4); }
+
+  /* ── 无障碍降级 ── */
+  @media (prefers-reduced-motion: reduce) {
+    *, .card, .big-avatar, .avatar-preset-swatch { animation: none !important; transition: none !important; }
+  }
 </style>
+<script src="config.js"></script>
 </head>
 <body>
 
@@ -674,7 +782,7 @@
     <div style="flex: 1;"></div>
 
     <div class="sidebar-user" title="账号设置">
-      <div class="user-avatar">
+      <div class="user-avatar" id="sidebar-avatar-el">
         <svg viewBox="0 0 24 24"><path d="M12 12c2.7 0 5-2.3 5-5s-2.3-5-5-5-5 2.3-5 5 2.3 5 5 5zm0 2c-3.3 0-10 1.7-10 5v2h20v-2c0-3.3-6.7-5-10-5z"/></svg>
       </div>
       <div class="user-info">
@@ -721,10 +829,10 @@
           </div>
 
           <div class="avatar-section">
-            <div class="big-avatar">
+            <div class="big-avatar" id="big-avatar-el">
               <svg viewBox="0 0 24 24"><path d="M12 12c2.7 0 5-2.3 5-5s-2.3-5-5-5-5 2.3-5 5 2.3 5 5 5zm0 2c-3.3 0-10 1.7-10 5v2h20v-2c0-3.3-6.7-5-10-5z"/></svg>
             </div>
-            <button class="avatar-btn">更换头像</button>
+            <button class="avatar-btn" onclick="openAvatarModal()">更换头像</button>
           </div>
 
           <div class="info-rows">
@@ -927,9 +1035,48 @@
   </div>
 </div>
 
+<!-- ========== Modal: 更换头像 ========== -->
+<div class="modal-overlay" id="modal-avatar">
+  <div class="modal">
+    <div class="modal-header">
+      <h3>更换头像</h3>
+      <button class="modal-close" onclick="closeModal('modal-avatar')">✕</button>
+    </div>
+    <div class="modal-body">
+      <div class="avatar-modal-preview">
+        <div class="avatar-preview-ring" id="avatar-modal-preview-ring">
+          <svg viewBox="0 0 24 24"><path d="M12 12c2.7 0 5-2.3 5-5s-2.3-5-5-5-5 2.3-5 5 2.3 5 5 5zm0 2c-3.3 0-10 1.7-10 5v2h20v-2c0-3.3-6.7-5-10-5z"/></svg>
+        </div>
+        <div class="avatar-preview-info">
+          <strong>头像预览</strong>
+          <span>选择图片或预置头像后在此预览</span>
+        </div>
+      </div>
+
+      <div class="avatar-upload-area" id="avatar-upload-area">
+        <input type="file" id="avatar-file-input" accept="image/jpeg,image/png,image/webp" onchange="handleAvatarFile(this)">
+        <div class="upload-icon">
+          <svg viewBox="0 0 24 24" fill="currentColor"><path d="M19.35 10.04C18.67 6.59 15.64 4 12 4 9.11 4 6.6 5.64 5.35 8.04 2.34 8.36 0 10.91 0 14c0 3.31 2.69 6 6 6h13c2.76 0 5-2.24 5-5 0-2.64-2.05-4.78-4.65-4.96zM14 13v4h-4v-4H7l5-5 5 5h-3z"/></svg>
+        </div>
+        <div class="upload-text">点击上传图片</div>
+        <div class="upload-hint">支持 JPG / PNG / WebP，建议正方形，≤ 2MB</div>
+      </div>
+
+      <div class="avatar-presets-label">预置头像</div>
+      <div class="avatar-presets" id="avatar-presets"></div>
+
+      <div class="form-msg" id="avatar-msg" style="margin-top:14px"></div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn-cancel" onclick="closeModal('modal-avatar')">取消</button>
+      <button class="btn-primary-modal" id="btn-save-avatar" onclick="saveAvatar()">保存头像</button>
+    </div>
+  </div>
+</div>
+
 <script>
   const ROLE_MAP = { admin: '系统管理员', user: '普通用户', visitor: '访客' };
-  const API_BASE = 'http://localhost:8000';
+  const API_BASE = window.APP_CONFIG.api_base;
 
   // ── 时钟 ──────────────────────────────────────────────
   function updateClock() {
@@ -949,11 +1096,13 @@
     // 侧边栏
     document.getElementById('sidebar-username').textContent = user.display_name || user.username;
     document.getElementById('sidebar-role').textContent = ROLE_MAP[user.role] || user.role;
+    renderSidebarAvatar(user.avatar || null);
 
     // 个人信息卡片
     document.getElementById('info-username').textContent     = user.username;
     document.getElementById('info-display-name').textContent = user.display_name || user.username;
     document.getElementById('info-role').textContent         = ROLE_MAP[user.role] || user.role;
+    renderBigAvatar(user.avatar || null);
 
     if (user.role === 'admin') {
       const adminItem = document.getElementById('nav-admin-item');
@@ -1075,7 +1224,159 @@
     }
   }
 
+  // ── 头像渲染 ─────────────────────────────────────────
+  const _AVATAR_USER_PATH = "M12 12c2.7 0 5-2.3 5-5s-2.3-5-5-5-5 2.3-5 5 2.3 5 5 5zm0 2c-3.3 0-10 1.7-10 5v2h20v-2c0-3.3-6.7-5-10-5z";
+  const _AVATAR_PRESETS = [
+    { id: 'blue',   g: ['%231a3a7e','%232a5aa8'] },
+    { id: 'teal',   g: ['%231a556a','%232a82aa'] },
+    { id: 'purple', g: ['%235a2a7e','%238a5aa8'] },
+    { id: 'green',  g: ['%231a6a3a','%232a9a5a'] },
+    { id: 'orange', g: ['%237e4a1a','%23aa6a2a'] },
+    { id: 'rose',   g: ['%237e1a3a','%23a82a5a'] },
+  ];
+
+  function _presetUrl(p) {
+    return `data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 40 40'><defs><linearGradient id='g' x1='0' y1='0' x2='1' y2='1'><stop offset='0' stop-color='${p.g[0]}'/><stop offset='1' stop-color='${p.g[1]}'/></linearGradient></defs><circle cx='20' cy='20' r='20' fill='url(%23g)'/><svg x='8' y='8' width='24' height='24' viewBox='0 0 24 24' fill='white'><path d='${_AVATAR_USER_PATH}'/></svg></svg>`;
+  }
+
+  function renderBigAvatar(avatarData) {
+    const el = document.getElementById('big-avatar-el');
+    if (!el) return;
+    el.innerHTML = avatarData
+      ? `<img src="${avatarData}" style="width:66px;height:66px;object-fit:cover">`
+      : `<svg viewBox="0 0 24 24"><path d="${_AVATAR_USER_PATH}"/></svg>`;
+  }
+
+  function renderSidebarAvatar(avatarData) {
+    const el = document.getElementById('sidebar-avatar-el');
+    if (!el) return;
+    el.innerHTML = avatarData
+      ? `<img src="${avatarData}" style="width:32px;height:32px;object-fit:cover">`
+      : `<svg viewBox="0 0 24 24"><path d="${_AVATAR_USER_PATH}"/></svg>`;
+  }
+
+  // ── 更换头像弹窗 ─────────────────────────────────────
+  let _avatarPending = null;
+
+  function openAvatarModal() {
+    let user = null;
+    try { user = JSON.parse(localStorage.getItem('user') || 'null'); } catch(e) {}
+    _avatarPending = null;
+    _updateAvatarPreviewRing(user?.avatar || null);
+
+    // 生成预置色块
+    const container = document.getElementById('avatar-presets');
+    container.innerHTML = _AVATAR_PRESETS.map(p =>
+      `<div class="avatar-preset-swatch" id="preset-${p.id}" onclick="selectPresetAvatar('${p.id}')"
+        style="background:linear-gradient(135deg,${decodeURIComponent(p.g[0])},${decodeURIComponent(p.g[1])})"></div>`
+    ).join('');
+
+    document.getElementById('avatar-file-input').value = '';
+    showMsg('avatar-msg', '', '');
+    openModal('modal-avatar');
+  }
+
+  function _updateAvatarPreviewRing(avatarData) {
+    const el = document.getElementById('avatar-modal-preview-ring');
+    if (!el) return;
+    el.innerHTML = avatarData
+      ? `<img src="${avatarData}" style="width:64px;height:64px;object-fit:cover">`
+      : `<svg viewBox="0 0 24 24"><path d="${_AVATAR_USER_PATH}"/></svg>`;
+  }
+
+  function selectPresetAvatar(presetId) {
+    const preset = _AVATAR_PRESETS.find(p => p.id === presetId);
+    if (!preset) return;
+    document.querySelectorAll('.avatar-preset-swatch').forEach(s => s.classList.remove('selected'));
+    document.getElementById(`preset-${presetId}`).classList.add('selected');
+    _avatarPending = _presetUrl(preset);
+    _updateAvatarPreviewRing(_avatarPending);
+    showMsg('avatar-msg', '', '');
+  }
+
+  async function handleAvatarFile(input) {
+    const file = input.files[0];
+    if (!file) return;
+    if (file.size > 2 * 1024 * 1024) return showMsg('avatar-msg', '图片大小不能超过 2MB', 'error');
+    if (!['image/jpeg','image/png','image/webp'].includes(file.type))
+      return showMsg('avatar-msg', '仅支持 JPG / PNG / WebP 格式', 'error');
+
+    showMsg('avatar-msg', '', '');
+    document.querySelectorAll('.avatar-preset-swatch').forEach(s => s.classList.remove('selected'));
+    try {
+      _avatarPending = await _compressAvatar(file);
+      _updateAvatarPreviewRing(_avatarPending);
+    } catch(e) {
+      showMsg('avatar-msg', '图片处理失败，请重试', 'error');
+    }
+  }
+
+  function _compressAvatar(file) {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = e => {
+        const img = new Image();
+        img.onload = () => {
+          const canvas = document.createElement('canvas');
+          canvas.width = 200; canvas.height = 200;
+          const ctx = canvas.getContext('2d');
+          const min = Math.min(img.width, img.height);
+          ctx.drawImage(img, (img.width - min) / 2, (img.height - min) / 2, min, min, 0, 0, 200, 200);
+          resolve(canvas.toDataURL('image/jpeg', 0.82));
+        };
+        img.onerror = reject;
+        img.src = e.target.result;
+      };
+      reader.onerror = reject;
+      reader.readAsDataURL(file);
+    });
+  }
+
+  async function saveAvatar() {
+    if (!_avatarPending) return showMsg('avatar-msg', '请先选择图片或预置头像', 'info');
+    const btn = document.getElementById('btn-save-avatar');
+    btn.disabled = true; btn.textContent = '保存中...';
+    try {
+      const resp = await fetch(`${API_BASE}/api/user/avatar`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + localStorage.getItem('token') },
+        body: JSON.stringify({ avatar: _avatarPending }),
+      });
+      const data = await resp.json();
+      if (!resp.ok) throw new Error(data.detail || '保存失败');
+
+      // 同步到 localStorage
+      let user = null;
+      try { user = JSON.parse(localStorage.getItem('user') || 'null'); } catch(e) {}
+      if (user) { user.avatar = _avatarPending; localStorage.setItem('user', JSON.stringify(user)); }
+
+      renderBigAvatar(_avatarPending);
+      renderSidebarAvatar(_avatarPending);
+      showMsg('avatar-msg', '头像已更新', 'success');
+      setTimeout(() => closeModal('modal-avatar'), 1000);
+    } catch(err) {
+      showMsg('avatar-msg', err.message, 'error');
+    } finally {
+      btn.disabled = false; btn.textContent = '保存头像';
+    }
+  }
+
   window.addEventListener('load', initPage);
+
+  // ── 按钮点击波纹（委托）──
+  document.addEventListener('click', e => {
+    const btn = e.target.closest('.avatar-btn, .btn-primary-modal');
+    if (!btn) return;
+    const d = Math.max(btn.offsetWidth, btn.offsetHeight);
+    const rect = btn.getBoundingClientRect();
+    const r = document.createElement('span');
+    r.className = 'ripple';
+    r.style.width = r.style.height = d + 'px';
+    r.style.left = (e.clientX - rect.left - d / 2) + 'px';
+    r.style.top  = (e.clientY - rect.top  - d / 2) + 'px';
+    btn.appendChild(r);
+    setTimeout(() => r.remove(), 600);
+  });
 </script>
 
 </body>
