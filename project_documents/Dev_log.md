@@ -1,6 +1,24 @@
 ﻿# 开发日志列表
 :
 
+## 2026-06-18 (Agent 回复气泡增加白色卡片效果)
+
+**问题**：Agent（AI）回复消息气泡使用 `background: #f4f7fc` 极浅蓝灰背景，在页面灰色背景下视觉上几乎透明，与用户深蓝色消息缺乏明显对比。
+
+**方案**（仅改 `html_files/home-page.html` 的 `.msg-row.ai .msg-bubble` CSS，5 处属性调整）：
+- `background: #f4f7fc` → `background: #ffffff`（纯白背景）
+- `border: 1px solid #e4ecf5` → `border: 1px solid #dce4ee`（边框略深增强轮廓）
+- 新增 `box-shadow: 0 1px 6px rgba(26,58,110,0.08)`（轻微阴影提升层次感）
+- `padding: 9px 13px` → `padding: 12px 16px`（稍增内边距让卡片更舒展）
+
+**效果**：Agent 回复呈现为明显的浅白色卡片，与用户发送的深蓝色渐变消息形成清晰的"白 vs 蓝"视觉对比。
+
+**修改文件**：`html_files/home-page.html`
+
+**时间**：2026-06-18
+
+---
+
 ## 2026-06-18 (聊天消息区域去除边框卡片效果)
 
 **问题**：`.chat-messages` 区域有白色背景 + 1.5px 蓝灰边框 + 12px 圆角，在灰色页面背景上形成明显的"白卡片框"视觉效果，非常突兀。
