@@ -37,8 +37,8 @@ def search_knowledge_base(query: str, top_k: int = 5) -> list:
                 "page": 1,
                 "page_size": top_k,
                 "similarity_threshold": 0.2,
-                "vector_similarity_weight": 0.3,
-                "keyword": False,
+                "vector_similarity_weight": 0.9,
+                "keyword": True,
             },
             timeout=30,
         )

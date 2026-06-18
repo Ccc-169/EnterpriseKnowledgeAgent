@@ -1,22 +1,68 @@
 # agents/rag_agent.py
-import os
 import json
 import re
+import logging
+import threading
 import requests
-from langchain_core.tools import tool
+from typing import TypedDict, Annotated
 from langchain_core.prompts import ChatPromptTemplate
-from langchain_core.messages import HumanMessage
-from langgraph.prebuilt import create_react_agent
+from langchain_core.messages import HumanMessage, AIMessage
+from langgraph.graph.message import add_messages
+from langgraph.graph import StateGraph, START, END
 
 # ── 规则引擎导入 ─────────────────────────────────────
 from rules.integration import check_generated_answer
 
+logger = logging.getLogger(__name__)
+
+
+# ── 实时进度推送机制 ─────────────────────────────────────────────────────
+# threading.local 存储：由 agent.py chat_direct 注入 progress_callback，
+# 节点函数通过 _emit_progress 发送实时进度，绕过 LangGraph 流式通道。
+_local = threading.local()
+
+
+def _emit_progress(text: str):
+    """推送实时进度到 SSE 通道。异常静默吞掉，绝不打断主流程。"""
+    try:
+        cb = getattr(_local, 'progress_callback', None)
+        if cb:
+            cb(text)
+    except Exception:
+        pass
+
 
 # ── 常量 ────────────────────────────────────────────────────────────────
 
-MAX_RETRY_COUNT = 1          # 检索验证最多重试 1 次
 SHORT_QUERY_THRESHOLD = 10   # 短问题字符阈值
 SHORT_WORD_THRESHOLD = 3     # 短问题词数阈值
+
+
+# ── StateGraph State 定义 ──────────────────────────────────────────────────
+
+class RAGAgentState(TypedDict):
+    """RAG Agent 的 StateGraph 共享状态"""
+    messages: Annotated[list, add_messages]  # LangGraph 标准消息字段（Supervisor 接口契约）
+    question: str          # 从 messages 提取的原始用户问题
+    cache_context: str     # QA 缓存上下文（历史相似问答参考）
+    search_query: str      # LLM 改写后的检索查询
+    records: list          # 检索到的知识库记录列表
+    context_text: str      # 格式化后的检索文本
+    full_context: str      # context_text + cache_context（最终送给 generate 的上下文）
+    answer: str            # LLM 生成的答案
+
+
+# ── 意图分类关键词常量 ──────────────────────────────────────────────────────
+# ⚠️ 注意：plan.md 明确指出"无意图分类"，当前 Workflow 为纯线性流程。
+# 以下常量保留用于可能的未来扩展（如质检/监控分类），当前流程中不参与路由决策。
+
+INTENT_KEYWORDS: dict[str, list[str]] = {
+    "greeting":        ["你好", "您好", "hi", "hello", "hey", "早上好", "下午好", "晚上好", "再见", "谢谢"],
+    "knowledge_query": ["是什么", "如何", "怎么", "什么是", "怎样", "介绍", "说明", "描述", "解释", "区别"],
+    "policy_query":    ["制度", "规定", "政策", "流程", "办法", "标准", "规则", "要求", "规范", "条例"],
+    "troubleshooting": ["故障", "报错", "错误", "问题", "不工作", "失败", "异常", "无法", "不能"],
+    "writing_reference": ["仿写", "范文", "模板", "参考", "示例", "样例", "格式", "模版"],
+}
 
 
 # ── Query 改写 ────────────────────────────────────────────────────────────
@@ -72,61 +118,10 @@ def rewrite_query(llm, question: str) -> dict:
         }
 
 
-# ── 答案验证 ──────────────────────────────────────────────────────────────
-
-ANSWER_VERIFY_PROMPT = ChatPromptTemplate.from_messages([
-    ("system", """你是一个答案质量审核员。
-根据以下信息判断答案质量，只返回一个词，不要有其他输出：
-
-- GOOD         ：答案有明确的文档依据，内容具体，无无中生有。只要答案中包含了文档中的相关内容，即使不够全面也应判定为GOOD。
-- HALLUCINATION：答案包含文档中未提及的内容，或编造了数据/规定
-- NO_CONTEXT   ：文档中确实没有相关内容，答案已诚实说明"未找到"
-- INSUFFICIENT ：仅当文档片段与问题完全无关，或答案完全无法回答问题时使用
-
-判断原则：
-1. 只要检索到的文档与问题有相关性（即使只是部分相关），且答案基于文档内容生成，就应判定为GOOD
-2. 不要因为答案不够全面、不够详细就判定为INSUFFICIENT
-3. 只有在文档片段与问题毫不相关、答案完全无法回答问题时，才判定为INSUFFICIENT
-
-只返回四个词之一：GOOD / HALLUCINATION / NO_CONTEXT / INSUFFICIENT"""),
-    ("human", """用户问题：{question}
-
-检索到的文档片段：
-{retrieved_context}
-
-生成的答案：
-{answer}
-
-质量判断："""),
-])
-
-
-def verify_answer(llm, question: str, retrieved_context: str, answer: str) -> str:
-    """
-    验证答案质量，返回 GOOD / HALLUCINATION / NO_CONTEXT / INSUFFICIENT。
-    任何异常均默认 GOOD（保守策略：验证失败时不阻断主流程）。
-    """
-    try:
-        chain = ANSWER_VERIFY_PROMPT | llm
-        result = chain.invoke({
-            "question": question,
-            "retrieved_context": retrieved_context,
-            "answer": answer,
-        })
-        text = result.content.strip().upper() if hasattr(result, "content") else str(result).strip().upper()
-        valid_verdicts = {"GOOD", "HALLUCINATION", "NO_CONTEXT", "INSUFFICIENT"}
-        verdict = text if text in valid_verdicts else "GOOD"
-        print(f"[AnswerVerify] 验证结果: {verdict}")
-        return verdict
-    except Exception as e:
-        print(f"[AnswerVerify] 验证失败，默认通过: {e}")
-        return "GOOD"
-
-
 # ── 检索核心 ──────────────────────────────────────────────────────────────
 
 def _retrieve_from_ragflow(base_url: str, api_key: str, dataset_id: str, query: str) -> list:
-    """调用 RAGFlow 知识库检索 API，返回记录列表（统一为 Dify records 格式）。"""
+    """调用 RAGFlow 知识库检索 API，返回记录列表（统一为 RAGFlow records 格式）。"""
     resp = requests.post(
         f"{base_url}/retrieval",
         headers={
@@ -137,11 +132,12 @@ def _retrieve_from_ragflow(base_url: str, api_key: str, dataset_id: str, query: 
             "question": query,
             "dataset_ids": [dataset_id],
             "page": 1,
-            "page_size": 10,
-            "similarity_threshold": 0.2,
-            "vector_similarity_weight": 0.3,
+            "page_size": 4,
+            "similarity_threshold": 0.3,
+            "vector_similarity_weight": 0.9,
             "keyword": False,
         },
+        timeout=20,
     )
     if resp.status_code != 200:
         print(f"[RAGFlowRetrieve] 请求失败: {resp.status_code} {resp.text}")
@@ -176,46 +172,76 @@ def _format_records(records: list) -> str:
 
 def _log_records(records: list, query: str) -> None:
     """打印检索结果调试日志。"""
-    print(f"[DifyRetrieve] 查询: {query}")
-    print(f"[DifyRetrieve] 返回记录数: {len(records)}")
+    print(f"[RAGFlowRetrieve] 查询: {query}")
+    print(f"[RAGFlowRetrieve] 返回记录数: {len(records)}")
     for i, record in enumerate(records):
         score = record.get("score", 0)
         source = record.get("segment", {}).get("document", {}).get("name", "未知来源")
         content_preview = record.get("segment", {}).get("content", "")[:50]
-        print(f"[DifyRetrieve] 记录{i+1}: 分数={score:.3f}, 来源={source}, 内容预览={content_preview}...")
+        print(f"[RAGFlowRetrieve] 记录{i+1}: 分数={score:.3f}, 来源={source}, 内容预览={content_preview}...")
+
+
+# ── 规则引擎后校验 ──────────────────────────────────────────────────────
+
+# 规则 → 替换文本映射，按优先级排序（先匹配优先返回）
+RULE_RESPONSE_MAP: list[tuple[str, str]] = [
+    ("GEN_QUALITY-002", "系统处理时遇到技术问题，已自动恢复。请您重新描述问题，或联系管理员处理。"),
+    ("GEN_QUALITY-003", "回答中包含系统内部信息，已自动过滤。请重新提问或联系管理员。"),
+    ("GEN_QUALITY-001", "未能生成有效回答，请尝试更具体地描述您的问题。"),
+    ("GEN_QUALITY-004", "未找到相关信息，请尝试换个方式提问或联系管理员。"),
+    # GEN_QUALITY-005: info 级别，追加提示而非替换
+]
+
+
+def _post_check_answer(raw_answer: str, context_text: str = "") -> str:
+    """对生成的答案执行全局质量检查，按规则优先级返回友好提示"""
+    try:
+        report = check_generated_answer(raw_answer, context=context_text, agent_name="rag_agent")
+        failures = report.get_failures()
+        if not failures:
+            return raw_answer
+
+        # 1. 按优先级匹配替换型规则
+        matched_ids = {f.rule_id for f in failures}
+        for rule_id, replacement in RULE_RESPONSE_MAP:
+            if rule_id in matched_ids:
+                return replacement
+
+        # 2. GEN_QUALITY-005: info 级别，追加提示而非替换
+        if "GEN_QUALITY-005" in matched_ids and len(raw_answer) < 50:
+            return raw_answer + "\n\n---\n💡 如需更详细的信息，请进一步描述您的问题。"
+
+        # 3. 其他规则失败：记录日志但不替换
+        logger.info(f"[post_check] 答案有轻微质量问题但无需替换: "
+                    f"{', '.join(f.rule_id for f in failures)}")
+    except Exception:
+        pass  # 规则引擎异常时静默跳过
+    return raw_answer
 
 
 # ── RAG Agent 创建函数 ──────────────────────────────────────────────────────
 
 def create_rag_agent(llm):
-
     from core.config import RAGFLOW_API_BASE as RAGFLOW_BASE_URL, RAGFLOW_API_KEY, RAGFLOW_DATASET_ID
 
-    # ── 答案质量后校验（v2.0：仅日志记录，不修改答案）─
-    def _post_check_answer(raw_answer: str, context_text: str = "") -> str:
-        """对生成的答案执行全局质量检查，结果仅记日志不影响返回"""
-        try:
-            report = check_generated_answer(raw_answer, context=context_text, agent_name="rag_agent")
-            # 仅对裸技术错误信息做替换
-            for f in report.get_failures():
-                if f.rule_id == "GEN_QUALITY-002":  # 技术错误信息暴露
-                    return "系统处理时遇到技术问题，已自动恢复。请您重新描述问题，或联系管理员处理。"
-        except Exception:
-            pass  # 规则引擎异常时静默跳过，不影响答案返回
-        return raw_answer
+    # ── 节点函数 ──────────────────────────────────────────────────────────
 
-    @tool
-    def rag_search(query: str) -> str:
-        """
-        从企业知识库检索相关文档并生成答案。内置查询改写、回退检索、答案验证和自动重试。
-        适用：文档问答、内容总结、制度查询、仿写参考。
-        当检索不到相关内容或答案质量不佳时会自动重试，无需多次调用。
-        """
-        # Step 0: 经验记忆缓存检查（长期记忆：向量相似度匹配历史 Q&A）
+    def extract_question_node(state: RAGAgentState) -> dict:
+        """从 messages 提取用户问题"""
+        _emit_progress("📋 正在分析您的问题...")
+        for msg in reversed(state.get("messages", [])):
+            if isinstance(msg, HumanMessage):
+                return {"question": msg.content}
+        return {"question": ""}
+
+    def cache_check_node(state: RAGAgentState) -> dict:
+        """QA 缓存检查"""
+        _emit_progress("🔍 正在查询历史相似问答...")
+        question = state.get("question", "")
         cache_context = ""
         try:
             from data.cache_service import embed_text, search_cache
-            question_vec = embed_text(query)
+            question_vec = embed_text(question)
             if question_vec:
                 cached = search_cache(question_vec)
                 if cached:
@@ -227,128 +253,103 @@ def create_rag_agent(llm):
                             f"历史回答{i}: {item['answer'][:300]}"
                         )
                     cache_context = "\n".join(parts)
+                    _emit_progress(f"✅ 找到 {len(cached)} 条相似历史问答")
+                else:
+                    _emit_progress("ℹ️ 未命中历史问答缓存")
         except Exception as e:
             print(f"[QACache] 缓存检查异常（不影响主流程）: {e}")
+        return {"cache_context": cache_context}
 
-        # Step 1: 查询改写
-        rewritten = rewrite_query(llm, query)
-        search_query = rewritten["rewritten_query"]
+    def rewrite_query_node(state: RAGAgentState) -> dict:
+        """查询改写"""
+        _emit_progress("🔄 正在优化检索查询...")
+        question = state.get("question", "")
+        rewritten = rewrite_query(llm, question)
+        _emit_progress("✅ 查询优化完成")
+        return {"search_query": rewritten["rewritten_query"]}
 
-        # Step 2: 首次检索（用改写后的查询）
+    def retrieve_node(state: RAGAgentState) -> dict:
+        """向量检索（含回退：改写查询无结果时用原始 query 重试一次）"""
+        _emit_progress("📚 正在检索知识库...")
+        question = state.get("question", "")
+        search_query = state.get("search_query", question)
+
+        # 首次检索（用改写后的查询）
         records = _retrieve_from_ragflow(RAGFLOW_BASE_URL, RAGFLOW_API_KEY, RAGFLOW_DATASET_ID, search_query)
         _log_records(records, search_query)
 
-        # Step 3: 回退检索（用原始查询）
+        # 回退检索（用原始查询）
         if not records:
-            print(f"[DifyRetrieve] 改写查询无结果，尝试原始查询: {query}")
-            records = _retrieve_from_ragflow(RAGFLOW_BASE_URL, RAGFLOW_API_KEY, RAGFLOW_DATASET_ID, query)
-            _log_records(records, query)
+            print(f"[RAGFlowRetrieve] 改写查询无结果，尝试原始查询: {question}")
+            records = _retrieve_from_ragflow(RAGFLOW_BASE_URL, RAGFLOW_API_KEY, RAGFLOW_DATASET_ID, question)
+            _log_records(records, question)
 
-        if not records:
-            return "知识库中未检索到相关内容。建议联系对应部门确认，或提供更多背景信息以便进一步检索。"
-
-        # Step 4: 生成答案 + 验证 + 重试
         context_text = _format_records(records)
-        # 如有缓存命中，将历史 Q&A 附加到上下文
+        cache_context = state.get("cache_context", "")
         full_context = context_text + cache_context if cache_context else context_text
-        answer = _generate_answer(llm, query, full_context)
 
-        verdict = verify_answer(llm, query, context_text, answer)
-        retry_count = 0
+        _emit_progress(f"{'✅ 检索完成，找到 ' + str(len(records)) + ' 条相关记录' if records else '⚠️ 未检索到相关记录'}")
 
-        while verdict != "GOOD" and retry_count < MAX_RETRY_COUNT:
-            retry_count += 1
-            print(f"[AnswerVerify] 验证结果={verdict}，启动第{retry_count}次重试")
+        return {
+            "records": records,
+            "context_text": context_text,
+            "full_context": full_context,
+        }
 
-            if verdict == "NO_CONTEXT":
-                return "根据当前知识库，未能找到与您问题直接相关的内容。建议联系对应部门确认，或提供更多背景信息以便进一步检索。"
+    def generate_answer_node(state: RAGAgentState) -> dict:
+        """基于检索上下文生成答案"""
+        _emit_progress("✍️ 正在生成答案...")
+        question = state.get("question", "")
+        full_context = state.get("full_context", "")
+        answer = _generate_answer(llm, question, full_context)
+        _emit_progress("✅ 答案生成完成")
+        return {"answer": answer}
 
-            # HALLUCINATION 或 INSUFFICIENT：换一种表达方式重新检索
-            retry_query = f"请详细介绍关于以下内容的规定：{query}"
-            retry_records = _retrieve_from_ragflow(RAGFLOW_BASE_URL, RAGFLOW_API_KEY, RAGFLOW_DATASET_ID, retry_query)
-            _log_records(retry_records, retry_query)
+    def post_check_node(state: RAGAgentState) -> dict:
+        """规则引擎后校验，输出最终 AIMessage"""
+        _emit_progress("🛡️ 正在进行答案质量校验...")
+        raw_answer = state.get("answer", "")
+        context_text = state.get("context_text", "")
+        final_answer = _post_check_answer(raw_answer, context_text)
+        return {"messages": [AIMessage(content=final_answer, name="rag_agent")]}
 
-            if not retry_records:
-                if verdict == "INSUFFICIENT":
-                    return _post_check_answer(
-                        f"{answer}\n\n⚠️ 以上回答基于知识库中部分相关内容，可能不够完整。如需更详细信息，建议联系对应部门确认。",
-                        context_text
-                    )
-                return "根据当前知识库，未能找到与您问题直接相关的内容。建议联系对应部门确认。"
+    def no_answer_node(state: RAGAgentState) -> dict:
+        """未检索到结果时的回复"""
+        _emit_progress("⚠️ 未找到相关信息，生成提示回复...")
+        fallback = "知识库中未检索到相关内容。建议联系对应部门确认，或提供更多背景信息以便进一步检索。"
+        return {"messages": [AIMessage(content=fallback, name="rag_agent")]}
 
-            context_text = _format_records(retry_records)
-            full_context = context_text + cache_context if cache_context else context_text
-            answer = _generate_answer(llm, query, full_context)
-            verdict = verify_answer(llm, query, context_text, answer)
+    # ── 条件路由 ──────────────────────────────────────────────────────────
 
-        # 重试后仍不够完整，展示部分答案
-        if verdict == "INSUFFICIENT":
-            return _post_check_answer(
-                f"{answer}\n\n⚠️ 以上回答基于知识库中部分相关内容，可能不够完整。如需更详细信息，建议联系对应部门确认。",
-                context_text
-            )
+    def route_after_retrieve(state: RAGAgentState) -> str:
+        """检索后路由：有结果 → generate_answer，无结果 → no_answer"""
+        if state.get("records"):
+            return "generate_answer"
+        return "no_answer"
 
-        # HALLUCINATION 重试后仍不行
-        if verdict == "HALLUCINATION":
-            return _post_check_answer(
-                "检索到的文档与问题关联度不足，无法生成可靠答案。建议提供更具体的问题或联系对应部门确认。",
-                context_text
-            )
+    # ── 构建 StateGraph ──────────────────────────────────────────────────
 
-        return _post_check_answer(answer, context_text)
+    graph = StateGraph(RAGAgentState)
+    graph.name = "rag_agent"
 
-    @tool
-    def list_kb_documents(keyword: str = "") -> str:
-        """
-        查询 Dify 知识库中存储了哪些文档。
-        当用户询问知识库里有什么文件时调用。
-        参数：keyword - 可选，按文件名过滤关键词
-        """
-        page, all_docs = 1, []
-        while True:
-            resp = requests.get(
-                f"{RAGFLOW_BASE_URL}/datasets/{RAGFLOW_DATASET_ID}/documents",
-                headers={"Authorization": f"Bearer {RAGFLOW_API_KEY}"},
-                params={"page": page, "page_size": 20},
-            )
-            if resp.status_code != 200:
-                return f"查询失败：{resp.status_code} {resp.text}"
-            data = resp.json().get("data", {})
-            docs = data.get("docs", [])
-            all_docs.extend(docs)
-            if len(all_docs) >= data.get("total", 0):
-                break
-            page += 1
+    graph.add_node("extract_question", extract_question_node)
+    graph.add_node("cache_check", cache_check_node)
+    graph.add_node("rewrite_query", rewrite_query_node)
+    graph.add_node("retrieve", retrieve_node)
+    graph.add_node("generate_answer", generate_answer_node)
+    graph.add_node("post_check", post_check_node)
+    graph.add_node("no_answer", no_answer_node)
 
-        if not all_docs:
-            return "知识库中暂无文档。"
-        if keyword:
-            all_docs = [d for d in all_docs if keyword in d.get("name", "")]
+    graph.add_edge(START, "extract_question")
+    graph.add_edge("extract_question", "cache_check")
+    graph.add_edge("cache_check", "rewrite_query")
+    graph.add_edge("rewrite_query", "retrieve")
+    graph.add_conditional_edges("retrieve", route_after_retrieve)
+    graph.add_edge("generate_answer", "post_check")
+    graph.add_edge("post_check", END)
+    graph.add_edge("no_answer", END)
 
-        result_lines = []
-        for doc in all_docs:
-            status = "✓" if doc.get("run") == "DONE" else "⏳"
-            result_lines.append(f"{status} {doc['name']}")
-
-        return f"知识库共有 {len(result_lines)} 个文档：\n" + "\n".join(result_lines)
-
-    return create_react_agent(
-        model=llm,
-        name="rag_agent",
-        tools=[rag_search, list_kb_documents],
-        prompt="""你是企业知识库问答专家，处理文档检索、内容问答、制度查询、仿写参考等知识性问题。
-
-【工具说明】
-- rag_search：从知识库检索文档并生成答案，内置查询改写、回退检索、答案验证和自动重试，通常只需调用一次
-- list_kb_documents：查看知识库中有哪些文档，当用户问"知识库里有什么"时使用
-
-【硬性约束——这些是运行环境的物理限制，违反必然失败】
-1. rag_search 已内置改写、验证和重试逻辑，不需要多次调用同一个查询
-2. 如果 rag_search 返回"未检索到相关内容"，不要反复用不同措辞重试，应如实告知用户
-3. 回答必须基于 rag_search 返回的文档内容，不得编造知识库中没有的信息
-
-【回答语言】中文，检索不到时如实告知，不编造内容。""",
-    )
+    return graph.compile(name="rag_agent")
 
 
 # ── 辅助函数 ──────────────────────────────────────────────────────────────

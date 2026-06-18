@@ -489,10 +489,10 @@
 
   /* ── 消息区域 ── */
   .chat-messages {
-    background: white;
-    border-radius: 12px;
-    border: 1.5px solid #d8e4f0;
-    padding: 16px;
+    background: transparent;
+    border-radius: 0;
+    border: none;
+    padding: 20px 32px;
     margin-bottom: 12px;
     max-height: 320px;
     overflow-y: auto;
@@ -503,8 +503,25 @@
 
   .chat-messages.visible { display: block; }
 
-  .chat-messages::-webkit-scrollbar { width: 4px; }
-  .chat-messages::-webkit-scrollbar-thumb { background: #d0dae8; border-radius: 2px; }
+.chat-messages::-webkit-scrollbar { width: 4px; }
+.chat-messages::-webkit-scrollbar-thumb { background: #d0dae8; border-radius: 2px; }
+
+/* ── 对话激活态：隐藏欢迎区，聊天区填满上半部分 ── */
+.home-body.chat-active {
+  display: flex;
+  flex-direction: column;
+  padding: 16px 32px;
+}
+.home-body.chat-active .greeting-section,
+.home-body.chat-active .feature-cards {
+  display: none;
+}
+.home-body.chat-active .chat-messages.visible {
+  max-height: none;
+  flex: 1;
+  min-height: 0;
+  margin-bottom: 12px;
+}
 
   .msg-row {
     display: flex;
@@ -628,6 +645,7 @@
 
   /* 等待计时 / 用时徽章 */
   .wait-timer { margin-top: 6px; font-size: 12px; color: #8a96aa; }
+  .progress-text { margin-top: 6px; font-size: 13px; color: #5b7aff; }
   .msg-time {
     margin-top: 8px; font-size: 11px; color: #9aa5b8;
     display: inline-flex; align-items: center; gap: 4px;
@@ -1569,6 +1587,7 @@
   let chatStartTime = 0;       // 本次提问起始时间戳
   let waitTimer     = null;    // 等待计时器 interval
   let queueHint     = '';      // 排队提示文案（与计时器共存）
+  let currentProgress = '';    // 实时进度文案（来自 progress 事件）
 
   const SEND_ICON = '<svg viewBox="0 0 24 24"><path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"/></svg>';
   const STOP_ICON = '<svg viewBox="0 0 24 24"><rect x="6" y="6" width="12" height="12" rx="2"/></svg>';
@@ -1895,11 +1914,16 @@
               : '排队中…';
             renderWaiting();
 
+          } else if (event.type === 'progress') {
+            currentProgress = event.text;
+            renderWaiting();
+
           } else if (event.type === 'step') {
             stepsAccum.push(event.text);
 
           } else if (event.type === 'answer') {
             stopWaitTimer();
+            currentProgress = '';  // 清除实时进度
             const usedSec = elapsedStr();    // 定格总耗时
             removeTyping();
             const contentEl = appendAiShell(stepsAccum, event.warning, usedSec);
@@ -2093,15 +2117,17 @@
     return ((Date.now() - chatStartTime) / 1000).toFixed(1);
   }
 
-  // 刷新等待气泡：思考动画 + 排队提示（可选）+ 实时计时
+  // 刷新等待气泡：思考动画 + 进度提示 + 排队提示（可选）+ 实时计时
   function renderWaiting() {
     const el = document.getElementById('typing-indicator');
     if (!el) return;
     const bubble = el.querySelector('.msg-bubble');
     if (!bubble) return;
     const q = queueHint ? `<div class="wait-timer">${queueHint}</div>` : '';
+    const p = currentProgress ? `<div class="progress-text">${currentProgress}</div>` : '';
     bubble.innerHTML =
       `<div class="msg-typing"><span></span><span></span><span></span></div>` +
+      p +
       q +
       `<div class="wait-timer">已等待 ${elapsedStr()} 秒</div>`;
   }
@@ -2110,6 +2136,7 @@
   function startWaitTimer() {
     chatStartTime = Date.now();
     queueHint = '';
+    currentProgress = '';
     renderWaiting();
     waitTimer = setInterval(renderWaiting, 200);
   }
@@ -2119,11 +2146,14 @@
 
   function updateChatMessagesVisibility() {
     const box = document.getElementById('chat-messages');
-    if (box.children.length > 0) {
+    const hasContent = box.children.length > 0;
+    if (hasContent) {
       box.classList.add('visible');
     } else {
       box.classList.remove('visible');
     }
+    // 联动：有内容时隐藏欢迎区/卡片，聊天区填满上半部分
+    document.querySelector('.home-body').classList.toggle('chat-active', hasContent);
   }
 
   // ── Suggestion chips ──────────────────────────────────

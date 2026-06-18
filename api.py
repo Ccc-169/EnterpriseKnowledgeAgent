@@ -349,10 +349,21 @@ async def chat_stream(req: ChatRequest, request: Request, user: dict = Depends(v
         # 注册取消事件（单飞：自动取消该用户旧任务）
         cancel_event = chat_registry.register(user["user_id"])
 
+        # ── 实时进度桥接：agent 线程 → asyncio Queue → SSE ──
+        loop = asyncio.get_running_loop()
+        progress_queue = asyncio.Queue()
+
+        def progress_cb(text: str):
+            """从 agent 线程调用，线程安全地往 Queue 塞进度消息"""
+            try:
+                loop.call_soon_threadsafe(progress_queue.put_nowait, text)
+            except Exception:
+                pass  # 事件循环已关闭等情况，静默
+
         mode_calls = {
-            "rag":   lambda: chat_direct("rag_agent",  req.message, thread_id, user_context=user_context, cancel_event=cancel_event),
+            "rag":   lambda: chat_direct("rag_agent",  req.message, thread_id, user_context=user_context, cancel_event=cancel_event, progress_callback=progress_cb),
             "data":  lambda: chat_direct("data_agent", req.message, thread_id, user_context=user_context, cancel_event=cancel_event),
-            "write": lambda: chat_direct("rag_agent",  req.message, thread_id, user_context=user_context, cancel_event=cancel_event),
+            "write": lambda: chat_direct("rag_agent",  req.message, thread_id, user_context=user_context, cancel_event=cancel_event, progress_callback=progress_cb),
             "api":   lambda: chat_direct("api_agent",  req.message, thread_id, user_context=user_context, cancel_event=cancel_event),
         }
         call_fn = mode_calls.get(req.mode, mode_calls["rag"])
@@ -369,14 +380,11 @@ async def chat_stream(req: ChatRequest, request: Request, user: dict = Depends(v
                     yield _sse({"type": "done"})
                     return
 
-                # 7. 线程池中运行同步 LangGraph，并发监控客户端断开
+                # 7. 线程池中运行同步 LangGraph，并发监控客户端断开 + 实时进度
                 task = asyncio.create_task(asyncio.to_thread(call_fn))
                 aborted = False
                 while True:
-                    done, _ = await asyncio.wait({task}, timeout=_cfg.CHAT_DISCONNECT_POLL_SEC)
-                    if task in done:
-                        break
-                    # 主动停止（/stop 已 set）或客户端断开 → 取消
+                    # 7a. 主动停止（/stop 已 set）或客户端断开 → 取消
                     if cancel_event.is_set():
                         aborted = True
                     elif _cfg.CHAT_CANCEL_ON_DISCONNECT and await request.is_disconnected():
@@ -384,6 +392,20 @@ async def chat_stream(req: ChatRequest, request: Request, user: dict = Depends(v
                         aborted = True
                     if aborted:
                         await task   # 等待工作线程在 chunk 边界收尾后再释放槽
+                        break
+
+                    # 7b. 尝试从 progress_queue 取实时进度
+                    try:
+                        progress_text = await asyncio.wait_for(
+                            progress_queue.get(), timeout=0.3
+                        )
+                        yield _sse({"type": "progress", "text": progress_text})
+                        continue  # 取到进度后立即循环，优先推送
+                    except asyncio.TimeoutError:
+                        pass
+
+                    # 7c. 检查 agent 线程是否完成
+                    if task.done():
                         break
 
                 # 取消的任务：不写库（避免半截回复污染历史），直接结束
