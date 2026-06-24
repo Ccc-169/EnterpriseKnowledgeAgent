@@ -465,7 +465,7 @@
   // ── Service Selection state ────────────────────────
   let discoverBaseUrl = '';
   let discoverServices = [];      // [{title, filename, tags: [{name, description, query}]}]
-  let selectedTagKeys = {};       // {"服务|标签名": {query, tag_name, tag_desc}}
+  let selectedTagKeys = {};       // {serviceTitle: {tagName: {query, tag_name, tag_desc}}}
 
   // ── Utils ───────────────────────────────────────────
   function esc(s) { return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
@@ -991,10 +991,21 @@
   }
 
   function toggleTag(key) {
-    if (selectedTagKeys[key]) {
-      delete selectedTagKeys[key];
+    // key 格式为 "服务名|标签名"，从中拆分出服务名和标签名
+    const idx = key.indexOf('|');
+    const serviceTitle = key.substring(0, idx);
+    const tagName = idx >= 0 ? key.substring(idx + 1) : key;
+
+    if (!selectedTagKeys[serviceTitle]) {
+      selectedTagKeys[serviceTitle] = {};
+    }
+    if (selectedTagKeys[serviceTitle][tagName]) {
+      delete selectedTagKeys[serviceTitle][tagName];
+      if (Object.keys(selectedTagKeys[serviceTitle]).length === 0) {
+        delete selectedTagKeys[serviceTitle];
+      }
     } else {
-      selectedTagKeys[key] = tagLookupMap[key] || { query: '', tag_name: key, tag_desc: '' };
+      selectedTagKeys[serviceTitle][tagName] = tagLookupMap[key] || { query: '', tag_name: tagName, tag_desc: '' };
     }
     updateTagCheckUI(key);
     updateSelectSummary();
@@ -1002,35 +1013,78 @@
 
   function updateTagCheckUI(key) {
     const el = document.getElementById('check-' + key);
-    if (el) el.classList.toggle('checked', !!selectedTagKeys[key]);
+    if (!el) return;
+    const idx = key.indexOf('|');
+    const serviceTitle = key.substring(0, idx);
+    const tagName = idx >= 0 ? key.substring(idx + 1) : key;
+    const svc = selectedTagKeys[serviceTitle];
+    el.classList.toggle('checked', !!(svc && svc[tagName]));
   }
 
   function selectAllTags() {
+    selectedTagKeys = {};
     Object.keys(tagLookupMap).forEach(key => {
-      selectedTagKeys[key] = tagLookupMap[key];
+      const idx = key.indexOf('|');
+      const serviceTitle = key.substring(0, idx);
+      const tagName = idx >= 0 ? key.substring(idx + 1) : key;
+      if (!selectedTagKeys[serviceTitle]) selectedTagKeys[serviceTitle] = {};
+      selectedTagKeys[serviceTitle][tagName] = tagLookupMap[key];
       updateTagCheckUI(key);
     });
     updateSelectSummary();
   }
 
   function deselectAllTags() {
-    Object.keys(selectedTagKeys).forEach(k => { delete selectedTagKeys[k]; updateTagCheckUI(k); });
+    Object.keys(tagLookupMap).forEach(k => updateTagCheckUI(k));
     selectedTagKeys = {};
     updateSelectSummary();
   }
 
   function updateSelectSummary() {
-    const count = Object.keys(selectedTagKeys).length;
-    document.getElementById('select-summary').textContent = `已选择 ${count} 个标签`;
+    let count = 0;
+    let svcCount = 0;
+    Object.keys(selectedTagKeys).forEach(svc => {
+      count += Object.keys(selectedTagKeys[svc]).length;
+      svcCount++;
+    });
+    document.getElementById('select-summary').textContent = `已选择 ${count} 个标签，分布于 ${svcCount} 个服务`;
     document.getElementById('btn-confirm-import').disabled = count === 0;
   }
 
   async function submitSelectedTags() {
-    const queries = Object.values(selectedTagKeys);
-    if (!queries.length) { toast('请至少选择一个标签', 'error'); return; }
-
+    // 读取用户自定义的服务名称（确认导入时再生效）
     const nameInput = document.getElementById('import-url-name');
-    const serviceName = nameInput.value.trim() || '未命名服务';
+    const customServiceName = (nameInput ? nameInput.value.trim() : '');
+
+    // 构建 selected_services 数组
+    const selectedServices = [];
+    if (customServiceName) {
+      // 用户自定义服务名：将来自所有 Swagger 服务的标签合并到一个服务下
+      const allQueries = [];
+      Object.keys(selectedTagKeys).forEach(serviceTitle => {
+        const queries = Object.values(selectedTagKeys[serviceTitle]);
+        allQueries.push(...queries);
+      });
+      if (allQueries.length > 0) {
+        selectedServices.push({
+          service_title: customServiceName,
+          queries: allQueries,
+        });
+      }
+    } else {
+      // 自动识别：按 Swagger 服务名称分组
+      Object.keys(selectedTagKeys).forEach(serviceTitle => {
+        const queries = Object.values(selectedTagKeys[serviceTitle]);
+        if (queries.length > 0) {
+          selectedServices.push({
+            service_title: serviceTitle,
+            queries: queries,
+          });
+        }
+      });
+    }
+
+    if (!selectedServices.length) { toast('请至少选择一个标签', 'error'); return; }
 
     const btn = document.getElementById('btn-confirm-import');
     btn.disabled = true; btn.textContent = '导入中...';
@@ -1042,8 +1096,8 @@
         headers: authHeaders(),
         body: JSON.stringify({
           url: discoverBaseUrl,
-          service_name: serviceName,
-          selected_queries: queries,
+          service_name: customServiceName,
+          selected_services: selectedServices,
         }),
       });
       const data = await r.json();
@@ -1051,7 +1105,7 @@
         status.innerHTML = `<div class="import-msg success">${esc(data.message)}</div>`;
         toast('导入成功！共 ' + data.imported + ' 个接口', 'success');
         document.getElementById('import-url-input').value = '';
-        nameInput.value = '';
+        if (nameInput) nameInput.value = '';
       } else {
         toast(data.detail || data.message || '导入失败', 'error');
       }

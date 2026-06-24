@@ -202,9 +202,9 @@ class DiscoverServicesRequest(BaseModel):
 
 
 class ImportSelectedTagsRequest(BaseModel):
-    url:          str
-    service_name: str
-    selected_queries: list[dict]  # [{"query": "...", "tag_name": "...", "tag_desc": "..."}]
+    url:               str
+    service_name:      str = ""
+    selected_services: list[dict]  # [{"service_title": "...", "queries": [{"query": "...", "tag_name": "...", "tag_desc": "..."}]}]
 
 
 # ── 文档编写辅助 ───────────────────────────────────────
@@ -830,14 +830,12 @@ def admin_discover_services(req: DiscoverServicesRequest, user: dict = Depends(r
 
 @app.post("/api/admin/interfaces/import-selected-tags")
 def admin_import_selected_tags(req: ImportSelectedTagsRequest, user: dict = Depends(require_admin)):
-    """管理员从自定义 openapi-ui 中选择标签导入接口。"""
+    """管理员从自定义 openapi-ui 中选择标签按服务分组导入接口。"""
     if not req.url:
         raise HTTPException(status_code=400, detail="URL 不能为空")
-    if not req.service_name:
-        raise HTTPException(status_code=400, detail="必须指定服务名称")
-    if not req.selected_queries:
+    if not req.selected_services:
         raise HTTPException(status_code=400, detail="必须选择至少一个标签")
-    result = import_selected_tags(req.url, req.service_name, req.selected_queries)
+    result = import_selected_tags(req.url, req.selected_services, req.service_name)
     if not result["ok"]:
         raise HTTPException(status_code=400, detail=result.get("message", "导入失败"))
     log_event(user["user_id"], user["username"], "import_interfaces_selected_tags", status="success")

@@ -60,7 +60,7 @@ checkpointer = SqliteSaver(_checkpoint_conn)
 checkpointer.setup()
 
 router = create_supervisor(
-    agents=[rag_agent, data_agent],
+    agents=[rag_agent, data_agent, api_agent],
     model=llm,
     prompt="""
     你是任务路由器，只做一件事：
@@ -71,8 +71,6 @@ router = create_supervisor(
 - 对文档内容提问（公司制度、规定、政策、员工手册）
 - 总结文档、仿写内容、文档概述
 - 撰写简短报告、工作总结、方案建议等文本类内容
-
-
 - 公司背景、业务介绍等知识性问题
 - 文档管理、技术方案等咨询建议类问题（由 rag_agent 基于 LLM 知识回答）
 
@@ -81,6 +79,13 @@ router = create_supervisor(
 - 出勤率、迟到次数、工作时长等考勤数据分析
 - 任何需要读取 Excel 文件的问题
 - 跨月数据对比、趋势分析
+
+转发给 api_agent 的情况：
+- 需要调用真实业务系统接口获取数据（如查询员工信息、部门信息等）
+- 用户明确要求通过接口/API 查询某类数据
+- 需要通过 HTTP 请求获取实时数据或跨系统数据
+- 涉及 OpenAPI/Swagger 规范的接口调用
+- 知识库和 Excel 中都没有所需数据时，尝试通过接口查询
 
 【严格规则——违反将导致无限循环】
 1. 只做判断和转发，最多做两次转发
@@ -391,7 +396,7 @@ def chat(
             isinstance(msg, AIMessage)
             and msg.content
             and not getattr(msg, "tool_calls", None)
-            and getattr(msg, "name", None) in ("rag_agent", "data_agent", "doc_agent")
+            and getattr(msg, "name", None) in ("rag_agent", "data_agent", "doc_agent", "api_agent")
             and not str(msg.content).startswith("Transferring")
         ):
             final_answer = msg.content

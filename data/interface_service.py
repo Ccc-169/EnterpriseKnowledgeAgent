@@ -430,108 +430,139 @@ def discover_swagger_services(base_url: str, timeout: int = 15) -> dict:
     }
 
 
-def import_selected_tags(base_url: str, service_name: str,
-                         selected_queries: list[dict], timeout: int = 15) -> dict:
+def import_selected_tags(base_url: str, selected_services: list[dict],
+                         service_name: str = "", timeout: int = 15) -> dict:
     """
-    从自定义 openapi-ui 系统中导入用户选择的标签（tags）。
+    从自定义 openapi-ui 系统中按服务分组导入用户选择的标签（tags）。
 
     Args:
         base_url: 基础 URL
-        service_name: 用户指定的服务名
-        selected_queries: [{"query": "xxx.json?tag=TagName", "tag_name": "TagName", "tag_desc": "..."}, ...]
+        selected_services: [
+            {
+                "service_title": "消息中心",
+                "queries": [{"query": "xxx.json?tag=TagName", "tag_name": "TagName", "tag_desc": "..."}, ...]
+            },
+            ...
+        ]
+        service_name: 用户自定义的服务名称；若提供，则所有标签合并到该服务下，
+                      否则按 selected_services 中的 service_title 分组
         timeout: 请求超时
 
-    返回 {"ok": True, "imported": N, "total_files": M, "message": "..."}
+    返回 {"ok": True, "imported": N, "total_files": M, "services": [...], "message": "..."}
     """
+    # 若用户设定了自定义服务名，则将来自多个 Swagger 服务的所有标签合并到一个服务下
+    if service_name:
+        all_queries = []
+        for svc in selected_services:
+            all_queries.extend(svc.get("queries", []))
+        selected_services = [{"service_title": service_name, "queries": all_queries}]
+
     base_url = base_url.rstrip("/")
     total_imported = 0
-    files_created = 0
+    total_files = 0
     errors = []
+    imported_services = []
 
-    save_dir = _DATA_INTERFACE_DIR / service_name
-    save_dir.mkdir(parents=True, exist_ok=True)
+    for svc in selected_services:
+        service_title = svc.get("service_title", "未命名服务")
+        selected_queries = svc.get("queries", [])
+        if not selected_queries:
+            continue
 
-    for sq in selected_queries:
-        query = sq["query"]
-        tag_name = sq.get("tag_name", "unknown")
-        tag_desc = sq.get("tag_desc", "")
+        save_dir = _DATA_INTERFACE_DIR / service_title
+        save_dir.mkdir(parents=True, exist_ok=True)
 
-        content_url = f"{base_url}/api/document/content/{query}"
-        try:
-            resp = requests.get(content_url, timeout=timeout)
-            if resp.status_code != 200:
-                errors.append(f"{tag_name}: HTTP {resp.status_code}")
+        svc_imported = 0
+        svc_files = 0
+        for sq in selected_queries:
+            query = sq["query"]
+            tag_name = sq.get("tag_name", "unknown")
+            tag_desc = sq.get("tag_desc", "")
+
+            content_url = f"{base_url}/api/document/content/{query}"
+            try:
+                resp = requests.get(content_url, timeout=timeout)
+                if resp.status_code != 200:
+                    errors.append(f"[{service_title}] {tag_name}: HTTP {resp.status_code}")
+                    continue
+                spec_data = resp.json()
+            except Exception as e:
+                errors.append(f"[{service_title}] {tag_name}: {e}")
                 continue
-            spec_data = resp.json()
-        except Exception as e:
-            errors.append(f"{tag_name}: {e}")
-            continue
 
-        # 验证
-        valid, msg = _validate_openapi_spec(spec_data)
-        if not valid:
-            errors.append(f"{tag_name}: {msg}")
-            continue
+            # 验证
+            valid, msg = _validate_openapi_spec(spec_data)
+            if not valid:
+                errors.append(f"[{service_title}] {tag_name}: {msg}")
+                continue
 
-        # 保存文件
-        file_name = _tag_safe_name(tag_name)
-        filepath = save_dir / f"{file_name}.json"
-        # 若已有同名文件，追加后缀
-        counter = 1
-        while filepath.exists():
-            filepath = save_dir / f"{file_name}_{counter}.json"
-            counter += 1
+            # 保存文件
+            file_name = _tag_safe_name(tag_name)
+            filepath = save_dir / f"{file_name}.json"
+            # 若已有同名文件，追加后缀
+            counter = 1
+            while filepath.exists():
+                filepath = save_dir / f"{file_name}_{counter}.json"
+                counter += 1
 
-        filepath.write_text(
-            json.dumps(spec_data, ensure_ascii=False, indent=2),
-            encoding="utf-8",
-        )
-        files_created += 1
-
-        # 同步到索引
-        endpoints = _parse_openapi_endpoints(spec_data)
-        conn = get_db()
-        try:
-            conn.execute(
-                "DELETE FROM data_interfaces WHERE spec_file_path = ?",
-                (str(filepath),),
+            filepath.write_text(
+                json.dumps(spec_data, ensure_ascii=False, indent=2),
+                encoding="utf-8",
             )
-            for ep in endpoints:
-                try:
-                    conn.execute(
-                        """INSERT INTO data_interfaces
-                        (service_name, file_name, path, method, summary, operation_id,
-                         parameters, tags, spec_file_path, file_mtime, enabled)
-                        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1)""",
-                        (
-                            service_name,
-                            file_name,
-                            ep["path"],
-                            ep["method"],
-                            ep.get("summary", ""),
-                            ep.get("operationId", ""),
-                            json.dumps(ep.get("parameters", []), ensure_ascii=False),
-                            json.dumps(ep.get("tags", []), ensure_ascii=False),
-                            str(filepath),
-                            filepath.stat().st_mtime,
-                        ),
-                    )
-                    total_imported += 1
-                except Exception:
-                    pass
-            conn.commit()
-        finally:
-            conn.close()
+            svc_files += 1
 
-    msg_parts = [f"成功导入 {total_imported} 个接口（{files_created} 个文件）到 [{service_name}]"]
+            # 同步到索引
+            endpoints = _parse_openapi_endpoints(spec_data)
+            conn = get_db()
+            try:
+                conn.execute(
+                    "DELETE FROM data_interfaces WHERE spec_file_path = ?",
+                    (str(filepath),),
+                )
+                for ep in endpoints:
+                    try:
+                        conn.execute(
+                            """INSERT INTO data_interfaces
+                            (service_name, file_name, path, method, summary, operation_id,
+                             parameters, tags, spec_file_path, file_mtime, enabled)
+                            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1)""",
+                            (
+                                service_title,
+                                file_name,
+                                ep["path"],
+                                ep["method"],
+                                ep.get("summary", ""),
+                                ep.get("operationId", ""),
+                                json.dumps(ep.get("parameters", []), ensure_ascii=False),
+                                json.dumps(ep.get("tags", []), ensure_ascii=False),
+                                str(filepath),
+                                filepath.stat().st_mtime,
+                            ),
+                        )
+                        svc_imported += 1
+                    except Exception:
+                        pass
+                conn.commit()
+            finally:
+                conn.close()
+
+        total_imported += svc_imported
+        total_files += svc_files
+        imported_services.append({
+            "service_title": service_title,
+            "imported": svc_imported,
+            "files": svc_files,
+        })
+
+    msg_parts = [f"成功导入 {total_imported} 个接口（{total_files} 个文件）到 {len(imported_services)} 个服务中"]
     if errors:
         msg_parts.append(f"部分失败: {', '.join(errors[:3])}")
 
     return {
         "ok": True,
         "imported": total_imported,
-        "total_files": files_created,
-        "service_name": service_name,
+        "total_files": total_files,
+        "services": imported_services,
         "errors": errors,
         "message": "；".join(msg_parts),
     }
