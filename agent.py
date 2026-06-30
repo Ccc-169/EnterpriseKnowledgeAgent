@@ -34,9 +34,8 @@ llm = ChatOpenAI(
     base_url="http://192.168.1.155:11434/v1",
     api_key="ollama",
     temperature=0,
+    max_tokens=8192,
     # 禁止单轮并行工具调用：防止 agent 一次性吐出多个 rag_search / transfer，
-    # 这是"重复检索 / 多重交接"失控的放大器（已确认 Ollama 兼容）
-    model_kwargs={"parallel_tool_calls": False},
 )
 
 

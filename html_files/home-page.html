@@ -1694,7 +1694,7 @@
     api:   '请描述您想查询的数据，如：当前有多少条报警、各区域设备状态如何...',
   };
 
-  function switchMode(mode, btn) {
+  function switchMode(mode, btn, skipNewConv = false) {
     const modeChanged = (currentMode !== mode);
     currentMode = mode;
     document.querySelectorAll('.mode-tab').forEach(t => t.classList.remove('active'));
@@ -1715,7 +1715,7 @@
       document.getElementById('chat-input').placeholder = modePlaceholder[mode];
     }
 
-    if (modeChanged && mode !== 'write') {
+    if (modeChanged && mode !== 'write' && !skipNewConv) {
       newConversation();
     }
   }
@@ -1810,6 +1810,15 @@
       data.messages.forEach(msg => {
         appendMessage(msg.role === 'user' ? 'user' : 'ai', msg.content, msg.steps_log);
       });
+
+      // 从最后一条 assistant 消息的 agent_used 反推对话的 mode，恢复选择器 UI
+      const aiMsgs = data.messages.filter(m => m.role === 'assistant' && m.agent_used);
+      if (aiMsgs.length > 0) {
+        const agentToMode = { rag_agent: 'rag', data_agent: 'data', api_agent: 'api' };
+        const inferredMode = agentToMode[aiMsgs[aiMsgs.length - 1].agent_used] || 'rag';
+        const btn = document.querySelector(`.mode-tab[data-mode="${inferredMode}"]`);
+        if (btn) switchMode(inferredMode, btn, true);
+      }
     } catch(e) {
       msgBox.innerHTML = '<div style="text-align:center;padding:20px;color:#e05252;font-size:13px;">加载失败，请重试</div>';
       console.error('加载消息失败', e);
