@@ -1010,10 +1010,10 @@ async def embed_chat(req: EmbedChatRequest):
     thread_id    = req.thread_id or f"embed-{uuid.uuid4().hex}"
     user_context = {"user_id": 0, "username": "embed_guest", "role": "visitor"}
 
-    from agent import chat as agent_chat
+    from agent import chat_direct
     try:
         response, _steps, _agent = await asyncio.to_thread(
-            lambda: agent_chat(req.message, thread_id, user_context=user_context)
+            lambda: chat_direct("api_agent", req.message, thread_id, user_context=user_context)
         )
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"对话失败：{e}")

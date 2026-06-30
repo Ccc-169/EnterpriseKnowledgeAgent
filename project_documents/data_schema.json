@@ -4,7 +4,7 @@
     "skiprows": 2,
     "columns": [
       "姓名", "考勤组", "部门", "工号", "职位", "UserId",
-      "出勤天数", "休息天数", "工作时长(小时)",
+      "出勤天数", "休息天数", "工作时长",
       "迟到次数", "迟到时长", "严重迟到次数", "严重迟到时长", "旷工迟到次数",
       "早退次数", "早退时长",
       "上班缺卡次数", "下班缺卡次数", "旷工天数",
@@ -15,18 +15,18 @@
     ],
     "notes": "核心汇总列在上方。文件中还包含每日打卡状态列（1日~31日，随月份天数变化），可按需使用",
     "files": {
-      "2026-01": "D:/Work/HNGD/Agent/KnowledgeBase/StatisticalData/研发中心 2026 年 01 月考勤.xlsx",
-      "2026-02": "D:/Work/HNGD/Agent/KnowledgeBase/StatisticalData/研发中心 2026 年 02 月考勤.xlsx",
-      "2026-03": "D:/Work/HNGD/Agent/KnowledgeBase/StatisticalData/研发中心 2026 年 03 月考勤.xlsx",
-      "2026-04": "D:/Work/HNGD/Agent/KnowledgeBase/StatisticalData/研发中心 2026 年 04 月考勤.xlsx",
-      "2026-05": "D:/Work/HNGD/Agent/KnowledgeBase/StatisticalData/研发中心 2026 年 05 月考勤.xlsx",
-      "2026-06": "D:/Work/HNGD/Agent/KnowledgeBase/StatisticalData/研发中心 2026 年 06 月考勤.xlsx",
-      "2026-07": "D:/Work/HNGD/Agent/KnowledgeBase/StatisticalData/研发中心 2026 年 07 月考勤.xlsx",
-      "2026-08": "D:/Work/HNGD/Agent/KnowledgeBase/StatisticalData/研发中心 2026 年 08 月考勤.xlsx",
-      "2026-09": "D:/Work/HNGD/Agent/KnowledgeBase/StatisticalData/研发中心 2026 年 09 月考勤.xlsx",
-      "2026-10": "D:/Work/HNGD/Agent/KnowledgeBase/StatisticalData/研发中心 2026 年 10 月考勤.xlsx",
-      "2026-11": "D:/Work/HNGD/Agent/KnowledgeBase/StatisticalData/研发中心 2026 年 11 月考勤.xlsx",
-      "2026-12": "D:/Work/HNGD/Agent/KnowledgeBase/StatisticalData/研发中心 2026 年 12 月考勤.xlsx"
+      "2026-01": "研发中心 2026 年 01 月考勤.xlsx",
+      "2026-02": "研发中心 2026 年 02 月考勤.xlsx",
+      "2026-03": "研发中心 2026 年 03 月考勤.xlsx",
+      "2026-04": "研发中心 2026 年 04 月考勤.xlsx",
+      "2026-05": "研发中心 2026 年 05 月考勤.xlsx",
+      "2026-06": "研发中心 2026 年 06 月考勤.xlsx",
+      "2026-07": "研发中心 2026 年 07 月考勤.xlsx",
+      "2026-08": "研发中心 2026 年 08 月考勤.xlsx",
+      "2026-09": "研发中心 2026 年 09 月考勤.xlsx",
+      "2026-10": "研发中心 2026 年 10 月考勤.xlsx",
+      "2026-11": "研发中心 2026 年 11 月考勤.xlsx",
+      "2026-12": "研发中心 2026 年 12 月考勤.xlsx"
     }
   },
 
@@ -36,7 +36,7 @@
     "columns": ["编号", "设备内容", "设备类型", "设备厂家", "设备价格(元)", "采购日期"],
     "notes": "设备价格字段含单位'元'，生成代码时需用 pd.to_numeric 转换",
     "files": {
-      "2026-03": "D:/App_data/HuaNanPdf/AgentTest_pdf/研发中心26年3月硬件设备采购清单.xlsx"
+      "2026-03": "研发中心26年3月硬件设备采购清单.xlsx"
     }
   },
 
@@ -46,7 +46,7 @@
     "columns": ["编号", "软件内容", "软件类型", "软件厂家", "软件价格", "采购日期"],
     "notes": "与采购_硬件结构相近但列名不同，不可合并读取",
     "files": {
-      "2026-03": "D:/App_data/HuaNanPdf/AgentTest_pdf/研发中心26年3月软件采购清单.xlsx"
+      "2026-03": "研发中心26年3月软件采购清单.xlsx"
     }
   },
 
@@ -60,7 +60,7 @@
     ],
     "notes": "金额列含空格，代码中须用 df['实际支出 (元)'] 方式引用",
     "files": {
-      "2026-05": "D:/App_data/HuaNanPdf/AgentTest_pdf/研发中心5月研发经费使用明细表.xlsx"
+      "2026-05": "研发中心5月研发经费使用明细表.xlsx"
     }
   },
 
@@ -74,7 +74,7 @@
     ],
     "notes": "占总成本占比为小数形式（如 0.1872），展示时需乘以 100 转为百分比",
     "files": {
-      "2026": "D:/App_data/HuaNanPdf/AgentTest_pdf/研发中心项目成本统计表.xlsx"
+      "2026": "研发中心项目成本统计表.xlsx"
     }
   },
 
@@ -88,7 +88,7 @@
     ],
     "notes": "时间列为 datetime 类型，展示时用 .dt.strftime('%Y-%m-%d')",
     "files": {
-      "CSMP": "D:/App_data/HuaNanPdf/AgentTest_pdf/CSMP项目-里程碑节点表.xlsx"
+      "CSMP": "CSMP项目-里程碑节点表.xlsx"
     }
   },
 
@@ -102,7 +102,7 @@
     ],
     "notes": "采购数量为字符串格式（如 '8 箱'），金额分析时用 采购金额 (元) 字段直接计算",
     "files": {
-      "2026-06": "D:/App_data/HuaNanPdf/AgentTest_pdf/财务部6月办公耗材费用统计表.xlsx"
+      "2026-06": "财务部6月办公耗材费用统计表.xlsx"
     }
   }
 }

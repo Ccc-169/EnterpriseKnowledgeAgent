@@ -1242,11 +1242,11 @@
         <svg viewBox="0 0 24 24" fill="currentColor"><path d="M20 2H4c-1.1 0-2 .9-2 2v18l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2z"/></svg>
         对话
       </a>
-      <a class="nav-item" href="javascript:void(0)" onclick="setActive(this)">
-        <svg viewBox="0 0 24 24" fill="currentColor"><path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-5 14H7v-2h7v2zm3-4H7v-2h10v2zm0-4H7V7h10v2z"/></svg>
+      <a class="nav-item" href="knowledge-base-page.html">
+        <svg viewBox="0 0 24 24" fill="currentColor"><path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.1 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-5 14H7v-2h7v2zm3-4H7v-2h10v2zm0-4H7V7h10v2z"/></svg>
         知识库
       </a>
-      <a class="nav-item" href="javascript:void(0)" onclick="setActive(this)">
+      <a class="nav-item" href="data-analysis-page.html" onclick="setActive(this)">
         <svg viewBox="0 0 24 24" fill="currentColor"><path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zM9 17H7v-7h2v7zm4 0h-2V7h2v10zm4 0h-2v-4h2v4z"/></svg>
         数据分析
       </a>
@@ -1694,7 +1694,7 @@
     api:   '请描述您想查询的数据，如：当前有多少条报警、各区域设备状态如何...',
   };
 
-  function switchMode(mode, btn) {
+  function switchMode(mode, btn, skipNewConv = false) {
     const modeChanged = (currentMode !== mode);
     currentMode = mode;
     document.querySelectorAll('.mode-tab').forEach(t => t.classList.remove('active'));
@@ -1715,7 +1715,7 @@
       document.getElementById('chat-input').placeholder = modePlaceholder[mode];
     }
 
-    if (modeChanged && mode !== 'write') {
+    if (modeChanged && mode !== 'write' && !skipNewConv) {
       newConversation();
     }
   }
@@ -1810,6 +1810,15 @@
       data.messages.forEach(msg => {
         appendMessage(msg.role === 'user' ? 'user' : 'ai', msg.content, msg.steps_log);
       });
+
+      // 从最后一条 assistant 消息的 agent_used 反推对话的 mode，恢复选择器 UI
+      const aiMsgs = data.messages.filter(m => m.role === 'assistant' && m.agent_used);
+      if (aiMsgs.length > 0) {
+        const agentToMode = { rag_agent: 'rag', data_agent: 'data', api_agent: 'api' };
+        const inferredMode = agentToMode[aiMsgs[aiMsgs.length - 1].agent_used] || 'rag';
+        const btn = document.querySelector(`.mode-tab[data-mode="${inferredMode}"]`);
+        if (btn) switchMode(inferredMode, btn, true);
+      }
     } catch(e) {
       msgBox.innerHTML = '<div style="text-align:center;padding:20px;color:#e05252;font-size:13px;">加载失败，请重试</div>';
       console.error('加载消息失败', e);
@@ -2522,6 +2531,8 @@
     this.appendChild(r);
     setTimeout(() => r.remove(), 600);
   });
+
+  
 </script>
 
 
