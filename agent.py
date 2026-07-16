@@ -6,7 +6,8 @@ from dotenv import load_dotenv
 from langchain_openai import ChatOpenAI
 from langgraph_supervisor import create_supervisor
 from langgraph.checkpoint.sqlite import SqliteSaver
-from langchain_core.messages import HumanMessage, AIMessage
+from langchain_core.messages import HumanMessage, AIMessage, SystemMessage
+from datetime import datetime
 from agents.rag_agent import create_rag_agent, _local as _rag_local
 from agents.data_agent import create_data_agent
 from agents.doc_agent import create_doc_agent
@@ -144,6 +145,30 @@ def _build_messages_with_history(user_input: str, thread_id: str, user_id: int =
     return messages
 
 
+def _build_today_system_message() -> SystemMessage:
+    """
+    构造一条"今日时间"系统消息，注入到 messages 列表开头。
+
+    供 chat() / chat_direct() 统一使用，让所有子 agent
+    （rag_agent / data_agent / doc_agent / api_agent）都能读到服务器
+    的真实当前日期，避免模型在解析"今天/昨天/本周"等相对时间时产生
+    幻觉日期（例如错误地填入 2026-02-04）。
+    """
+    now = datetime.now()
+    weekday_cn = ["星期一", "星期二", "星期三", "星期四",
+                  "星期五", "星期六", "星期日"][now.weekday()]
+    today_cn = f"{now.strftime('%Y-%m-%d')}（{weekday_cn}）"
+    return SystemMessage(
+        content=(
+            f"【系统时间】服务器当前日期: {today_cn}，"
+            f"当前时刻: {now.strftime('%H:%M:%S')}。"
+            f"用户口中的“今天”即 {today_cn}，"
+            f"处理任何与时间相关的查询（今天/昨天/本周/本月等）"
+            f"必须以这条系统时间为准，禁止自行推测日期。"
+        )
+    )
+
+
 def chat_direct(
     agent_name: str,
     user_input: str,
@@ -213,7 +238,8 @@ def chat_direct(
     # ── 构建消息：注入历史上下文（纯文本，不含 tool_calls） ──
     _uid = (user_context.get("user_id") if isinstance(user_context, dict) else None)
     messages_with_history = _build_messages_with_history(user_input, thread_id, _uid)
-    state_input = {"messages": messages_with_history}
+    # ── 注入服务器当前日期到 messages 列表开头 ──
+    state_input = {"messages": [_build_today_system_message(), *messages_with_history]}
     if user_context:
         state_input["user_context"] = user_context
 
@@ -348,7 +374,8 @@ def chat(
     # ── 构建消息：注入历史上下文（替代 MemorySaver 不可靠的运行时记忆） ──
     _uid = (user_context.get("user_id") if isinstance(user_context, dict) else None)
     messages_with_history = _build_messages_with_history(user_input, thread_id, _uid)
-    state_input = {"messages": messages_with_history}
+    # ── 注入服务器当前日期到 messages 列表开头 ──
+    state_input = {"messages": [_build_today_system_message(), *messages_with_history]}
     if user_context:
         state_input["user_context"] = user_context
 

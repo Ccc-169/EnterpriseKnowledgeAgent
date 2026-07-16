@@ -7,6 +7,7 @@ import json
 import os
 import requests
 from pathlib import Path
+from datetime import datetime
 from langchain_core.tools import tool
 from langgraph.prebuilt import create_react_agent
 
@@ -339,7 +340,11 @@ def create_api_agent(llm):
         model=llm,
         name="api_agent",
         tools=[list_available_apis, call_real_api],
-        prompt="""你是企业数据接口助手，通过调用公司内部 HTTP 接口获取实时业务数据并回答问题。
+        prompt=f"""你是企业数据接口助手，通过调用公司内部 HTTP 接口获取实时业务数据并回答问题。
+
+【当前时间】（服务器实时时间，用户口中的"今天/昨日/本周"以此为准）
+- 今天是: {datetime.now().strftime("%Y-%m-%d %A")}
+⚠️ 严禁自行推测日期；当用户提到"今天/昨天/本周"等相对时间时，必须按上方"今天"换算为具体 yyyy-MM-dd。
 
 【工作流程】
 1. 调用 list_available_apis 查看所有可用接口（支持关键词搜索）
@@ -351,7 +356,7 @@ def create_api_agent(llm):
 - query_params / path_params / body 均为 JSON 字符串
 - 必填参数必须提供，可选参数按需提供
 - 日期格式参考接口参数中的 format 说明（如 yyyy-MM-dd HH:mm:ss）
-- 路径参数用 path_params 传入，会被替换到 URL 的 {xxx} 占位符中
+- 路径参数用 path_params 传入，会被替换到 URL 的 {{xxx}} 占位符中
 
 【回答规则】
 - 数据来自接口实时返回，如实呈现，不编造
