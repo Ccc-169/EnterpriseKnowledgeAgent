@@ -1228,7 +1228,7 @@
     <!-- Logo -->
     <div class="sidebar-logo">
       <div class="sidebar-logo-icon">
-        <svg viewBox="0 0 24 24"><path d="M12 2L3 7v5c0 5.25 3.75 10.15 9 11.35C17.25 22.15 21 17.25 21 12V7L12 2zm0 2.18l7 3.9V12c0 4.35-2.98 8.4-7 9.63C7.98 20.4 5 16.35 5 12V8.08l7-3.9z"/><path d="M10 12l-2-2-1.4 1.4L10 14.8l6-6L14.6 7.4z"/></svg>
+        <svg width="20" height="20" viewBox="0 0 24 24"><path d="M12 2L3 7v5c0 5.25 3.75 10.15 9 11.35C17.25 22.15 21 17.25 21 12V7L12 2zm0 2.18l7 3.9V12c0 4.35-2.98 8.4-7 9.63C7.98 20.4 5 16.35 5 12V8.08l7-3.9z"/><path d="M10 12l-2-2-1.4 1.4L10 14.8l6-6L14.6 7.4z"/></svg>
       </div>
       <div class="sidebar-logo-text">
         <h2>HNGD</h2>
@@ -1245,6 +1245,10 @@
       <a class="nav-item" href="knowledge-base-page.html">
         <svg viewBox="0 0 24 24" fill="currentColor"><path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.1 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-5 14H7v-2h7v2zm3-4H7v-2h10v2zm0-4H7V7h10v2z"/></svg>
         知识库
+      </a>
+      <a class="nav-item" id="nav-data-files-item" href="data-files-page.html" style="display:none">
+        <svg viewBox="0 0 24 24" fill="currentColor"><path d="M14 2H6c-1.1 0-1.99.9-1.99 2L4 20c0 1.1.89 2 1.99 2H18c1.1 0 2-.9 2-2V8l-6-6zm-1 7V3.5L18.5 9H13zM6 14h12v2H6v-2zm0-3h12v2H6v-2zm0-3h7v2H6V8z"/></svg>
+        数据文件
       </a>
       <a class="nav-item" href="data-analysis-page.html" onclick="setActive(this)">
         <svg viewBox="0 0 24 24" fill="currentColor"><path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zM9 17H7v-7h2v7zm4 0h-2V7h2v10zm4 0h-2v-4h2v4z"/></svg>
@@ -1640,6 +1644,8 @@
     if (currentUser.role === 'admin') {
       const adminItem = document.getElementById('nav-admin-item');
       if (adminItem) adminItem.style.display = '';
+      const dfItem = document.getElementById('nav-data-files-item');
+      if (dfItem) dfItem.style.display = '';
     }
 
     const hour = new Date().getHours();

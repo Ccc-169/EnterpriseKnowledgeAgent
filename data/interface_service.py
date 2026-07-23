@@ -29,6 +29,21 @@ _STANDARD_SWAGGER_PATHS = [
 ]
 
 
+# ── api_agent 缓存失效钩子 ────────────────────────────
+# 任何修改 data_interface/ 目录或 data_interfaces 表的写入函数末尾都应调用
+# _invalidate_api_cache()，这样 api_agent 的下一次 list_available_apis /
+# call_real_api 调用就能看到最新接口，无需重启服务。
+#
+# 用 try 包裹：纯管理脚本（如 scripts/import_swagger_specs.py 直接 import
+# interface_service 但 api_agent 因依赖未就绪可能 import 失败）不应当因此报错。
+def _invalidate_api_cache() -> None:
+    try:
+        from agents.api_agent import invalidate_api_cache
+        invalidate_api_cache()
+    except Exception:
+        pass
+
+
 # ═══════════════════════════════════════════════════════
 #  扫描与索引
 # ═══════════════════════════════════════════════════════
@@ -235,6 +250,8 @@ def sync_data_interfaces_index(force: bool = False) -> int:
     finally:
         conn.close()
 
+    # 文件/索引双层结构任一变更都让 api_agent 重读磁盘
+    _invalidate_api_cache()
     return indexed
 
 
@@ -558,6 +575,7 @@ def import_selected_tags(base_url: str, selected_services: list[dict],
     if errors:
         msg_parts.append(f"部分失败: {', '.join(errors[:3])}")
 
+    _invalidate_api_cache()
     return {
         "ok": True,
         "imported": total_imported,
@@ -663,6 +681,7 @@ def import_from_swagger_url(base_url: str, service_name: str = "", timeout: int 
     finally:
         conn.close()
 
+    _invalidate_api_cache()
     return {
         "ok": True,
         "imported": imported,
@@ -741,6 +760,7 @@ def import_from_json_content(json_content: str, service_name: str = "") -> dict:
     finally:
         conn.close()
 
+    _invalidate_api_cache()
     return {
         "ok": True,
         "imported": imported,
@@ -771,6 +791,7 @@ def delete_single_interface(interface_id: int) -> dict:
 
         conn.execute("DELETE FROM data_interfaces WHERE id = ?", (interface_id,))
         conn.commit()
+        _invalidate_api_cache()
         return {"ok": True, "message": "接口已从索引中删除"}
     finally:
         conn.close()
@@ -824,6 +845,7 @@ def delete_interface_file(service_name: str, file_name: str) -> dict:
     except Exception:
         pass
 
+    _invalidate_api_cache()
     return {"ok": True, "message": f"已删除接口文件 [{service_name}/{file_name}]"}
 
 
@@ -854,6 +876,7 @@ def delete_service_directory(service_name: str) -> dict:
     finally:
         conn.close()
 
+    _invalidate_api_cache()
     return {"ok": True, "message": f"已删除服务 [{service_name}] 及其所有接口"}
 
 
