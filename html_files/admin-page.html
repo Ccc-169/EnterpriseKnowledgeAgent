@@ -636,6 +636,30 @@
   .file-type-tag.csv  { background: #e8f0fc; color: #2a5aa8; }
   .file-type-tag.other { background: #f0f4f8; color: #7a8aaa; }
 
+  /* ========== 数据文件跳转卡片 ========== */
+  .data-files-redirect {
+    display: flex; align-items: center; gap: 14px;
+    padding: 16px 20px; border: 1px solid #e4eaf4; border-radius: 10px;
+    background: white; text-decoration: none; color: inherit;
+    transition: all 0.18s;
+  }
+  .data-files-redirect:hover {
+    border-color: #2a5aa8; background: #f6faff;
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(42,90,168,0.08);
+  }
+  .data-files-redirect-icon {
+    width: 40px; height: 40px; border-radius: 8px;
+    background: linear-gradient(135deg, #2a5aa8, #4f7dd0);
+    display: flex; align-items: center; justify-content: center;
+    color: white; flex-shrink: 0;
+  }
+  .data-files-redirect-icon svg { width: 22px; height: 22px; }
+  .data-files-redirect-text { flex: 1; min-width: 0; }
+  .data-files-redirect-title { font-size: 14.5px; font-weight: 600; color: #1a2a4a; }
+  .data-files-redirect-desc  { font-size: 12.5px; color: #7a8aaa; margin-top: 3px; }
+  .data-files-redirect-arrow { color: #b0bdd0; font-size: 22px; line-height: 1; }
+
   /* ========== FOOTER ========== */
   .footer-note {
     text-align: center;
@@ -708,7 +732,7 @@
   <div class="sidebar">
     <div class="sidebar-logo">
       <div class="sidebar-logo-icon">
-        <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+        <svg width="20" height="20" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
           <path d="M12 2L3 7v5c0 5.25 3.75 10.15 9 11.35C17.25 22.15 21 17.25 21 12V7L12 2zm0 2.18l7 3.9V12c0 4.35-2.98 8.4-7 9.63C7.98 20.4 5 16.35 5 12V8.08l7-3.9z"/>
           <path d="M10 12l-2-2-1.4 1.4L10 14.8l6-6L14.6 7.4z"/>
         </svg>
@@ -724,11 +748,15 @@
         <svg viewBox="0 0 24 24" fill="currentColor"><path d="M20 2H4c-1.1 0-2 .9-2 2v18l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2z"/></svg>
         对话
       </a>
-      <a class="nav-item" href="javascript:void(0)">
+      <a class="nav-item" href="knowledge-base-page.html">
         <svg viewBox="0 0 24 24" fill="currentColor"><path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-5 14H7v-2h7v2zm3-4H7v-2h10v2zm0-4H7V7h10v2z"/></svg>
         知识库
       </a>
-      <a class="nav-item" href="javascript:void(0)">
+      <a class="nav-item" id="nav-data-files-item" href="data-files-page.html" style="display:none">
+        <svg viewBox="0 0 24 24" fill="currentColor"><path d="M14 2H6c-1.1 0-1.99.9-1.99 2L4 20c0 1.1.89 2 1.99 2H18c1.1 0 2-.9 2-2V8l-6-6zm-1 7V3.5L18.5 9H13zM6 14h12v2H6v-2zm0-3h12v2H6v-2zm0-3h7v2H6V8z"/></svg>
+        数据文件
+      </a>
+      <a class="nav-item" href="data-analysis-page.html">
         <svg viewBox="0 0 24 24" fill="currentColor"><path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zM9 17H7v-7h2v7zm4 0h-2V7h2v10zm4 0h-2v-4h2v4z"/></svg>
         数据分析
       </a>
@@ -1002,26 +1030,18 @@
           <button class="btn-page" id="kb-next-btn" onclick="loadKbDatasets(kbState.page+1)">下一页</button>
         </div>
 
-        <!-- 本地数据文件 -->
+        <!-- 本地数据文件 — 跳转卡片 -->
         <div class="local-files-section">
-          <div class="kb-header" style="margin-bottom:12px">
-            <span class="card-title">本地数据文件</span>
-            <span class="kb-tip" id="local-files-path">加载中...</span>
-          </div>
-          <div id="local-files-list">
-            <div style="text-align:center;padding:24px;color:#9aaac0;font-size:13px">加载中...</div>
-          </div>
-          <div class="doc-pagination" id="lf-pagination" style="display:none">
-            <button class="btn-page" id="lf-prev-btn" onclick="lfGoPage(lfState.page-1)">上一页</button>
-            <span id="lf-page-label" style="color:#7a8aaa"></span>
-            <button class="btn-page" id="lf-next-btn" onclick="lfGoPage(lfState.page+1)">下一页</button>
-            <span style="margin-left:8px;font-size:12px;color:#9aaac0">每页</span>
-            <select id="lf-pagesize" onchange="lfChangePageSize(this.value)"
-              style="border:1px solid #d0dae8;border-radius:5px;padding:4px 8px;font-size:12px;color:#1a2a4a;background:white;cursor:pointer;outline:none;font-family:inherit">
-              <option value="5">5 条</option>
-              <option value="10" selected>10 条</option>
-            </select>
-          </div>
+          <a class="data-files-redirect" href="data-files-page.html">
+            <div class="data-files-redirect-icon">
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor"><path d="M14 2H6c-1.1 0-1.99.9-1.99 2L4 20c0 1.1.89 2 1.99 2H18c1.1 0 2-.9 2-2V8l-6-6zm-1 7V3.5L18.5 9H13zM6 14h12v2H6v-2zm0-3h12v2H6v-2zm0-3h7v2H6V8z"/></svg>
+            </div>
+            <div class="data-files-redirect-text">
+              <div class="data-files-redirect-title">数据文件管理</div>
+              <div class="data-files-redirect-desc">管理供 data_agent 使用的 Excel / CSV 文件（上传 / 删除 / 列表）</div>
+            </div>
+            <span class="data-files-redirect-arrow">›</span>
+          </a>
         </div>
       </div>
 
@@ -1237,13 +1257,15 @@
     try { user = JSON.parse(localStorage.getItem('user') || 'null'); } catch(e) {}
     if (!user || !localStorage.getItem('token')) { window.location.href = 'login-page.html'; return; }
     if (user.role !== 'admin') { window.location.href = 'home-page.html'; return; }
+    // admin 校验通过后，显示同属管理员专用的「数据文件」侧边栏入口
+    const dfItem = document.getElementById('nav-data-files-item');
+    if (dfItem) dfItem.style.display = '';
     document.getElementById('sidebar-username').textContent = user.display_name || user.username;
     document.getElementById('sidebar-role').textContent = ROLE_MAP[user.role] || user.role;
     renderSidebarAvatar(user.avatar || null);
     loadStats();
     loadUsers();
     loadKbDatasets(1);
-    loadLocalFiles();
   }
 
   // ── 弹窗关闭（遮罩点击 / Esc）────────────────────────
@@ -1602,75 +1624,7 @@
     }
   }
 
-  // ── 本地数据文件 ──────────────────────────────────────
-  const lfState = { files: [], page: 1, pageSize: 10 };
-
-  async function loadLocalFiles() {
-    const listEl  = document.getElementById('local-files-list');
-    const pathEl  = document.getElementById('local-files-path');
-    const paginEl = document.getElementById('lf-pagination');
-    try {
-      const r = await fetch(`${API_BASE}/api/admin/data-files`, { headers: authHeaders() });
-      if (r.status === 503) {
-        const d = await r.json();
-        listEl.innerHTML = `<div class="kb-unconfigured">${d.detail}</div>`;
-        pathEl.textContent = '';
-        paginEl.style.display = 'none';
-        return;
-      }
-      if (!r.ok) throw new Error('获取数据文件失败');
-      const d = await r.json();
-      pathEl.textContent = d.dir;
-      lfState.files = d.files;
-      lfState.page  = 1;
-      if (!d.files.length) {
-        listEl.innerHTML = '<div style="text-align:center;padding:24px;color:#9aaac0;font-size:13px">目录下暂无文件</div>';
-        paginEl.style.display = 'none';
-        return;
-      }
-      renderLocalFiles();
-    } catch(err) {
-      document.getElementById('local-files-list').innerHTML =
-        `<div style="text-align:center;padding:24px;color:#c0392b;font-size:13px">${err.message}</div>`;
-    }
-  }
-
-  function renderLocalFiles() {
-    const { files, page, pageSize } = lfState;
-    const total      = files.length;
-    const totalPages = Math.ceil(total / pageSize);
-    const slice      = files.slice((page - 1) * pageSize, page * pageSize);
-    const extClass   = ext => ['xlsx','xls'].includes(ext) ? ext : ext === 'csv' ? 'csv' : 'other';
-    const extLabel   = ext => (ext && ext !== '—') ? ext.toUpperCase() : '—';
-
-    document.getElementById('local-files-list').innerHTML = `<table class="doc-table">
-      <thead><tr><th>类型</th><th>文件名</th><th>大小</th></tr></thead>
-      <tbody>${slice.map(f => `<tr>
-        <td><span class="file-type-tag ${extClass(f.ext)}">${extLabel(f.ext)}</span></td>
-        <td style="max-width:320px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${f.name}">${f.name}</td>
-        <td style="color:#9aaac0;white-space:nowrap">${f.size_kb} KB</td>
-      </tr>`).join('')}</tbody>
-    </table>`;
-
-    const paginEl = document.getElementById('lf-pagination');
-    paginEl.style.display = 'flex';
-    document.getElementById('lf-prev-btn').disabled = page <= 1;
-    document.getElementById('lf-next-btn').disabled = page >= totalPages;
-    document.getElementById('lf-page-label').textContent =
-      `第 ${page} / ${totalPages} 页 · 共 ${total} 个文件`;
-  }
-
-  function lfGoPage(p) {
-    const totalPages = Math.ceil(lfState.files.length / lfState.pageSize);
-    lfState.page = Math.max(1, Math.min(p, totalPages));
-    renderLocalFiles();
-  }
-
-  function lfChangePageSize(val) {
-    lfState.pageSize = parseInt(val);
-    lfState.page = 1;
-    renderLocalFiles();
-  }
+  // ── 本地数据文件 — 已迁移至 data-files-page.html 独立页面 ────────────
 
   // ── 退出登录 ──────────────────────────────────────────
   async function logout() {

@@ -1,6 +1,61 @@
 ﻿# 开发日志列表
 :
 
+## 2026-06-18 (Agent 回复气泡增加白色卡片效果)
+
+**问题**：Agent（AI）回复消息气泡使用 `background: #f4f7fc` 极浅蓝灰背景，在页面灰色背景下视觉上几乎透明，与用户深蓝色消息缺乏明显对比。
+
+**方案**（仅改 `html_files/home-page.html` 的 `.msg-row.ai .msg-bubble` CSS，5 处属性调整）：
+- `background: #f4f7fc` → `background: #ffffff`（纯白背景）
+- `border: 1px solid #e4ecf5` → `border: 1px solid #dce4ee`（边框略深增强轮廓）
+- 新增 `box-shadow: 0 1px 6px rgba(26,58,110,0.08)`（轻微阴影提升层次感）
+- `padding: 9px 13px` → `padding: 12px 16px`（稍增内边距让卡片更舒展）
+
+**效果**：Agent 回复呈现为明显的浅白色卡片，与用户发送的深蓝色渐变消息形成清晰的"白 vs 蓝"视觉对比。
+
+**修改文件**：`html_files/home-page.html`
+
+**时间**：2026-06-18
+
+---
+
+## 2026-06-18 (聊天消息区域去除边框卡片效果)
+
+**问题**：`.chat-messages` 区域有白色背景 + 1.5px 蓝灰边框 + 12px 圆角，在灰色页面背景上形成明显的"白卡片框"视觉效果，非常突兀。
+
+**方案**（仅改 `html_files/home-page.html` 的 `.chat-messages` CSS，4 处属性调整）：
+- `background: white` → `background: transparent`
+- `border-radius: 12px` → `border-radius: 0`
+- `border: 1.5px solid #d8e4f0` → `border: none`
+- `padding: 16px` → `padding: 20px 32px`（与 `.home-body` 水平 padding 对齐）
+
+**效果**：聊天消息区域不再显示为浮于页面上的独立卡片，而是与页面背景自然融合，消息气泡自身背景色足以区分内容。
+
+**修改文件**：`html_files/home-page.html`
+
+**时间**：2026-06-18
+
+---
+
+## 2026-06-18 (首页聊天区扩展——对话开始时隐藏欢迎区)
+
+**问题**：首页聊天区域被顶部问候语（"上午好 XX"）+ 4 张功能卡片（知识问答/数据分析/仿写创作/更多功能）占据约 40% 空间，`.chat-messages` 还硬编码了 `max-height: 320px`，导致聊天区被严重截断。
+
+**方案**（仅改 `html_files/home-page.html`，2 处修改）：
+1. **CSS**：新增 `.home-body.chat-active` 状态类——激活时 `.greeting-section` 和 `.feature-cards` 设为 `display: none`，`.chat-messages.visible` 去掉 `max-height` 限制改为 `flex: 1; min-height: 0` 撑满剩余空间。
+2. **JS**：在 `updateChatMessagesVisibility()` 末尾追加一行 `document.querySelector('.home-body').classList.toggle('chat-active', hasContent)`，复用已有调用链（appendMessage / appendAiShell / appendTyping / removeTyping / sendChat），无需额外改动调用方。
+
+**效果**：
+- 有对话内容时：问候语+卡片自动隐藏，聊天区填满整个上半部分。
+- 新建/清空对话时：欢迎区自动恢复。
+- 文档模式不受影响（由 `switchMode` 独立控制 `doc-panel`）。
+
+**修改文件**：`html_files/home-page.html`
+
+**时间**：2026-06-18
+
+---
+
 ## 2026-06-14 (修复 rag_search 重复调用 28 次)
 
 **背景**：上一轮 Router 循环修复后，trace 显示同一问题 rag_search 仍被调用 28 次（同一查询词、同一 tool_call id `call_ohykswt4` 出现 15 次），耗时 66 秒、消耗 246k token。
@@ -91,6 +146,33 @@
 **时间**：2026-06-12
 
 ---
+---
+
+## 2026-06-15 (接口导入支持自定义 openapi-ui 智能探测 + 按标签选择导入)
+
+**背景**：此前"从 Swagger URL 导入"仅支持标准 Swagger 端点（`/v3/api-docs`、`/v2/api-docs`、`/swagger.json`、`/api-docs`），无法适配公司内部基于自定义 openapi-ui（`/api/document`）的服务。这类系统以"服务→标签→接口"三层结构组织，一个地址下可能有数十个标签，此前用户无法导入。
+
+**功能**：
+1. 智能端点探测：自动识别标准 Swagger 和自定义 openapi-ui 两种模式。
+2. 服务-标签选择弹窗：自定义模式下弹窗展示所有服务及其标签，支持全选/取消全选/按需勾选。
+3. 按标签精确导入：用户选中标签后，逐标签下载 OpenAPI 规范并索引入库。
+
+**方案**（`data/interface_service.py` 新增 2 个函数、改造 1 个函数；`api.py` 新增 2 个端点；`html_files/interface_config.html` 新增弹窗 UI）：
+- **`discover_swagger_services()`**：两阶段探测——先依次拼标准路径（`/v3/api-docs` 等）；全部失败则 `GET /api/document`，若返回 `{"data": [{"title": ..., "tags": [...]}]}` 则为自定义模式，直接拿到全量服务-标签元数据的目录。
+- **`import_from_swagger_url()` 改造**：三路分支——标准命中→全量导入（行为不变）；自定义命中→返回 `type="custom_select"` + `services` 列表，由前端接管；都失败→报错。
+- **`import_selected_tags()`**：接收用户勾选的 `[{query, tag_name, tag_desc}]`，对每个标签请求 `GET /api/document/content/{query}` 下载完整 OpenAPI JSON，验证后保存到 `data_interface/{service_name}/{tag_name}.json`，解析 endpoints 写入 SQLite 索引。
+- **前端弹窗**：`modal-service-select` 按服务分组渲染标签行、自定义 checkbox 交互；`tagLookupMap` 查找表避免 onclick 传参被特殊字符破坏；`selectAllTags`/`deselectAllTags` 一键全选/取消；`submitSelectedTags` 调用新端点 `/api/admin/interfaces/import-selected-tags`。
+- **API 端点**：新增 `POST /api/admin/interfaces/discover-services`（公开探测）、`POST /api/admin/interfaces/import-selected-tags`（按标签导入）。
+
+**关键取舍**：
+- 自定义模式不自动全量导入——一个服务可能有几十个标签、数百个接口，用户按需选择避免信息过载。
+- 标签导入时分文件独立保存，而非合并为一个文件——每个标签对应一个 `.json`，便于后续按标签管理/删除。
+- `tagLookupMap` 用 `data-tag-key` 属性传 key 而非直接写在 onclick 参数中，防御标签名含引号/尖括号导致的 HTML 注入风险。
+
+**修改文件**：`data/interface_service.py`、`api.py`、`html_files/interface_config.html`
+
+**时间**：2026-06-15
+
 
 ## 2026-06-10 (接口配置页参数类型列)
 
@@ -1054,3 +1136,4 @@
 **修改文件**：`html_files/more-features-page.html`
 
 **时间**：2026-06-15
+

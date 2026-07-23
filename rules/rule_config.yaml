@@ -145,6 +145,42 @@ rules:
     suggestion: "将技术错误转换为用户友好的说明"
     applies_to: ["rag_agent", "data_agent"]
 
+  - id: GEN_QUALITY-003
+    name: "内部信息泄露"
+    description: "答案不得包含内部路径、内网IP、localhost URL等内部信息"
+    category: quality
+    severity: warning
+    type: blocklist
+    stage: post_retrieve
+    pattern: "(?i)(/home/|C:\\\\Users\\\\|192\\.168\\.|10\\.\\d+\\.\\d+\\.\\d+|172\\.(1[6-9]|2\\d|3[01])\\.\\d+\\.\\d+|localhost\\:\\d+|127\\.0\\.0\\.1)"
+    message: "答案中包含系统内部信息，应自动过滤"
+    suggestion: "移除路径/IP/localhost等内部信息，使用通用描述替代"
+    applies_to: ["rag_agent", "data_agent"]
+
+  - id: GEN_QUALITY-004
+    name: "拒绝模式"
+    description: "答案不应以拒绝性措辞开头，应提供建设性回复"
+    category: quality
+    severity: warning
+    type: blocklist
+    stage: post_retrieve
+    pattern: "(?i)^(我无法|我不能|我没办法|抱歉|作为一个AI|I cannot|I'm unable|I am unable|As an AI)"
+    message: "答案以拒绝性措辞开头，用户体验差"
+    suggestion: "改用建设性表述，如'您可以尝试...'或'建议联系...'"
+    applies_to: ["rag_agent", "data_agent"]
+
+  - id: GEN_QUALITY-005
+    name: "模板化敷衍"
+    description: "答案以'根据提供的信息'开头但内容过短，疑似模板化敷衍"
+    category: quality
+    severity: info
+    type: blocklist
+    stage: post_retrieve
+    pattern: "(?i)^根据提供的信息|^根据上述|^根据以上|^Based on the (provided|above)"
+    message: "答案疑似模板化敷衍，开头套话但内容不足"
+    suggestion: "提供更具体的内容，或追加提示引导用户进一步提问"
+    applies_to: ["rag_agent"]
+
   # ══════════════════════════════════════════════════════════════
   # 四、代码库完整性 (CODEBASE) — 指导 AI 编程工具修改项目
   #    这些规则是 AI 工具修改本项目的指引，非代码执行校验

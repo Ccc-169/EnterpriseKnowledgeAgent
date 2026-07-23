@@ -29,6 +29,21 @@ _STANDARD_SWAGGER_PATHS = [
 ]
 
 
+# ── api_agent 缓存失效钩子 ────────────────────────────
+# 任何修改 data_interface/ 目录或 data_interfaces 表的写入函数末尾都应调用
+# _invalidate_api_cache()，这样 api_agent 的下一次 list_available_apis /
+# call_real_api 调用就能看到最新接口，无需重启服务。
+#
+# 用 try 包裹：纯管理脚本（如 scripts/import_swagger_specs.py 直接 import
+# interface_service 但 api_agent 因依赖未就绪可能 import 失败）不应当因此报错。
+def _invalidate_api_cache() -> None:
+    try:
+        from agents.api_agent import invalidate_api_cache
+        invalidate_api_cache()
+    except Exception:
+        pass
+
+
 # ═══════════════════════════════════════════════════════
 #  扫描与索引
 # ═══════════════════════════════════════════════════════
@@ -235,6 +250,8 @@ def sync_data_interfaces_index(force: bool = False) -> int:
     finally:
         conn.close()
 
+    # 文件/索引双层结构任一变更都让 api_agent 重读磁盘
+    _invalidate_api_cache()
     return indexed
 
 
@@ -370,24 +387,28 @@ def get_interface_detail(interface_id: int) -> Optional[dict]:
 #  导入接口
 # ═══════════════════════════════════════════════════════
 
-def import_from_swagger_url(base_url: str, service_name: str = "", timeout: int = 15) -> dict:
+def discover_swagger_services(base_url: str, timeout: int = 15) -> dict:
     """
-    从前端传入的 Swagger URL 导入接口。
+    智能探测 Swagger 端点，支持标准 Swagger 和自定义 openapi-ui。
 
-    流程:
-    1. 探测 Swagger 端点
-    2. 下载 OpenAPI JSON
-    3. 后端验证
-    4. 保存到 data_interface/ 并按 service_name 归类
-    5. 同步到数据库索引
+    返回：
+      - 标准 Swagger: {"type": "standard", "spec": {...}}
+      - 自定义 openapi-ui: {"type": "custom", "base_url": base_url, "services": [...]}
+      - 失败: {"type": "error", "message": "..."}
 
-    返回 {"ok": True, "imported": N, "service_name": "...", "message": "..."}
+    custom 格式中 each service:
+      {
+        "title": "基础信息管理",
+        "filename": "937f...271a.json",
+        "tags": [
+          {"name": "DutyStatistics", "description": "人员值班统计", "query": "937f...271a.json?tag=DutyStatistics"},
+          ...
+        ]
+      }
     """
     base_url = base_url.rstrip("/")
 
-    # 1. 探测端点
-    spec_data = None
-    detected_path = None
+    # 1. 先尝试标准 Swagger 路径
     for path in _STANDARD_SWAGGER_PATHS:
         full_url = f"{base_url}{path}"
         try:
@@ -395,27 +416,226 @@ def import_from_swagger_url(base_url: str, service_name: str = "", timeout: int 
             if resp.status_code == 200:
                 data = resp.json()
                 if isinstance(data, dict) and ("openapi" in data or "swagger" in data):
-                    spec_data = data
-                    detected_path = path
-                    break
+                    return {"type": "standard", "spec": data, "detected_path": path}
         except Exception:
             continue
 
-    if spec_data is None:
-        return {"ok": False, "message": f"无法从 {base_url} 探测到有效的 OpenAPI 端点，已尝试: {', '.join(_STANDARD_SWAGGER_PATHS)}"}
+    # 2. 标准路径全部失败，尝试自定义 openapi-ui (/api/document)
+    doc_url = f"{base_url}/api/document"
+    try:
+        resp = requests.get(doc_url, timeout=timeout)
+        if resp.status_code == 200:
+            data = resp.json()
+            # 探测返回的格式
+            services = None
+            if isinstance(data, dict):
+                services = data.get("data") or data.get("services")
+            elif isinstance(data, list):
+                services = data
 
-    # 2. 验证
+            if services and isinstance(services, list) and len(services) > 0:
+                # 验证格式：需要 title 和 tags
+                if all("title" in s and "tags" in s for s in services):
+                    return {"type": "custom", "base_url": base_url, "services": services}
+
+    except Exception:
+        pass
+
+    return {
+        "type": "error",
+        "message": f"无法从 {base_url} 探测到有效的 Swagger 端点，已尝试: {', '.join(_STANDARD_SWAGGER_PATHS)} 和 /api/document"
+    }
+
+
+def import_selected_tags(base_url: str, selected_services: list[dict],
+                         service_name: str = "", timeout: int = 15) -> dict:
+    """
+    从自定义 openapi-ui 系统中按服务分组导入用户选择的标签（tags）。
+
+    Args:
+        base_url: 基础 URL
+        selected_services: [
+            {
+                "service_title": "消息中心",
+                "queries": [{"query": "xxx.json?tag=TagName", "tag_name": "TagName", "tag_desc": "..."}, ...]
+            },
+            ...
+        ]
+        service_name: 用户自定义的服务名称；若提供，则所有标签合并到该服务下，
+                      否则按 selected_services 中的 service_title 分组
+        timeout: 请求超时
+
+    返回 {"ok": True, "imported": N, "total_files": M, "services": [...], "message": "..."}
+    """
+    # 若用户设定了自定义服务名，则将来自多个 Swagger 服务的所有标签合并到一个服务下
+    if service_name:
+        all_queries = []
+        for svc in selected_services:
+            all_queries.extend(svc.get("queries", []))
+        selected_services = [{"service_title": service_name, "queries": all_queries}]
+
+    base_url = base_url.rstrip("/")
+    total_imported = 0
+    total_files = 0
+    errors = []
+    imported_services = []
+
+    for svc in selected_services:
+        service_title = svc.get("service_title", "未命名服务")
+        selected_queries = svc.get("queries", [])
+        if not selected_queries:
+            continue
+
+        save_dir = _DATA_INTERFACE_DIR / service_title
+        save_dir.mkdir(parents=True, exist_ok=True)
+
+        svc_imported = 0
+        svc_files = 0
+        for sq in selected_queries:
+            query = sq["query"]
+            tag_name = sq.get("tag_name", "unknown")
+            tag_desc = sq.get("tag_desc", "")
+
+            content_url = f"{base_url}/api/document/content/{query}"
+            try:
+                resp = requests.get(content_url, timeout=timeout)
+                if resp.status_code != 200:
+                    errors.append(f"[{service_title}] {tag_name}: HTTP {resp.status_code}")
+                    continue
+                spec_data = resp.json()
+            except Exception as e:
+                errors.append(f"[{service_title}] {tag_name}: {e}")
+                continue
+
+            # 验证
+            valid, msg = _validate_openapi_spec(spec_data)
+            if not valid:
+                errors.append(f"[{service_title}] {tag_name}: {msg}")
+                continue
+
+            # 保存文件
+            file_name = _tag_safe_name(tag_name)
+            filepath = save_dir / f"{file_name}.json"
+            # 若已有同名文件，追加后缀
+            counter = 1
+            while filepath.exists():
+                filepath = save_dir / f"{file_name}_{counter}.json"
+                counter += 1
+
+            filepath.write_text(
+                json.dumps(spec_data, ensure_ascii=False, indent=2),
+                encoding="utf-8",
+            )
+            svc_files += 1
+
+            # 同步到索引
+            endpoints = _parse_openapi_endpoints(spec_data)
+            conn = get_db()
+            try:
+                conn.execute(
+                    "DELETE FROM data_interfaces WHERE spec_file_path = ?",
+                    (str(filepath),),
+                )
+                for ep in endpoints:
+                    try:
+                        conn.execute(
+                            """INSERT INTO data_interfaces
+                            (service_name, file_name, path, method, summary, operation_id,
+                             parameters, tags, spec_file_path, file_mtime, enabled)
+                            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1)""",
+                            (
+                                service_title,
+                                file_name,
+                                ep["path"],
+                                ep["method"],
+                                ep.get("summary", ""),
+                                ep.get("operationId", ""),
+                                json.dumps(ep.get("parameters", []), ensure_ascii=False),
+                                json.dumps(ep.get("tags", []), ensure_ascii=False),
+                                str(filepath),
+                                filepath.stat().st_mtime,
+                            ),
+                        )
+                        svc_imported += 1
+                    except Exception:
+                        pass
+                conn.commit()
+            finally:
+                conn.close()
+
+        total_imported += svc_imported
+        total_files += svc_files
+        imported_services.append({
+            "service_title": service_title,
+            "imported": svc_imported,
+            "files": svc_files,
+        })
+
+    msg_parts = [f"成功导入 {total_imported} 个接口（{total_files} 个文件）到 {len(imported_services)} 个服务中"]
+    if errors:
+        msg_parts.append(f"部分失败: {', '.join(errors[:3])}")
+
+    _invalidate_api_cache()
+    return {
+        "ok": True,
+        "imported": total_imported,
+        "total_files": total_files,
+        "services": imported_services,
+        "errors": errors,
+        "message": "；".join(msg_parts),
+    }
+
+
+def import_from_swagger_url(base_url: str, service_name: str = "", timeout: int = 15) -> dict:
+    """
+    从前端传入的 Swagger URL 导入接口。
+
+    流程:
+    1. 探测 Swagger 端点
+    2. 如果是标准 Swagger → 直接全量导入
+    3. 如果是自定义 openapi-ui → 返回服务列表让前端选择
+    4. 保存到 data_interface/ 并按 service_name 归类
+    5. 同步到数据库索引
+
+    返回:
+      - 标准成功: {"ok": True, "imported": N, "service_name": "...", "message": "..."}
+      - 需要选择: {"ok": False, "type": "custom_select", "base_url": base_url, "services": [...], "message": "..."}
+      - 失败: {"ok": False, "message": "..."}
+    """
+    base_url = base_url.rstrip("/")
+
+    # 1. 探测
+    discovery = discover_swagger_services(base_url, timeout)
+
+    if discovery["type"] == "error":
+        return {"ok": False, "message": discovery["message"]}
+
+    if discovery["type"] == "custom":
+        # 自定义 openapi-ui：返回服务列表让前端选择
+        return {
+            "ok": False,
+            "type": "custom_select",
+            "base_url": base_url,
+            "services": discovery["services"],
+            "message": f"检测到自定义 openapi-ui 系统，共 {len(discovery['services'])} 个服务，请选择要导入的标签",
+        }
+
+    # 2. 标准 Swagger：直接全量导入
+    spec_data = discovery["spec"]
+    detected_path = discovery.get("detected_path", "")
+
+    # 验证
     valid, msg = _validate_openapi_spec(spec_data)
     if not valid:
         return {"ok": False, "message": f"OpenAPI 规范验证失败: {msg}"}
 
-    # 3. 确定服务名和文件名
+    # 确定服务名和文件名
     if not service_name:
         service_name = _get_service_name_from_spec(spec_data)
 
     file_name = _tag_safe_name(_get_service_name_from_spec(spec_data))
 
-    # 4. 保存文件
+    # 保存文件
     save_dir = _DATA_INTERFACE_DIR / service_name
     save_dir.mkdir(parents=True, exist_ok=True)
 
@@ -425,11 +645,10 @@ def import_from_swagger_url(base_url: str, service_name: str = "", timeout: int 
         encoding="utf-8",
     )
 
-    # 5. 同步到索引
+    # 同步到索引
     endpoints = _parse_openapi_endpoints(spec_data)
     conn = get_db()
     try:
-        # 清除该文件的旧索引
         conn.execute(
             "DELETE FROM data_interfaces WHERE spec_file_path = ?",
             (str(filepath),),
@@ -462,6 +681,7 @@ def import_from_swagger_url(base_url: str, service_name: str = "", timeout: int 
     finally:
         conn.close()
 
+    _invalidate_api_cache()
     return {
         "ok": True,
         "imported": imported,
@@ -540,6 +760,7 @@ def import_from_json_content(json_content: str, service_name: str = "") -> dict:
     finally:
         conn.close()
 
+    _invalidate_api_cache()
     return {
         "ok": True,
         "imported": imported,
@@ -570,6 +791,7 @@ def delete_single_interface(interface_id: int) -> dict:
 
         conn.execute("DELETE FROM data_interfaces WHERE id = ?", (interface_id,))
         conn.commit()
+        _invalidate_api_cache()
         return {"ok": True, "message": "接口已从索引中删除"}
     finally:
         conn.close()
@@ -623,6 +845,7 @@ def delete_interface_file(service_name: str, file_name: str) -> dict:
     except Exception:
         pass
 
+    _invalidate_api_cache()
     return {"ok": True, "message": f"已删除接口文件 [{service_name}/{file_name}]"}
 
 
@@ -653,6 +876,7 @@ def delete_service_directory(service_name: str) -> dict:
     finally:
         conn.close()
 
+    _invalidate_api_cache()
     return {"ok": True, "message": f"已删除服务 [{service_name}] 及其所有接口"}
 
 

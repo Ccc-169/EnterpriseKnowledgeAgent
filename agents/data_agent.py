@@ -52,8 +52,8 @@ def create_data_agent(llm):
             return f"未找到类别 '{category}'，已登记类别：{list(schema.keys())}。请改用 list_files 查找文件。"
 
         info = schema[category]
-        columns_str = "、".join(info.get("columns", []))
-        files_str = "\n".join(f"  {k}: {v}" for k, v in info.get("files", {}).items())
+        columns_str = "、".join(f"`{c}`" for c in info.get("columns", []))
+        files_str = "\n".join(f"  {k}: {os.path.join(DATA_DIR, v)}" for k, v in info.get("files", {}).items())
         return (
             f"类别：{category}\n"
             f"描述：{info['description']}\n"
@@ -186,7 +186,7 @@ def create_data_agent(llm):
             f"需求：{query}"
         )
 
-        cache_key = (file_path, skiprows, query)
+        cache_key = (file_path, skiprows, query, columns)
         if cache_key in _code_cache:
             code = _code_cache[cache_key]
         else:
@@ -203,6 +203,8 @@ def create_data_agent(llm):
                 resp = _http_session.post(
                     f"{EXECUTOR_URL}/execute", json={"code": c, "data_path": payload_data_path}
                 )
+            if resp.status_code != 200:
+                return {"status": "error", "output": "", "error": f"代码执行器不可达（HTTP {resp.status_code}），请检查 EXECUTOR_URL 配置"}
             return resp.json()
 
         # ── 规则安全校验 ──────────────────────────────────────────────────────
@@ -236,7 +238,23 @@ def create_data_agent(llm):
             return f"执行失败：{exec_result.get('error', '未知错误')}\n生成代码：\n{code}"
 
         # /execute_batch 返回 outputs 列表，/execute 返回 output 字符串
-        return exec_result.get("outputs", [exec_result.get("output", "")])[0]
+        if "outputs" not in exec_result and "output" not in exec_result:
+            return f"代码执行器返回了非预期格式（缺少 output/outputs 字段）：{json.dumps(exec_result, ensure_ascii=False)[:300]}"
+
+        raw_output = exec_result.get("outputs", [exec_result.get("output", "")])[0]
+        if not raw_output or not raw_output.strip():
+            col_label = columns[:80] + "..." if columns and len(columns) > 80 else (columns or "未指定")
+            return (
+                f"查询执行完成但未返回数据（status=success, output 为空）。\n"
+                f"当前参数：file_path={file_path}, skiprows={skiprows}, columns=[{col_label}]\n"
+                f"可能原因：\n"
+                f"① skiprows={skiprows} 与实际表头行不一致 → 读取了空列或标题行当数据\n"
+                f"② 列名不匹配 → 代码中引用了文件中不存在的列\n"
+                f"③ 生成的代码逻辑正确但数据确实为空\n\n"
+                f"【建议】先调用 lookup_schema 确认该类别的正确 skiprows 和真实列名，"
+                f"再用真实列名重新调用 execute_data_query。不要反复用相同参数重试。"
+            )
+        return raw_output
 
     return create_react_agent(
         model=llm,
@@ -251,11 +269,12 @@ def create_data_agent(llm):
 - execute_data_query：生成 Python 代码并执行统计，需传入 query、file_path、skiprows、columns
   - columns 参数：必须使用真实列名，以逗号分隔填入（如 "序号,经费类别,实际支出 (元),支出日期"）
 
-【优先流程——每次任务开始时执行】
-1. 先调用 lookup_schema（不传参）查看有哪些已登记模板
-2. 若用户问题匹配某类别，再调用 lookup_schema(category) 获取完整信息（skiprows、列名、文件路径）
-   → 直接调用 execute_data_query，跳过 list_files 和 inspect_file
-3. 若未匹配到任何类别，再按原流程：list_files → inspect_file → execute_data_query
+【硬性约束——调用顺序，违反将导致查询失败】
+0. 🚫 禁止在调用 lookup_schema 之前调用 execute_data_query！即使你认为知道列名和 skiprows，也必须通过 lookup_schema 获取真实 schema。凭记忆猜测的列名可能不完整或有错，导致代码生成失败或返回空结果。
+1. 每次任务开始时，必须首先调用 lookup_schema() 查看所有已登记模板
+2. 若用户问题匹配某类别，紧接着调用 lookup_schema(类别名) 获取完整 skiprows、列名、文件路径
+3. 拿到 schema 信息后，再用真实列名调用 execute_data_query，跳过 list_files 和 inspect_file
+4. 若 lookup_schema 未匹配到任何类别，再按原流程：list_files → inspect_file → execute_data_query
 
 【效率规则——减少等待时间，提升响应速度】
 4. 合并统计：对同一文件的多项需求（如"硬件采购+软件采购"）应合并为一次 execute_data_query，用多个变量存储结果
