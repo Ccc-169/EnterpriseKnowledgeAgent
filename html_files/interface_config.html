@@ -295,8 +295,9 @@
     </div>
     <nav class="nav-menu">
       <a class="nav-item" href="home-page.html"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M20 2H4c-1.1 0-2 .9-2 2v18l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2z"/></svg>对话</a>
-      <a class="nav-item" href="javascript:void(0)"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-5 14H7v-2h7v2zm3-4H7v-2h10v2zm0-4H7V7h10v2z"/></svg>知识库</a>
-      <a class="nav-item" href="javascript:void(0)"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zM9 17H7v-7h2v7zm4 0h-2V7h2v10zm4 0h-2v-4h2v4z"/></svg>数据分析</a>
+      <a class="nav-item" href="knowledge-base-page.html"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-5 14H7v-2h7v2zm3-4H7v-2h10v2zm0-4H7V7h10v2z"/></svg>知识库</a>
+      <a class="nav-item" id="nav-data-files-item" href="data-files-page.html" style="display:none"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M14 2H6c-1.1 0-1.99.9-1.99 2L4 20c0 1.1.89 2 1.99 2H18c1.1 0 2-.9 2-2V8l-6-6zm-1 7V3.5L18.5 9H13zM6 14h12v2H6v-2zm0-3h12v2H6v-2zm0-3h7v2H6V8z"/></svg>数据文件</a>
+      <a class="nav-item" href="data-analysis-page.html"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zM9 17H7v-7h2v7zm4 0h-2V7h2v10zm4 0h-2v-4h2v4z"/></svg>数据分析</a>
       <a class="nav-item active" href="more-features-page.html"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M4 8h4V4H4v4zm6 12h4v-4h-4v4zm-6 0h4v-4H4v4zm0-6h4v-4H4v4zm6 0h4v-4h-4v4zm6-10v4h4V4h-4zm-6 4h4V4h-4v4zm6 6h4v-4h-4v4zm0 6h4v-4h-4v4z"/></svg>更多功能</a>
       <a class="nav-item" href="setting-page.html"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M19.14 12.94c.04-.3.06-.61.06-.94 0-.32-.02-.64-.07-.94l2.03-1.58c.18-.14.23-.41.12-.61l-1.92-3.32c-.12-.22-.37-.29-.59-.22l-2.39.96c-.5-.38-1.03-.7-1.62-.94l-.36-2.54c-.04-.24-.24-.41-.48-.41h-3.84c-.24 0-.43.17-.47.41l-.36 2.54c-.59.24-1.13.57-1.62.94l-2.39-.96c-.22-.08-.47 0-.59.22L2.74 8.87c-.12.21-.08.47.12.61l2.03 1.58c-.05.3-.09.63-.09.94s.02.64.07.94l-2.03 1.58c-.18.14-.23.41-.12.61l1.92 3.32c.12.22.37.29.59.22l2.39-.96c.5.38 1.03.7 1.62.94l.36 2.54c.05.24.24.41.48.41h3.84c.24 0 .44-.17.47-.41l.36-2.54c.59-.24 1.13-.56 1.62-.94l2.39.96c.22.08.47 0 .59-.22l1.92-3.32c.12-.22.07-.47-.12-.61l-2.01-1.58zM12 15.6c-1.98 0-3.6-1.62-3.6-3.6s1.62-3.6 3.6-3.6 3.6 1.62 3.6 3.6-1.62 3.6-3.6 3.6z"/></svg>系统设置</a>
       <a class="nav-item" id="nav-admin-item" href="admin-page.html" style="display:none"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 1L3 5v6c0 5.55 3.84 10.74 9 12 5.16-1.26 9-6.45 9-12V5l-9-4zm-1 14l-3-3 1.41-1.41L11 12.17l4.59-4.58L17 9l-6 6z"/></svg>管理员界面</a>
@@ -465,7 +466,7 @@
   // ── Service Selection state ────────────────────────
   let discoverBaseUrl = '';
   let discoverServices = [];      // [{title, filename, tags: [{name, description, query}]}]
-  let selectedTagKeys = {};       // {"服务|标签名": {query, tag_name, tag_desc}}
+  let selectedTagKeys = {};       // {serviceTitle: {tagName: {query, tag_name, tag_desc}}}
 
   // ── Utils ───────────────────────────────────────────
   function esc(s) { return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
@@ -991,10 +992,21 @@
   }
 
   function toggleTag(key) {
-    if (selectedTagKeys[key]) {
-      delete selectedTagKeys[key];
+    // key 格式为 "服务名|标签名"，从中拆分出服务名和标签名
+    const idx = key.indexOf('|');
+    const serviceTitle = key.substring(0, idx);
+    const tagName = idx >= 0 ? key.substring(idx + 1) : key;
+
+    if (!selectedTagKeys[serviceTitle]) {
+      selectedTagKeys[serviceTitle] = {};
+    }
+    if (selectedTagKeys[serviceTitle][tagName]) {
+      delete selectedTagKeys[serviceTitle][tagName];
+      if (Object.keys(selectedTagKeys[serviceTitle]).length === 0) {
+        delete selectedTagKeys[serviceTitle];
+      }
     } else {
-      selectedTagKeys[key] = tagLookupMap[key] || { query: '', tag_name: key, tag_desc: '' };
+      selectedTagKeys[serviceTitle][tagName] = tagLookupMap[key] || { query: '', tag_name: tagName, tag_desc: '' };
     }
     updateTagCheckUI(key);
     updateSelectSummary();
@@ -1002,35 +1014,78 @@
 
   function updateTagCheckUI(key) {
     const el = document.getElementById('check-' + key);
-    if (el) el.classList.toggle('checked', !!selectedTagKeys[key]);
+    if (!el) return;
+    const idx = key.indexOf('|');
+    const serviceTitle = key.substring(0, idx);
+    const tagName = idx >= 0 ? key.substring(idx + 1) : key;
+    const svc = selectedTagKeys[serviceTitle];
+    el.classList.toggle('checked', !!(svc && svc[tagName]));
   }
 
   function selectAllTags() {
+    selectedTagKeys = {};
     Object.keys(tagLookupMap).forEach(key => {
-      selectedTagKeys[key] = tagLookupMap[key];
+      const idx = key.indexOf('|');
+      const serviceTitle = key.substring(0, idx);
+      const tagName = idx >= 0 ? key.substring(idx + 1) : key;
+      if (!selectedTagKeys[serviceTitle]) selectedTagKeys[serviceTitle] = {};
+      selectedTagKeys[serviceTitle][tagName] = tagLookupMap[key];
       updateTagCheckUI(key);
     });
     updateSelectSummary();
   }
 
   function deselectAllTags() {
-    Object.keys(selectedTagKeys).forEach(k => { delete selectedTagKeys[k]; updateTagCheckUI(k); });
+    Object.keys(tagLookupMap).forEach(k => updateTagCheckUI(k));
     selectedTagKeys = {};
     updateSelectSummary();
   }
 
   function updateSelectSummary() {
-    const count = Object.keys(selectedTagKeys).length;
-    document.getElementById('select-summary').textContent = `已选择 ${count} 个标签`;
+    let count = 0;
+    let svcCount = 0;
+    Object.keys(selectedTagKeys).forEach(svc => {
+      count += Object.keys(selectedTagKeys[svc]).length;
+      svcCount++;
+    });
+    document.getElementById('select-summary').textContent = `已选择 ${count} 个标签，分布于 ${svcCount} 个服务`;
     document.getElementById('btn-confirm-import').disabled = count === 0;
   }
 
   async function submitSelectedTags() {
-    const queries = Object.values(selectedTagKeys);
-    if (!queries.length) { toast('请至少选择一个标签', 'error'); return; }
-
+    // 读取用户自定义的服务名称（确认导入时再生效）
     const nameInput = document.getElementById('import-url-name');
-    const serviceName = nameInput.value.trim() || '未命名服务';
+    const customServiceName = (nameInput ? nameInput.value.trim() : '');
+
+    // 构建 selected_services 数组
+    const selectedServices = [];
+    if (customServiceName) {
+      // 用户自定义服务名：将来自所有 Swagger 服务的标签合并到一个服务下
+      const allQueries = [];
+      Object.keys(selectedTagKeys).forEach(serviceTitle => {
+        const queries = Object.values(selectedTagKeys[serviceTitle]);
+        allQueries.push(...queries);
+      });
+      if (allQueries.length > 0) {
+        selectedServices.push({
+          service_title: customServiceName,
+          queries: allQueries,
+        });
+      }
+    } else {
+      // 自动识别：按 Swagger 服务名称分组
+      Object.keys(selectedTagKeys).forEach(serviceTitle => {
+        const queries = Object.values(selectedTagKeys[serviceTitle]);
+        if (queries.length > 0) {
+          selectedServices.push({
+            service_title: serviceTitle,
+            queries: queries,
+          });
+        }
+      });
+    }
+
+    if (!selectedServices.length) { toast('请至少选择一个标签', 'error'); return; }
 
     const btn = document.getElementById('btn-confirm-import');
     btn.disabled = true; btn.textContent = '导入中...';
@@ -1042,8 +1097,8 @@
         headers: authHeaders(),
         body: JSON.stringify({
           url: discoverBaseUrl,
-          service_name: serviceName,
-          selected_queries: queries,
+          service_name: customServiceName,
+          selected_services: selectedServices,
         }),
       });
       const data = await r.json();
@@ -1051,7 +1106,7 @@
         status.innerHTML = `<div class="import-msg success">${esc(data.message)}</div>`;
         toast('导入成功！共 ' + data.imported + ' 个接口', 'success');
         document.getElementById('import-url-input').value = '';
-        nameInput.value = '';
+        if (nameInput) nameInput.value = '';
       } else {
         toast(data.detail || data.message || '导入失败', 'error');
       }
@@ -1292,6 +1347,8 @@
       document.getElementById('nav-admin-item').style.display = '';
       document.getElementById('tab-import').style.display = '';
       document.getElementById('tab-permissions').style.display = '';
+      const dfItem = document.getElementById('nav-data-files-item');
+      if (dfItem) dfItem.style.display = '';
     }
 
     await refreshTree();

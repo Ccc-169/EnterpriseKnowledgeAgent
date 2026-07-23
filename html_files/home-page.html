@@ -489,10 +489,10 @@
 
   /* ── 消息区域 ── */
   .chat-messages {
-    background: white;
-    border-radius: 12px;
-    border: 1.5px solid #d8e4f0;
-    padding: 16px;
+    background: transparent;
+    border-radius: 0;
+    border: none;
+    padding: 20px 32px;
     margin-bottom: 12px;
     max-height: 320px;
     overflow-y: auto;
@@ -503,8 +503,25 @@
 
   .chat-messages.visible { display: block; }
 
-  .chat-messages::-webkit-scrollbar { width: 4px; }
-  .chat-messages::-webkit-scrollbar-thumb { background: #d0dae8; border-radius: 2px; }
+.chat-messages::-webkit-scrollbar { width: 4px; }
+.chat-messages::-webkit-scrollbar-thumb { background: #d0dae8; border-radius: 2px; }
+
+/* ── 对话激活态：隐藏欢迎区，聊天区填满上半部分 ── */
+.home-body.chat-active {
+  display: flex;
+  flex-direction: column;
+  padding: 16px 32px;
+}
+.home-body.chat-active .greeting-section,
+.home-body.chat-active .feature-cards {
+  display: none;
+}
+.home-body.chat-active .chat-messages.visible {
+  max-height: none;
+  flex: 1;
+  min-height: 0;
+  margin-bottom: 12px;
+}
 
   .msg-row {
     display: flex;
@@ -535,10 +552,12 @@
   }
 
   .msg-row.ai .msg-bubble {
-    background: #f4f7fc;
+    background: #ffffff;
     color: #1a2a4a;
     border-radius: 4px 10px 10px 10px;
-    border: 1px solid #e4ecf5;
+    border: 1px solid #dce4ee;
+    box-shadow: 0 1px 6px rgba(26,58,110,0.08);
+    padding: 12px 16px;
   }
 
   .msg-row.user .msg-bubble {
@@ -628,6 +647,7 @@
 
   /* 等待计时 / 用时徽章 */
   .wait-timer { margin-top: 6px; font-size: 12px; color: #8a96aa; }
+  .progress-text { margin-top: 6px; font-size: 13px; color: #5b7aff; }
   .msg-time {
     margin-top: 8px; font-size: 11px; color: #9aa5b8;
     display: inline-flex; align-items: center; gap: 4px;
@@ -1208,7 +1228,7 @@
     <!-- Logo -->
     <div class="sidebar-logo">
       <div class="sidebar-logo-icon">
-        <svg viewBox="0 0 24 24"><path d="M12 2L3 7v5c0 5.25 3.75 10.15 9 11.35C17.25 22.15 21 17.25 21 12V7L12 2zm0 2.18l7 3.9V12c0 4.35-2.98 8.4-7 9.63C7.98 20.4 5 16.35 5 12V8.08l7-3.9z"/><path d="M10 12l-2-2-1.4 1.4L10 14.8l6-6L14.6 7.4z"/></svg>
+        <svg width="20" height="20" viewBox="0 0 24 24"><path d="M12 2L3 7v5c0 5.25 3.75 10.15 9 11.35C17.25 22.15 21 17.25 21 12V7L12 2zm0 2.18l7 3.9V12c0 4.35-2.98 8.4-7 9.63C7.98 20.4 5 16.35 5 12V8.08l7-3.9z"/><path d="M10 12l-2-2-1.4 1.4L10 14.8l6-6L14.6 7.4z"/></svg>
       </div>
       <div class="sidebar-logo-text">
         <h2>HNGD</h2>
@@ -1222,11 +1242,15 @@
         <svg viewBox="0 0 24 24" fill="currentColor"><path d="M20 2H4c-1.1 0-2 .9-2 2v18l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2z"/></svg>
         对话
       </a>
-      <a class="nav-item" href="javascript:void(0)" onclick="setActive(this)">
-        <svg viewBox="0 0 24 24" fill="currentColor"><path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-5 14H7v-2h7v2zm3-4H7v-2h10v2zm0-4H7V7h10v2z"/></svg>
+      <a class="nav-item" href="knowledge-base-page.html">
+        <svg viewBox="0 0 24 24" fill="currentColor"><path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.1 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-5 14H7v-2h7v2zm3-4H7v-2h10v2zm0-4H7V7h10v2z"/></svg>
         知识库
       </a>
-      <a class="nav-item" href="javascript:void(0)" onclick="setActive(this)">
+      <a class="nav-item" id="nav-data-files-item" href="data-files-page.html" style="display:none">
+        <svg viewBox="0 0 24 24" fill="currentColor"><path d="M14 2H6c-1.1 0-1.99.9-1.99 2L4 20c0 1.1.89 2 1.99 2H18c1.1 0 2-.9 2-2V8l-6-6zm-1 7V3.5L18.5 9H13zM6 14h12v2H6v-2zm0-3h12v2H6v-2zm0-3h7v2H6V8z"/></svg>
+        数据文件
+      </a>
+      <a class="nav-item" href="data-analysis-page.html" onclick="setActive(this)">
         <svg viewBox="0 0 24 24" fill="currentColor"><path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zM9 17H7v-7h2v7zm4 0h-2V7h2v10zm4 0h-2v-4h2v4z"/></svg>
         数据分析
       </a>
@@ -1569,6 +1593,7 @@
   let chatStartTime = 0;       // 本次提问起始时间戳
   let waitTimer     = null;    // 等待计时器 interval
   let queueHint     = '';      // 排队提示文案（与计时器共存）
+  let currentProgress = '';    // 实时进度文案（来自 progress 事件）
 
   const SEND_ICON = '<svg viewBox="0 0 24 24"><path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"/></svg>';
   const STOP_ICON = '<svg viewBox="0 0 24 24"><rect x="6" y="6" width="12" height="12" rx="2"/></svg>';
@@ -1619,6 +1644,8 @@
     if (currentUser.role === 'admin') {
       const adminItem = document.getElementById('nav-admin-item');
       if (adminItem) adminItem.style.display = '';
+      const dfItem = document.getElementById('nav-data-files-item');
+      if (dfItem) dfItem.style.display = '';
     }
 
     const hour = new Date().getHours();
@@ -1673,7 +1700,7 @@
     api:   '请描述您想查询的数据，如：当前有多少条报警、各区域设备状态如何...',
   };
 
-  function switchMode(mode, btn) {
+  function switchMode(mode, btn, skipNewConv = false) {
     const modeChanged = (currentMode !== mode);
     currentMode = mode;
     document.querySelectorAll('.mode-tab').forEach(t => t.classList.remove('active'));
@@ -1694,7 +1721,7 @@
       document.getElementById('chat-input').placeholder = modePlaceholder[mode];
     }
 
-    if (modeChanged && mode !== 'write') {
+    if (modeChanged && mode !== 'write' && !skipNewConv) {
       newConversation();
     }
   }
@@ -1789,6 +1816,15 @@
       data.messages.forEach(msg => {
         appendMessage(msg.role === 'user' ? 'user' : 'ai', msg.content, msg.steps_log);
       });
+
+      // 从最后一条 assistant 消息的 agent_used 反推对话的 mode，恢复选择器 UI
+      const aiMsgs = data.messages.filter(m => m.role === 'assistant' && m.agent_used);
+      if (aiMsgs.length > 0) {
+        const agentToMode = { rag_agent: 'rag', data_agent: 'data', api_agent: 'api' };
+        const inferredMode = agentToMode[aiMsgs[aiMsgs.length - 1].agent_used] || 'rag';
+        const btn = document.querySelector(`.mode-tab[data-mode="${inferredMode}"]`);
+        if (btn) switchMode(inferredMode, btn, true);
+      }
     } catch(e) {
       msgBox.innerHTML = '<div style="text-align:center;padding:20px;color:#e05252;font-size:13px;">加载失败，请重试</div>';
       console.error('加载消息失败', e);
@@ -1895,11 +1931,16 @@
               : '排队中…';
             renderWaiting();
 
+          } else if (event.type === 'progress') {
+            currentProgress = event.text;
+            renderWaiting();
+
           } else if (event.type === 'step') {
             stepsAccum.push(event.text);
 
           } else if (event.type === 'answer') {
             stopWaitTimer();
+            currentProgress = '';  // 清除实时进度
             const usedSec = elapsedStr();    // 定格总耗时
             removeTyping();
             const contentEl = appendAiShell(stepsAccum, event.warning, usedSec);
@@ -2093,15 +2134,17 @@
     return ((Date.now() - chatStartTime) / 1000).toFixed(1);
   }
 
-  // 刷新等待气泡：思考动画 + 排队提示（可选）+ 实时计时
+  // 刷新等待气泡：思考动画 + 进度提示 + 排队提示（可选）+ 实时计时
   function renderWaiting() {
     const el = document.getElementById('typing-indicator');
     if (!el) return;
     const bubble = el.querySelector('.msg-bubble');
     if (!bubble) return;
     const q = queueHint ? `<div class="wait-timer">${queueHint}</div>` : '';
+    const p = currentProgress ? `<div class="progress-text">${currentProgress}</div>` : '';
     bubble.innerHTML =
       `<div class="msg-typing"><span></span><span></span><span></span></div>` +
+      p +
       q +
       `<div class="wait-timer">已等待 ${elapsedStr()} 秒</div>`;
   }
@@ -2110,6 +2153,7 @@
   function startWaitTimer() {
     chatStartTime = Date.now();
     queueHint = '';
+    currentProgress = '';
     renderWaiting();
     waitTimer = setInterval(renderWaiting, 200);
   }
@@ -2119,11 +2163,14 @@
 
   function updateChatMessagesVisibility() {
     const box = document.getElementById('chat-messages');
-    if (box.children.length > 0) {
+    const hasContent = box.children.length > 0;
+    if (hasContent) {
       box.classList.add('visible');
     } else {
       box.classList.remove('visible');
     }
+    // 联动：有内容时隐藏欢迎区/卡片，聊天区填满上半部分
+    document.querySelector('.home-body').classList.toggle('chat-active', hasContent);
   }
 
   // ── Suggestion chips ──────────────────────────────────
@@ -2490,7 +2537,18 @@
     this.appendChild(r);
     setTimeout(() => r.remove(), 600);
   });
+
+  
 </script>
+
+
+<script>
+  window.HNGDChatConfig = {
+    server: 'http://192.168.1.155:28000',
+    token:  'hngd-embed-2024'
+  };
+</script>
+<script src="http://192.168.1.155:28000/static/chat-ball.js"></script>
 
 </body>
 </html>

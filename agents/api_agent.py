@@ -5,8 +5,12 @@
 """
 import json
 import os
-import requests
+import time
+from datetime import datetime
 from pathlib import Path
+from threading import Lock
+
+import requests
 from langchain_core.tools import tool
 from langgraph.prebuilt import create_react_agent
 
@@ -17,6 +21,67 @@ _http_session = requests.Session()
 # ── 认证 Token（从环境变量读取）───────────────────────
 # 如果真实接口需要 Bearer Token 认证，在 .env 中配置 REAL_API_TOKEN
 _REAL_API_TOKEN = os.getenv("REAL_API_TOKEN", "")
+
+
+# ══════════════════════════════════════════════════════
+#  热重载缓存
+#  背景：api_agent 原本在 create_api_agent 时一次性扫描 data_interface/ 目录，
+#        并把 apis / api_map 闭包到工具里，导致前端导入新接口后必须重启服务。
+#  改造：每次工具调用前通过 _get_apis() 拿最新数据；TTL 内复用缓存；
+#        导入/删除接口后调用 invalidate_api_cache() 主动失效。
+# ══════════════════════════════════════════════════════
+
+# 缓存过期时间（秒）。即使忘了调用 invalidate_api_cache()，最迟 30s 后也会自动重读。
+# 跨进程场景（如 scripts/import_swagger_specs.py 命令行导入）也靠这个 TTL 兜底。
+_API_CACHE_TTL = 30.0
+
+_api_cache: dict = {
+    "specs":      None,    # list[dict]  原始 OpenAPI 规范列表
+    "apis":       None,    # list[dict]  解析后的接口列表
+    "api_map":    None,    # dict       id -> 接口
+    "loaded_at":  0.0,     # float      上次加载时间戳
+}
+_cache_lock = Lock()
+
+
+def _get_apis() -> tuple[list[dict], dict]:
+    """
+    惰性加载 + TTL 缓存：返回 (apis, api_map)。
+
+    - 首次调用或缓存失效时，重新扫描 data_interface/ 目录；
+    - 在 _API_CACHE_TTL 秒内复用缓存，避免每次工具调用都重读磁盘；
+    - 线程安全：使用 _cache_lock 保护并发读写。
+    """
+    now = time.time()
+    with _cache_lock:
+        if _api_cache["apis"] is not None and (now - _api_cache["loaded_at"]) < _API_CACHE_TTL:
+            return _api_cache["apis"], _api_cache["api_map"]
+
+        specs = _load_all_specs()
+        apis = _parse_apis_from_specs(specs)
+        api_map = {api["id"]: api for api in apis}
+        _api_cache["specs"] = specs
+        _api_cache["apis"] = apis
+        _api_cache["api_map"] = api_map
+        _api_cache["loaded_at"] = now
+        print(f"[api_agent] 已加载 {len(specs)} 个 OpenAPI 规范，共 {len(apis)} 个接口")
+        return apis, api_map
+
+
+def invalidate_api_cache() -> None:
+    """
+    强制清空 api_agent 接口缓存，下一次工具调用时会重新扫描 data_interface/ 目录。
+
+    调用时机：
+      - data/interface_service.py 的 import_* / delete_* 写入/删除函数末尾
+      - 任何外部脚本/接口修改了 data_interface/ 下的 JSON 后
+
+    注意：此函数只对**当前进程**内的 api_agent 缓存生效。
+    其他进程（如另一个 uvicorn worker、命令行 import 脚本）需要等 TTL 过期自动刷新。
+    """
+    with _cache_lock:
+        _api_cache["apis"] = None
+        _api_cache["loaded_at"] = 0.0
 
 
 # ══════════════════════════════════════════════════════
@@ -174,12 +239,10 @@ def _format_api_detail(api: dict) -> str:
 
 
 def create_api_agent(llm):
-    # ── 预加载所有真实接口 ──────────────────────────
-    specs = _load_all_specs()
-    apis = _parse_apis_from_specs(specs)
-    api_map = {api["id"]: api for api in apis}
-
-    print(f"[api_agent] 已加载 {len(specs)} 个 OpenAPI 规范，共 {len(apis)} 个接口")
+    # ── 启动时预热一次缓存（让启动日志里有"已加载 N 个接口"的可见性）──
+    # 之后由 _get_apis() 接管：TTL 内复用缓存，过期或失效后重读磁盘。
+    # 这样前端通过 import_* 导入新接口后，下次工具调用即可看到，无需重启服务。
+    _get_apis()
 
     @tool
     def list_available_apis(keyword: str = "") -> str:
@@ -192,6 +255,7 @@ def create_api_agent(llm):
           keyword - 可选，按接口名称/描述/路径/标签搜索。
                     例如："建筑"、"车辆"、"消防"、"消息"、"地图"、"值班"
         """
+        apis, _ = _get_apis()
         if not apis:
             return (
                 "当前没有加载任何真实接口配置。\n"
@@ -245,6 +309,7 @@ def create_api_agent(llm):
           body         - 请求体，JSON 字符串。
                          仅 POST/PUT 请求使用，如 '{"title": "测试", "content": "..."}'
         """
+        _, api_map = _get_apis()
         if operation_id not in api_map:
             # 尝试模糊匹配
             similar = [k for k in api_map if operation_id.lower() in k.lower()]
@@ -339,7 +404,11 @@ def create_api_agent(llm):
         model=llm,
         name="api_agent",
         tools=[list_available_apis, call_real_api],
-        prompt="""你是企业数据接口助手，通过调用公司内部 HTTP 接口获取实时业务数据并回答问题。
+        prompt=f"""你是企业数据接口助手，通过调用公司内部 HTTP 接口获取实时业务数据并回答问题。
+
+【当前时间】（服务器实时时间，用户口中的"今天/昨日/本周"以此为准）
+- 今天是: {datetime.now().strftime("%Y-%m-%d %A")}
+⚠️ 严禁自行推测日期；当用户提到"今天/昨天/本周"等相对时间时，必须按上方"今天"换算为具体 yyyy-MM-dd。
 
 【工作流程】
 1. 调用 list_available_apis 查看所有可用接口（支持关键词搜索）
@@ -351,7 +420,7 @@ def create_api_agent(llm):
 - query_params / path_params / body 均为 JSON 字符串
 - 必填参数必须提供，可选参数按需提供
 - 日期格式参考接口参数中的 format 说明（如 yyyy-MM-dd HH:mm:ss）
-- 路径参数用 path_params 传入，会被替换到 URL 的 {xxx} 占位符中
+- 路径参数用 path_params 传入，会被替换到 URL 的 {{xxx}} 占位符中
 
 【回答规则】
 - 数据来自接口实时返回，如实呈现，不编造

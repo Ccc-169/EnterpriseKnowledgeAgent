@@ -6,8 +6,9 @@ from dotenv import load_dotenv
 from langchain_openai import ChatOpenAI
 from langgraph_supervisor import create_supervisor
 from langgraph.checkpoint.sqlite import SqliteSaver
-from langchain_core.messages import HumanMessage, AIMessage
-from agents.rag_agent import create_rag_agent
+from langchain_core.messages import HumanMessage, AIMessage, SystemMessage
+from datetime import datetime
+from agents.rag_agent import create_rag_agent, _local as _rag_local
 from agents.data_agent import create_data_agent
 from agents.doc_agent import create_doc_agent
 from agents.api_agent import create_api_agent
@@ -34,9 +35,8 @@ llm = ChatOpenAI(
     base_url="http://192.168.1.155:11434/v1",
     api_key="ollama",
     temperature=0,
+    max_tokens=8192,
     # 禁止单轮并行工具调用：防止 agent 一次性吐出多个 rag_search / transfer，
-    # 这是"重复检索 / 多重交接"失控的放大器（已确认 Ollama 兼容）
-    model_kwargs={"parallel_tool_calls": False},
 )
 
 
@@ -60,7 +60,7 @@ checkpointer = SqliteSaver(_checkpoint_conn)
 checkpointer.setup()
 
 router = create_supervisor(
-    agents=[rag_agent, data_agent],
+    agents=[rag_agent, data_agent, api_agent],
     model=llm,
     prompt="""
     你是任务路由器，只做一件事：
@@ -71,7 +71,6 @@ router = create_supervisor(
 - 对文档内容提问（公司制度、规定、政策、员工手册）
 - 总结文档、仿写内容、文档概述
 - 撰写简短报告、工作总结、方案建议等文本类内容
-- 查询知识库里有哪些文档
 - 公司背景、业务介绍等知识性问题
 - 文档管理、技术方案等咨询建议类问题（由 rag_agent 基于 LLM 知识回答）
 
@@ -80,6 +79,13 @@ router = create_supervisor(
 - 出勤率、迟到次数、工作时长等考勤数据分析
 - 任何需要读取 Excel 文件的问题
 - 跨月数据对比、趋势分析
+
+转发给 api_agent 的情况：
+- 需要调用真实业务系统接口获取数据（如查询员工信息、部门信息等）
+- 用户明确要求通过接口/API 查询某类数据
+- 需要通过 HTTP 请求获取实时数据或跨系统数据
+- 涉及 OpenAPI/Swagger 规范的接口调用
+- 知识库和 Excel 中都没有所需数据时，尝试通过接口查询
 
 【严格规则——违反将导致无限循环】
 1. 只做判断和转发，最多做两次转发
@@ -139,6 +145,30 @@ def _build_messages_with_history(user_input: str, thread_id: str, user_id: int =
     return messages
 
 
+def _build_today_system_message() -> SystemMessage:
+    """
+    构造一条"今日时间"系统消息，注入到 messages 列表开头。
+
+    供 chat() / chat_direct() 统一使用，让所有子 agent
+    （rag_agent / data_agent / doc_agent / api_agent）都能读到服务器
+    的真实当前日期，避免模型在解析"今天/昨天/本周"等相对时间时产生
+    幻觉日期（例如错误地填入 2026-02-04）。
+    """
+    now = datetime.now()
+    weekday_cn = ["星期一", "星期二", "星期三", "星期四",
+                  "星期五", "星期六", "星期日"][now.weekday()]
+    today_cn = f"{now.strftime('%Y-%m-%d')}（{weekday_cn}）"
+    return SystemMessage(
+        content=(
+            f"【系统时间】服务器当前日期: {today_cn}，"
+            f"当前时刻: {now.strftime('%H:%M:%S')}。"
+            f"用户口中的“今天”即 {today_cn}，"
+            f"处理任何与时间相关的查询（今天/昨天/本周/本月等）"
+            f"必须以这条系统时间为准，禁止自行推测日期。"
+        )
+    )
+
+
 def chat_direct(
     agent_name: str,
     user_input: str,
@@ -146,6 +176,7 @@ def chat_direct(
     user_context: dict = None,
     username: str = "unknown",
     cancel_event=None,
+    progress_callback=None,
 ) -> tuple[str, list, str]:
     """
     直接调用指定子智能体，不使用 Router 自动路由分发。
@@ -156,6 +187,8 @@ def chat_direct(
         thread_id: 对话线程 ID（支持多轮对话记忆）
         user_context: 用户上下文 {user_id, username, role}
         username: 用户名（用于 Tracing 分组）
+        cancel_event: 协作式取消事件
+        progress_callback: 实时进度回调函数（签名: fn(text: str)），仅 rag_agent 使用
 
     Returns:
         (final_answer, steps_log, agent_used)
@@ -205,9 +238,16 @@ def chat_direct(
     # ── 构建消息：注入历史上下文（纯文本，不含 tool_calls） ──
     _uid = (user_context.get("user_id") if isinstance(user_context, dict) else None)
     messages_with_history = _build_messages_with_history(user_input, thread_id, _uid)
-    state_input = {"messages": messages_with_history}
+    # ── 注入服务器当前日期到 messages 列表开头 ──
+    state_input = {"messages": [_build_today_system_message(), *messages_with_history]}
     if user_context:
         state_input["user_context"] = user_context
+
+    # StateGraph 节点名称跳过集合（ReAct 框架内部节点 + supervisor）
+    _SKIP_NODE_NAMES = {"agent", "tools", "__start__", "__end__", "supervisor"}
+
+    # 注入进度回调到 rag_agent 的 threading.local（仅 rag_agent 使用）
+    _rag_local.progress_callback = progress_callback
 
     try:
         for chunk in agent.stream(state_input, config=config, stream_mode="updates"):
@@ -215,11 +255,13 @@ def chat_direct(
             if cancel_event is not None and cancel_event.is_set():
                 break
             for node_name, node_data in chunk.items():
+                node_had_tool_activity = False
                 for msg in (node_data or {}).get("messages", []):
                     all_messages.append(msg)
 
                     # 记录工具调用
                     if hasattr(msg, "tool_calls") and msg.tool_calls:
+                        node_had_tool_activity = True
                         for tc in msg.tool_calls:
                             tool_key = tc["id"]
                             if tool_key not in seen_tools:
@@ -231,11 +273,19 @@ def chat_direct(
 
                     # 记录工具返回
                     if getattr(msg, "name", None):
+                        node_had_tool_activity = True
                         tool_key = f"{msg.name}_{str(msg.content)[:20]}"
                         if tool_key not in seen_tools:
                             seen_tools.add(tool_key)
                             preview = str(msg.content)[:80]
                             steps_log.append(f"✅ 工具返回：{preview}...")
+
+                # StateGraph 节点 fallback：无工具活动时，将节点名记为步骤
+                if not node_had_tool_activity and node_name not in _SKIP_NODE_NAMES and node_data:
+                    step_key = f"node_{node_name}"
+                    if step_key not in seen_tools:
+                        seen_tools.add(step_key)
+                        steps_log.append(f"📌 步骤：**{node_name}**")
     except Exception as e:
         # 流式过程中发生连接错误：如果已收集到有效答案则直接返回，避免前功尽弃
         err_str = str(e)
@@ -245,6 +295,9 @@ def chat_direct(
         )
         if not is_connection_err:
             raise
+    finally:
+        # 清理进度回调，防线程池复用导致回调串台
+        _rag_local.progress_callback = None
 
     # 提取最终答案（优先从工具返回中获取，其次取最后一个 AIMessage）
     for msg in reversed(all_messages):
@@ -321,7 +374,8 @@ def chat(
     # ── 构建消息：注入历史上下文（替代 MemorySaver 不可靠的运行时记忆） ──
     _uid = (user_context.get("user_id") if isinstance(user_context, dict) else None)
     messages_with_history = _build_messages_with_history(user_input, thread_id, _uid)
-    state_input = {"messages": messages_with_history}
+    # ── 注入服务器当前日期到 messages 列表开头 ──
+    state_input = {"messages": [_build_today_system_message(), *messages_with_history]}
     if user_context:
         state_input["user_context"] = user_context
 
@@ -368,7 +422,7 @@ def chat(
             isinstance(msg, AIMessage)
             and msg.content
             and not getattr(msg, "tool_calls", None)
-            and getattr(msg, "name", None) in ("rag_agent", "data_agent", "doc_agent")
+            and getattr(msg, "name", None) in ("rag_agent", "data_agent", "doc_agent", "api_agent")
             and not str(msg.content).startswith("Transferring")
         ):
             final_answer = msg.content

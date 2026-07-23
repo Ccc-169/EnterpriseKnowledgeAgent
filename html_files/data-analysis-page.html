@@ -1,0 +1,916 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>HNGD 智能知识助手系统 - 数据分析</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='6' fill='%234f46e5'/><text x='16' y='23' font-size='18' text-anchor='middle' fill='white' font-family='sans-serif' font-weight='bold'>知</text></svg>">
+<script src="https://cdn.jsdelivr.net/npm/echarts@5/dist/echarts.min.js"></script>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    font-family: 'PingFang SC', 'Microsoft YaHei', '微软雅黑', sans-serif;
+    background: #f2f6fa;
+    overflow: hidden;
+    height: 100vh;
+    width: 100vw;
+  }
+
+  #analysis-page {
+    width: 100%;
+    height: 100vh;
+    display: flex;
+    flex-direction: row;
+  }
+
+  /* ========== SIDEBAR ========== */
+  .sidebar {
+    width: 220px;
+    min-width: 220px;
+    height: 100vh;
+    background: linear-gradient(180deg, #0f2a5e 0%, #1a3a7e 40%, #0d2050 100%);
+    display: flex;
+    flex-direction: column;
+    position: relative;
+    z-index: 10;
+    box-shadow: 2px 0 16px rgba(10,30,80,0.18);
+  }
+
+  .sidebar-logo {
+    padding: 20px 18px 16px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    border-bottom: 1px solid rgba(255,255,255,0.08);
+    flex-shrink: 0;
+  }
+
+  .sidebar-logo-icon {
+    width: 36px; height: 36px;
+    background: rgba(255,255,255,0.15);
+    border-radius: 8px;
+    display: flex; align-items: center; justify-content: center;
+    border: 1.5px solid rgba(255,255,255,0.25);
+    flex-shrink: 0;
+  }
+  .sidebar-logo-icon svg { width: 20px; height: 20px; fill: white; }
+
+  .sidebar-logo-text h2 { font-size: 14px; font-weight: 700; color: white; letter-spacing: 1px; }
+  .sidebar-logo-text p { font-size: 10px; color: rgba(255,255,255,0.55); margin-top: 2px; }
+
+  .nav-menu { flex: 0 0 auto; padding: 10px 10px 6px; }
+
+  .nav-item {
+    display: flex; align-items: center; gap: 10px;
+    padding: 9px 12px; border-radius: 8px; cursor: pointer;
+    margin-bottom: 2px;
+    color: rgba(255,255,255,0.6);
+    font-size: 13px; font-weight: 500;
+    transition: all 0.2s; text-decoration: none;
+  }
+  .nav-item:hover { background: rgba(255,255,255,0.08); color: rgba(255,255,255,0.9); }
+  .nav-item.active { background: rgba(255,255,255,0.15); color: white; }
+  .nav-item svg { width: 16px; height: 16px; flex-shrink: 0; }
+
+  .sidebar-user {
+    padding: 12px 14px;
+    border-top: 1px solid rgba(255,255,255,0.08);
+    display: flex; align-items: center; gap: 10px; cursor: pointer;
+    flex-shrink: 0; transition: background 0.15s;
+  }
+  .sidebar-user:hover { background: rgba(255,255,255,0.05); }
+
+  .user-avatar {
+    width: 32px; height: 32px; border-radius: 50%;
+    background: rgba(255,255,255,0.18);
+    display: flex; align-items: center; justify-content: center;
+    flex-shrink: 0; border: 1.5px solid rgba(255,255,255,0.28);
+    overflow: hidden;
+  }
+  .user-avatar svg { width: 16px; height: 16px; fill: rgba(255,255,255,0.8); }
+  .user-info { flex: 1; min-width: 0; }
+  .user-info .name { font-size: 12.5px; font-weight: 600; color: white; }
+  .user-info .role { font-size: 10.5px; color: rgba(255,255,255,0.48); margin-top: 1px; }
+  .user-chevron { color: rgba(255,255,255,0.35); font-size: 11px; }
+  .logout-btn {
+    display: block; width: calc(100% - 20px); margin: 0 10px 10px;
+    padding: 7px; background: transparent;
+    border: 1px solid rgba(255,255,255,0.1); border-radius: 6px;
+    color: rgba(255,255,255,0.38); font-size: 12px; cursor: pointer;
+    font-family: inherit; text-align: center; transition: all 0.15s; flex-shrink: 0;
+  }
+  .logout-btn:hover { background: rgba(210,50,50,0.15); border-color: rgba(210,80,80,0.28); color: rgba(255,150,150,0.9); }
+
+  /* ========== MAIN CONTENT ========== */
+  .main-content {
+    flex: 1; height: 100vh; overflow-y: auto; background: #f2f6fa;
+  }
+
+  /* ========== TOPBAR ========== */
+  .topbar {
+    position: sticky; top: 0; z-index: 5;
+    background: rgba(242,246,250,0.95);
+    backdrop-filter: blur(8px);
+    padding: 0 32px; height: 56px;
+    display: flex; align-items: center; justify-content: flex-end;
+    gap: 20px; border-bottom: 1px solid rgba(200,215,230,0.5);
+  }
+  .topbar-item { display: flex; align-items: center; gap: 6px; font-size: 12.5px; color: #5a6a8a; cursor: pointer; }
+  .topbar-divider { width: 1px; height: 18px; background: #d0dae8; }
+  .topbar-bell {
+    width: 32px; height: 32px; display: flex; align-items: center; justify-content: center;
+    cursor: pointer; color: #5a6a8a; border-radius: 6px; transition: background 0.15s;
+  }
+  .topbar-bell:hover { background: rgba(42,90,168,0.08); }
+  .topbar-bell svg { width: 18px; height: 18px; }
+
+  /* ========== PAGE BODY ========== */
+  .page-body {
+    padding: 32px 32px 40px;
+    position: relative;
+  }
+
+  /* Watermark star */
+  .page-body::before {
+    content: '★';
+    position: absolute;
+    right: -30px; top: -20px;
+    font-size: 420px;
+    color: rgba(42,90,168,0.04);
+    pointer-events: none;
+    line-height: 1;
+    user-select: none;
+  }
+
+  .page-header { margin-bottom: 28px; position: relative; z-index: 1; animation: fadeInUp 0.45s cubic-bezier(0.34,1.15,0.64,1) both; }
+  .page-header h2 { font-size: 22px; font-weight: 700; color: #1a2a4a; margin-bottom: 5px; }
+  .page-header p { font-size: 13.5px; color: #7a8aaa; }
+
+  /* ========== STAT CARDS ========== */
+  .stat-cards {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 16px;
+    margin-bottom: 24px;
+    position: relative; z-index: 1;
+  }
+
+  .stat-card {
+    background: white;
+    border-radius: 12px;
+    padding: 20px 22px;
+    box-shadow: 0 1px 6px rgba(30,60,120,0.06), 0 2px 14px rgba(30,60,120,0.04);
+    border: 1px solid rgba(220,230,245,0.7);
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    animation: cardPop 0.46s cubic-bezier(0.34,1.12,0.64,1) both;
+    transition: transform 0.2s, box-shadow 0.2s;
+  }
+  .stat-card:nth-child(1) { animation-delay: 0.06s; }
+  .stat-card:nth-child(2) { animation-delay: 0.13s; }
+  .stat-card:nth-child(3) { animation-delay: 0.20s; }
+  .stat-card:nth-child(4) { animation-delay: 0.27s; }
+  .stat-card:hover { transform: translateY(-2px); box-shadow: 0 4px 18px rgba(30,60,120,0.1); }
+
+  .stat-icon {
+    width: 52px; height: 52px;
+    border-radius: 12px;
+    display: flex; align-items: center; justify-content: center;
+    flex-shrink: 0;
+  }
+  .stat-icon svg { width: 26px; height: 26px; }
+  .stat-icon.blue { background: #e8f0fc; color: #2a5aa8; }
+  .stat-icon.green { background: #e6f7f0; color: #1a9e6b; }
+  .stat-icon.purple { background: #f0eafc; color: #7c3aed; }
+  .stat-icon.orange { background: #fff3e8; color: #e07a1a; }
+
+  .stat-info { flex: 1; }
+  .stat-label { font-size: 12.5px; color: #7a8aaa; margin-bottom: 4px; }
+  .stat-value { font-size: 26px; font-weight: 700; color: #1a2a4a; line-height: 1.1; margin-bottom: 4px; }
+  .stat-change { font-size: 12px; font-weight: 500; }
+  .stat-change.up { color: #1a9e6b; }
+  .stat-change.down { color: #c0392b; }
+  .stat-change.neutral { color: #9aaac0; }
+
+  /* ========== CHART GRID ========== */
+  .chart-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 20px;
+    margin-bottom: 24px;
+    position: relative; z-index: 1;
+  }
+
+  .chart-card {
+    background: white;
+    border-radius: 12px;
+    padding: 22px;
+    box-shadow: 0 1px 6px rgba(30,60,120,0.06), 0 2px 14px rgba(30,60,120,0.04);
+    border: 1px solid rgba(220,230,245,0.7);
+    animation: cardPop 0.48s cubic-bezier(0.34,1.12,0.64,1) both;
+  }
+  .chart-card:nth-child(1) { animation-delay: 0.32s; }
+  .chart-card:nth-child(2) { animation-delay: 0.39s; }
+  .chart-card:nth-child(3) { animation-delay: 0.46s; }
+  .chart-card:nth-child(4) { animation-delay: 0.53s; }
+
+  .chart-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 16px;
+  }
+
+  .chart-title {
+    font-size: 15px;
+    font-weight: 600;
+    color: #1a2a4a;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .chart-title-dot {
+    width: 8px; height: 8px;
+    border-radius: 50%;
+    flex-shrink: 0;
+  }
+  .chart-title-dot.blue { background: #2a5aa8; }
+  .chart-title-dot.green { background: #1a9e6b; }
+  .chart-title-dot.purple { background: #7c3aed; }
+  .chart-title-dot.orange { background: #e07a1a; }
+
+  .chart-time-filter {
+    display: flex;
+    gap: 4px;
+  }
+
+  .time-btn {
+    padding: 4px 12px;
+    border: 1px solid #d8e4f4;
+    border-radius: 5px;
+    background: white;
+    font-size: 12px;
+    color: #7a8aaa;
+    cursor: pointer;
+    font-family: inherit;
+    transition: all 0.15s;
+  }
+  .time-btn:hover { border-color: #2a5aa8; color: #2a5aa8; }
+  .time-btn:focus-visible { outline: 2px solid #2a5aa8; outline-offset: 1px; }
+  .time-btn.active { background: #2a5aa8; border-color: #2a5aa8; color: white; }
+
+  .chart-container {
+    width: 100%;
+    height: 280px;
+  }
+
+  /* ========== DATA TABLE SECTION ========== */
+  .table-section {
+    background: white;
+    border-radius: 12px;
+    padding: 22px;
+    box-shadow: 0 1px 6px rgba(30,60,120,0.06), 0 2px 14px rgba(30,60,120,0.04);
+    border: 1px solid rgba(220,230,245,0.7);
+    position: relative; z-index: 1;
+    animation: fadeInUp 0.5s ease both 0.58s;
+  }
+
+  .table-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 16px;
+  }
+
+  .data-table { width: 100%; border-collapse: collapse; }
+  .data-table thead tr { border-bottom: 1px solid #eef2f8; }
+  .data-table th {
+    text-align: left;
+    padding: 9px 10px;
+    font-size: 12.5px;
+    color: #9aaac0;
+    font-weight: 500;
+  }
+  .data-table tbody tr {
+    border-bottom: 1px solid #f4f7fb;
+    transition: background 0.12s;
+  }
+  .data-table tbody tr:last-child { border-bottom: none; }
+  .data-table tbody tr:hover { background: #f8fafd; }
+  .data-table td {
+    padding: 12px 10px;
+    font-size: 13.5px;
+    color: #1a2a4a;
+  }
+
+  .hit-badge {
+    font-size: 11.5px; font-weight: 500; padding: 2px 8px; border-radius: 10px;
+    display: inline-block;
+  }
+  .hit-badge.high { background: #e6f7f0; color: #1a9e6b; }
+  .hit-badge.medium { background: #e8f0fc; color: #2a5aa8; }
+  .hit-badge.low { background: #f0f4f8; color: #7a8aaa; }
+
+  /* ========== FOOTER ========== */
+  .footer-note {
+    text-align: center; font-size: 12px; color: #9aaac0;
+    margin-top: 28px;
+    display: flex; align-items: center; justify-content: center; gap: 5px;
+    position: relative; z-index: 1;
+  }
+
+  /* ========== ANIMATION KEYFRAMES ========== */
+  @keyframes fadeInUp { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: translateY(0); } }
+  @keyframes cardPop  { from { opacity: 0; transform: translateY(14px) scale(0.97); } to { opacity: 1; transform: translateY(0) scale(1); } }
+  @keyframes rippleAnim { to { transform: scale(2.6); opacity: 0; } }
+
+  /* ── 数字滚动递增 ── */
+  .stat-value { opacity: 0; animation: fadeInUp 0.34s ease both; }
+
+  /* ── 无障碍降级 ── */
+  @media (prefers-reduced-motion: reduce) {
+    *, .stat-card, .chart-card, .table-section {
+      animation: none !important; transition: none !important;
+    }
+    .stat-card, .chart-card, .page-header, .table-section { opacity: 1 !important; }
+  }
+
+  /* ========== RESPONSIVE ========== */
+  @media (max-width: 1200px) {
+    .stat-cards { grid-template-columns: repeat(2, 1fr); }
+    .chart-grid { grid-template-columns: 1fr; }
+  }
+  @media (max-width: 768px) {
+    .sidebar { display: none; }
+    .stat-cards { grid-template-columns: 1fr; }
+    .page-body { padding: 20px 16px 32px; }
+    .topbar { padding: 0 16px; }
+    .chart-container { height: 220px; }
+  }
+</style>
+<script src="config.js"></script>
+</head>
+<body>
+
+<div id="analysis-page">
+  <!-- ========== SIDEBAR ========== -->
+  <div class="sidebar">
+    <div class="sidebar-logo">
+      <div class="sidebar-logo-icon">
+        <svg width="20" height="20" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+          <path d="M12 2L3 7v5c0 5.25 3.75 10.15 9 11.35C17.25 22.15 21 17.25 21 12V7L12 2zm0 2.18l7 3.9V12c0 4.35-2.98 8.4-7 9.63C7.98 20.4 5 16.35 5 12V8.08l7-3.9z"/>
+          <path d="M10 12l-2-2-1.4 1.4L10 14.8l6-6L14.6 7.4z"/>
+        </svg>
+      </div>
+      <div class="sidebar-logo-text">
+        <h2>HNGD</h2>
+        <p>智能知识助手系统</p>
+      </div>
+    </div>
+
+    <nav class="nav-menu">
+      <a class="nav-item" href="home-page.html">
+        <svg viewBox="0 0 24 24" fill="currentColor"><path d="M20 2H4c-1.1 0-2 .9-2 2v18l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2z"/></svg>
+        对话
+      </a>
+      <a class="nav-item" href="knowledge-base-page.html">
+        <svg viewBox="0 0 24 24" fill="currentColor"><path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-5 14H7v-2h7v2zm3-4H7v-2h10v2zm0-4H7V7h10v2z"/></svg>
+        知识库
+      </a>
+      <a class="nav-item" id="nav-data-files-item" href="data-files-page.html" style="display:none">
+        <svg viewBox="0 0 24 24" fill="currentColor"><path d="M14 2H6c-1.1 0-1.99.9-1.99 2L4 20c0 1.1.89 2 1.99 2H18c1.1 0 2-.9 2-2V8l-6-6zm-1 7V3.5L18.5 9H13zM6 14h12v2H6v-2zm0-3h12v2H6v-2zm0-3h7v2H6V8z"/></svg>
+        数据文件
+      </a>
+      <a class="nav-item active" href="data-analysis-page.html">
+        <svg viewBox="0 0 24 24" fill="currentColor"><path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zM9 17H7v-7h2v7zm4 0h-2V7h2v10zm4 0h-2v-4h2v4z"/></svg>
+        数据分析
+      </a>
+      <a class="nav-item" href="more-features-page.html">
+        <svg viewBox="0 0 24 24" fill="currentColor"><path d="M4 8h4V4H4v4zm6 12h4v-4h-4v4zm-6 0h4v-4H4v4zm0-6h4v-4H4v4zm6 0h4v-4h-4v4zm6-10v4h4V4h-4zm-6 4h4V4h-4v4zm6 6h4v-4h-4v4zm0 6h4v-4h-4v4z"/></svg>
+        更多功能
+      </a>
+      <a class="nav-item" href="setting-page.html">
+        <svg viewBox="0 0 24 24" fill="currentColor"><path d="M19.14 12.94c.04-.3.06-.61.06-.94 0-.32-.02-.64-.07-.94l2.03-1.58c.18-.14.23-.41.12-.61l-1.92-3.32c-.12-.22-.37-.29-.59-.22l-2.39.96c-.5-.38-1.03-.7-1.62-.94l-.36-2.54c-.04-.24-.24-.41-.48-.41h-3.84c-.24 0-.43.17-.47.41l-.36 2.54c-.59.24-1.13.57-1.62.94l-2.39-.96c-.22-.08-.47 0-.59.22L2.74 8.87c-.12.21-.08.47.12.61l2.03 1.58c-.05.3-.09.63-.09.94s.02.64.07.94l-2.03 1.58c-.18.14-.23.41-.12.61l1.92 3.32c.12.22.37.29.59.22l2.39-.96c.5.38 1.03.7 1.62.94l.36 2.54c.05.24.24.41.48.41h3.84c.24 0 .44-.17.47-.41l.36-2.54c.59-.24 1.13-.56 1.62-.94l2.39.96c.22.08.47 0 .59-.22l1.92-3.32c.12-.22.07-.47-.12-.61l-2.01-1.58zM12 15.6c-1.98 0-3.6-1.62-3.6-3.6s1.62-3.6 3.6-3.6 3.6 1.62 3.6 3.6-1.62 3.6-3.6 3.6z"/></svg>
+        系统设置
+      </a>
+      <a class="nav-item" id="nav-admin-item" href="admin-page.html" style="display:none">
+        <svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 1L3 5v6c0 5.55 3.84 10.74 9 12 5.16-1.26 9-6.45 9-12V5l-9-4zm-1 14l-3-3 1.41-1.41L11 12.17l4.59-4.58L17 9l-6 6z"/></svg>
+        管理员界面
+      </a>
+    </nav>
+
+    <div style="flex: 1;"></div>
+
+    <div class="sidebar-user" onclick="window.location.href='setting-page.html'" title="账号设置">
+      <div class="user-avatar" id="sidebar-avatar-el">
+        <svg viewBox="0 0 24 24"><path d="M12 12c2.7 0 5-2.3 5-5s-2.3-5-5-5-5 2.3-5 5 2.3 5 5 5zm0 2c-3.3 0-10 1.7-10 5v2h20v-2c0-3.3-6.7-5-10-5z"/></svg>
+      </div>
+      <div class="user-info">
+        <div class="name" id="sidebar-username">加载中...</div>
+        <div class="role" id="sidebar-role">—</div>
+      </div>
+      <span class="user-chevron">›</span>
+    </div>
+    <button class="logout-btn" onclick="logout()">退出登录</button>
+  </div>
+
+  <!-- ========== MAIN CONTENT ========== -->
+  <div class="main-content">
+    <!-- Topbar -->
+    <div class="topbar">
+      <div class="topbar-item">
+        <svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor"><path d="M11.99 2C6.47 2 2 6.48 2 12s4.47 10 9.99 10C17.52 22 22 17.52 22 12S17.52 2 11.99 2zM12 20c-4.42 0-8-3.58-8-8s3.58-8 8-8 8 3.58 8 8-3.58 8-8 8zm.5-13H11v6l5.25 3.15.75-1.23-4.5-2.67V7z"/></svg>
+        使用指南
+      </div>
+      <div class="topbar-divider"></div>
+      <div class="topbar-item">
+        <svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor"><path d="M11.99 2C6.47 2 2 6.48 2 12s4.47 10 9.99 10C17.52 22 22 17.52 22 12S17.52 2 11.99 2zM12 20c-4.42 0-8-3.58-8-8s3.58-8 8-8 8 3.58 8 8-3.58 8-8 8zm.5-13H11v6l5.25 3.15.75-1.23-4.5-2.67V7z"/></svg>
+        <span id="topbar-clock">2024-05-20 15:30:45</span>
+      </div>
+      <div class="topbar-bell">
+        <svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 22c1.1 0 2-.9 2-2h-4c0 1.1.9 2 2 2zm6-6v-5c0-3.07-1.64-5.64-4.5-6.32V4c0-.83-.67-1.5-1.5-1.5s-1.5.67-1.5 1.5v.68C7.63 5.36 6 7.92 6 11v5l-2 2v1h16v-1l-2-2z"/></svg>
+      </div>
+    </div>
+
+    <!-- Page Body -->
+    <div class="page-body">
+      <div class="page-header">
+        <h2>数据分析</h2>
+        <p>系统运行数据洞察与使用趋势追踪</p>
+      </div>
+
+      <!-- ===== STAT CARDS ===== -->
+      <div class="stat-cards">
+        <div class="stat-card">
+          <div class="stat-icon blue">
+            <svg viewBox="0 0 24 24" fill="currentColor"><path d="M20 2H4c-1.1 0-2 .9-2 2v18l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2z"/></svg>
+          </div>
+          <div class="stat-info">
+            <div class="stat-label">历史总对话量</div>
+            <div class="stat-value" id="stat-total-chats">12,846</div>
+            <div class="stat-change up">较上周 +8.2%</div>
+          </div>
+        </div>
+
+        <div class="stat-card">
+          <div class="stat-icon green">
+            <svg viewBox="0 0 24 24" fill="currentColor"><path d="M16 11c1.66 0 2.99-1.34 2.99-3S17.66 5 16 5c-1.66 0-3 1.34-3 3s1.34 3 3 3zm-8 0c1.66 0 2.99-1.34 2.99-3S9.66 5 8 5C6.34 5 5 6.34 5 8s1.34 3 3 3zm0 2c-2.33 0-7 1.17-7 3.5V19h14v-2.5c0-2.33-4.67-3.5-7-3.5zm8 0c-.29 0-.62.02-.97.05 1.16.84 1.97 1.97 1.97 3.45V19h6v-2.5c0-2.33-4.67-3.5-7-3.5z"/></svg>
+          </div>
+          <div class="stat-info">
+            <div class="stat-label">今日活跃用户</div>
+            <div class="stat-value" id="stat-active-users">34</div>
+            <div class="stat-change up">较昨日 +12%</div>
+          </div>
+        </div>
+
+        <div class="stat-card">
+          <div class="stat-icon purple">
+            <svg viewBox="0 0 24 24" fill="currentColor"><path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-5 14H7v-2h7v2zm3-4H7v-2h10v2zm0-4H7V7h10v2z"/></svg>
+          </div>
+          <div class="stat-info">
+            <div class="stat-label">知识库命中次数</div>
+            <div class="stat-value" id="stat-kb-hits">4,218</div>
+            <div class="stat-change neutral">命中率 67.3%</div>
+          </div>
+        </div>
+
+        <div class="stat-card">
+          <div class="stat-icon orange">
+            <svg viewBox="0 0 24 24" fill="currentColor"><path d="M3.5 18.49l6-6.01 4 4L22 6.92l-1.41-1.41-7.09 7.97-4-4L2 16.99z"/></svg>
+          </div>
+          <div class="stat-info">
+            <div class="stat-label">平均响应时长</div>
+            <div class="stat-value" id="stat-avg-time">2.8s</div>
+            <div class="stat-change up">较上周 -0.3s</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ===== CHART GRID ===== -->
+      <div class="chart-grid">
+
+        <!-- Chart 1: 对话量趋势 -->
+        <div class="chart-card">
+          <div class="chart-header">
+            <span class="chart-title">
+              <span class="chart-title-dot blue"></span>
+              对话量趋势
+            </span>
+            <div class="chart-time-filter">
+              <button class="time-btn active" onclick="switchTrendRange(this, '7d')">7天</button>
+              <button class="time-btn" onclick="switchTrendRange(this, '30d')">30天</button>
+            </div>
+          </div>
+          <div class="chart-container" id="chart-trend"></div>
+        </div>
+
+        <!-- Chart 2: 知识库使用分布 -->
+        <div class="chart-card">
+          <div class="chart-header">
+            <span class="chart-title">
+              <span class="chart-title-dot green"></span>
+              知识库使用分布
+            </span>
+          </div>
+          <div class="chart-container" id="chart-kb-dist"></div>
+        </div>
+
+        <!-- Chart 3: 用户活跃时段 -->
+        <div class="chart-card">
+          <div class="chart-header">
+            <span class="chart-title">
+              <span class="chart-title-dot orange"></span>
+              用户活跃时段
+            </span>
+          </div>
+          <div class="chart-container" id="chart-activity"></div>
+        </div>
+
+        <!-- Chart 4: Agent调用统计 -->
+        <div class="chart-card">
+          <div class="chart-header">
+            <span class="chart-title">
+              <span class="chart-title-dot purple"></span>
+              Agent 调用统计
+            </span>
+          </div>
+          <div class="chart-container" id="chart-agent"></div>
+        </div>
+
+      </div>
+
+      <!-- ===== DATA TABLE ===== -->
+      <div class="table-section">
+        <div class="table-header">
+          <span class="chart-title">
+            <span class="chart-title-dot blue"></span>
+            知识库命中详情
+          </span>
+          <div class="chart-time-filter">
+            <button class="time-btn active">今日</button>
+            <button class="time-btn">本周</button>
+          </div>
+        </div>
+        <table class="data-table">
+          <thead>
+            <tr>
+              <th>知识库名称</th>
+              <th>查询次数</th>
+              <th>命中次数</th>
+              <th>命中率</th>
+              <th>最热门问题</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>产品手册</td>
+              <td>1,240</td>
+              <td>892</td>
+              <td><span class="hit-badge high">72.1%</span></td>
+              <td style="max-width:220px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">产品安装步骤是什么</td>
+            </tr>
+            <tr>
+              <td>安全规范</td>
+              <td>860</td>
+              <td>612</td>
+              <td><span class="hit-badge high">70.9%</span></td>
+              <td style="max-width:220px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">安全操作规程有哪些</td>
+            </tr>
+            <tr>
+              <td>技术文档</td>
+              <td>540</td>
+              <td>324</td>
+              <td><span class="hit-badge medium">60.0%</span></td>
+              <td style="max-width:220px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">API接口如何调用</td>
+            </tr>
+            <tr>
+              <td>培训材料</td>
+              <td>380</td>
+              <td>168</td>
+              <td><span class="hit-badge low">44.2%</span></td>
+              <td style="max-width:220px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">新员工入职流程</td>
+            </tr>
+            <tr>
+              <td>故障案例</td>
+              <td>220</td>
+              <td>122</td>
+              <td><span class="hit-badge medium">55.5%</span></td>
+              <td style="max-width:220px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">常见故障处理方法</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div class="footer-note">
+        <svg viewBox="0 0 24 24" width="13" height="13" fill="currentColor" style="color:#9aaac0"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-6h2v6zm0-8h-2V7h2v2z"/></svg>
+        内容由AI生成，仅供参考，请以官方信息为准
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+  const API_BASE = window.APP_CONFIG.api_base;
+
+  // ── 时钟 ──
+  function updateClock() {
+    const now = new Date(), pad = n => String(n).padStart(2, '0');
+    document.getElementById('topbar-clock').textContent =
+      `${now.getFullYear()}-${pad(now.getMonth()+1)}-${pad(now.getDate())} ${pad(now.getHours())}:${pad(now.getMinutes())}:${pad(now.getSeconds())}`;
+  }
+  updateClock(); setInterval(updateClock, 1000);
+
+  // ── 侧边栏初始化 ──
+  function renderSidebarAvatar(avatarData) {
+    const el = document.getElementById('sidebar-avatar-el');
+    if (!el) return;
+    const _path = "M12 12c2.7 0 5-2.3 5-5s-2.3-5-5-5-5 2.3-5 5 2.3 5 5 5zm0 2c-3.3 0-10 1.7-10 5v2h20v-2c0-3.3-6.7-5-10-5z";
+    el.innerHTML = avatarData
+      ? `<img src="${avatarData}" style="width:32px;height:32px;object-fit:cover">`
+      : `<svg viewBox="0 0 24 24"><path d="${_path}"/></svg>`;
+  }
+
+  function initPage() {
+    let user = null;
+    try { user = JSON.parse(localStorage.getItem('user') || 'null'); } catch(e) {}
+    if (!user || !localStorage.getItem('token')) { window.location.href = 'login-page.html'; return; }
+    const roleMap = { admin: '系统管理员', user: '普通用户', visitor: '访客' };
+    document.getElementById('sidebar-username').textContent = user.display_name || user.username;
+    document.getElementById('sidebar-role').textContent = roleMap[user.role] || user.role;
+    renderSidebarAvatar(user.avatar || null);
+    if (user.role === 'admin') {
+      const adminItem = document.getElementById('nav-admin-item');
+      if (adminItem) adminItem.style.display = '';
+      const dfItem = document.getElementById('nav-data-files-item');
+      if (dfItem) dfItem.style.display = '';
+    }
+    loadStats();
+    initCharts();
+  }
+
+  async function logout() {
+    try { await fetch(`${API_BASE}/api/auth/logout`, { method: 'POST', headers: { 'Authorization': 'Bearer ' + localStorage.getItem('token') } }); } catch(e) {}
+    localStorage.clear();
+    window.location.href = 'login-page.html';
+  }
+
+  // ── 统计数据加载 ──
+  async function loadStats() {
+    try {
+      const r = await fetch(`${API_BASE}/api/admin/stats`, {
+        headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + localStorage.getItem('token') }
+      });
+      if (!r.ok) return;
+      const d = await r.json();
+      if (d.total_chats_all)   { animateValue('stat-total-chats', d.total_chats_all); }
+      if (d.active_users_today) { animateValue('stat-active-users', d.active_users_today); }
+    } catch(e) {}
+  }
+
+  // ── 数字滚动动画 ──
+  function animateValue(id, target) {
+    const el = document.getElementById(id);
+    if (!el) return;
+    const num = parseInt(String(target).replace(/[^\d]/g, ''), 10);
+    if (!num) { el.textContent = target; el.style.opacity = 1; return; }
+    const dur = 800, start = performance.now();
+    el.style.opacity = 1;
+    const tick = now => {
+      const p = Math.min((now - start) / dur, 1);
+      const eased = 1 - Math.pow(1 - p, 3);
+      el.textContent = Math.round(num * eased).toLocaleString();
+      if (p < 1) requestAnimationFrame(tick);
+      else el.textContent = num.toLocaleString();
+    };
+    requestAnimationFrame(tick);
+  }
+
+  // ── ECharts 全局配色 ──
+  const CHART_COLORS = ['#2a5aa8', '#1a9e6b', '#7c3aed', '#e07a1a', '#5a9af5', '#34c98a', '#a47be8', '#f5a352'];
+
+  // ── 对话量趋势图 ──
+  let trendChart;
+  const trendData7d = {
+    dates: ['周一', '周二', '周三', '周四', '周五', '周六', '周日'],
+    values: [120, 148, 180, 165, 210, 88, 56]
+  };
+  const trendData30d = {
+    dates: Array.from({length: 30}, (_, i) => `${i+1}日`),
+    values: [92,88,120,115,148,142,180,165,210,195,188,175,165,158,170,182,196,210,205,198,185,172,160,148,135,88,56,64,108,140]
+  };
+
+  function initTrendChart(data) {
+    if (!trendChart) {
+      trendChart = echarts.init(document.getElementById('chart-trend'));
+    }
+    trendChart.setOption({
+      tooltip: {
+        trigger: 'axis',
+        backgroundColor: 'rgba(255,255,255,0.96)',
+        borderColor: '#eef2f8',
+        borderWidth: 1,
+        textStyle: { color: '#1a2a4a', fontSize: 13 },
+        formatter: params => `${params[0].name}<br/>对话量：<strong>${params[0].value}</strong>`
+      },
+      grid: { left: 48, right: 20, top: 20, bottom: 32 },
+      xAxis: {
+        type: 'category',
+        data: data.dates,
+        axisLine: { lineStyle: { color: '#eef2f8' } },
+        axisTick: { show: false },
+        axisLabel: { color: '#9aaac0', fontSize: 12 }
+      },
+      yAxis: {
+        type: 'value',
+        splitLine: { lineStyle: { color: '#f4f7fb' } },
+        axisLabel: { color: '#9aaac0', fontSize: 12 }
+      },
+      series: [{
+        type: 'line',
+        data: data.values,
+        smooth: true,
+        symbol: 'circle',
+        symbolSize: 6,
+        itemStyle: { color: '#2a5aa8', borderWidth: 2, borderColor: '#fff' },
+        lineStyle: { width: 2.5, color: '#2a5aa8' },
+        areaStyle: {
+          color: {
+            type: 'linear', x: 0, y: 0, x2: 0, y2: 1,
+            colorStops: [
+              { offset: 0, color: 'rgba(42,90,168,0.25)' },
+              { offset: 1, color: 'rgba(42,90,168,0.02)' }
+            ]
+          }
+        }
+      }]
+    }, true);
+  }
+
+  function switchTrendRange(btn, range) {
+    btn.parentElement.querySelectorAll('.time-btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    initTrendChart(range === '7d' ? trendData7d : trendData30d);
+  }
+
+  // ── 知识库使用分布（环形图）──
+  function initKbDistChart() {
+    const chart = echarts.init(document.getElementById('chart-kb-dist'));
+    chart.setOption({
+      tooltip: {
+        trigger: 'item',
+        backgroundColor: 'rgba(255,255,255,0.96)',
+        borderColor: '#eef2f8',
+        borderWidth: 1,
+        textStyle: { color: '#1a2a4a', fontSize: 13 },
+        formatter: p => `${p.name}<br/>查询占比：<strong>${p.percent}%</strong>`
+      },
+      legend: {
+        orient: 'vertical',
+        right: 10,
+        top: 'center',
+        textStyle: { color: '#7a8aaa', fontSize: 12 },
+        itemWidth: 12, itemHeight: 12, itemGap: 10
+      },
+      series: [{
+        type: 'pie',
+        radius: ['42%', '70%'],
+        center: ['38%', '50%'],
+        avoidLabelOverlap: false,
+        label: { show: false },
+        emphasis: {
+          label: { show: true, fontSize: 14, fontWeight: 'bold', color: '#1a2a4a' }
+        },
+        labelLine: { show: false },
+        data: [
+          { value: 1240, name: '产品手册', itemStyle: { color: '#2a5aa8' } },
+          { value: 860,  name: '安全规范', itemStyle: { color: '#1a9e6b' } },
+          { value: 540,  name: '技术文档', itemStyle: { color: '#7c3aed' } },
+          { value: 380,  name: '培训材料', itemStyle: { color: '#e07a1a' } },
+          { value: 220,  name: '故障案例', itemStyle: { color: '#5a9af5' } }
+        ]
+      }]
+    });
+    window.addEventListener('resize', () => chart.resize());
+  }
+
+  // ── 用户活跃时段（柱状图）──
+  function initActivityChart() {
+    const chart = echarts.init(document.getElementById('chart-activity'));
+    const hours = Array.from({length: 24}, (_, i) => `${i}时`);
+    const values = [2,1,1,0,0,1,3,12,28,35,42,38,45,40,32,28,25,22,18,14,8,5,4,3];
+    chart.setOption({
+      tooltip: {
+        trigger: 'axis',
+        backgroundColor: 'rgba(255,255,255,0.96)',
+        borderColor: '#eef2f8',
+        borderWidth: 1,
+        textStyle: { color: '#1a2a4a', fontSize: 13 },
+        formatter: params => `${params[0].name}<br/>对话量：<strong>${params[0].value}</strong>`
+      },
+      grid: { left: 48, right: 20, top: 20, bottom: 32 },
+      xAxis: {
+        type: 'category',
+        data: hours,
+        axisLine: { lineStyle: { color: '#eef2f8' } },
+        axisTick: { show: false },
+        axisLabel: {
+          color: '#9aaac0', fontSize: 11,
+          interval: 2
+        }
+      },
+      yAxis: {
+        type: 'value',
+        splitLine: { lineStyle: { color: '#f4f7fb' } },
+        axisLabel: { color: '#9aaac0', fontSize: 12 }
+      },
+      series: [{
+        type: 'bar',
+        data: values,
+        barWidth: '55%',
+        itemStyle: {
+          color: {
+            type: 'linear', x: 0, y: 0, x2: 0, y2: 1,
+            colorStops: [
+              { offset: 0, color: '#f5a352' },
+              { offset: 1, color: '#e07a1a' }
+            ]
+          },
+          borderRadius: [3, 3, 0, 0]
+        },
+        emphasis: {
+          itemStyle: { color: '#e07a1a' }
+        }
+      }]
+    });
+    window.addEventListener('resize', () => chart.resize());
+  }
+
+  // ── Agent调用统计（横向柱状图）──
+  function initAgentChart() {
+    const chart = echarts.init(document.getElementById('chart-agent'));
+    chart.setOption({
+      tooltip: {
+        trigger: 'axis',
+        axisPointer: { type: 'shadow' },
+        backgroundColor: 'rgba(255,255,255,0.96)',
+        borderColor: '#eef2f8',
+        borderWidth: 1,
+        textStyle: { color: '#1a2a4a', fontSize: 13 }
+      },
+      grid: { left: 110, right: 30, top: 20, bottom: 20 },
+      xAxis: {
+        type: 'value',
+        splitLine: { lineStyle: { color: '#f4f7fb' } },
+        axisLabel: { color: '#9aaac0', fontSize: 12 }
+      },
+      yAxis: {
+        type: 'category',
+        data: ['RAG 知识检索', '安全合规检查', '代码执行', '数据分析', '通用对话'],
+        axisLine: { lineStyle: { color: '#eef2f8' } },
+        axisTick: { show: false },
+        axisLabel: { color: '#1a2a4a', fontSize: 12.5, fontWeight: 500 }
+      },
+      series: [{
+        type: 'bar',
+        data: [
+          { value: 3842, itemStyle: { color: '#2a5aa8' } },
+          { value: 2105, itemStyle: { color: '#1a9e6b' } },
+          { value: 860,  itemStyle: { color: '#7c3aed' } },
+          { value: 524,  itemStyle: { color: '#e07a1a' } },
+          { value: 368,  itemStyle: { color: '#5a9af5' } }
+        ],
+        barWidth: 18,
+        itemStyle: { borderRadius: [0, 4, 4, 0] },
+        label: {
+          show: true,
+          position: 'right',
+          color: '#7a8aaa',
+          fontSize: 12,
+          formatter: p => p.value.toLocaleString()
+        }
+      }]
+    });
+    window.addEventListener('resize', () => chart.resize());
+  }
+
+  // ── 初始化所有图表 ──
+  function initCharts() {
+    initTrendChart(trendData7d);
+    initKbDistChart();
+    initActivityChart();
+    initAgentChart();
+
+    // 全局 resize
+    window.addEventListener('resize', () => {
+      if (trendChart) trendChart.resize();
+    });
+  }
+
+  window.addEventListener('load', initPage);
+</script>
+
+</body>
+</html>

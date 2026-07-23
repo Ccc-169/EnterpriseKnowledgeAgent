@@ -6,6 +6,7 @@ import os
 import uuid
 from datetime import datetime, timedelta
 from pathlib import Path
+from typing import Any  # 仅供 LangSmith 标注回调使用
 
 from dotenv import load_dotenv
 from fastapi import Depends, FastAPI, File, Form, HTTPException, Request, UploadFile
@@ -202,9 +203,9 @@ class DiscoverServicesRequest(BaseModel):
 
 
 class ImportSelectedTagsRequest(BaseModel):
-    url:          str
-    service_name: str
-    selected_queries: list[dict]  # [{"query": "...", "tag_name": "...", "tag_desc": "..."}]
+    url:               str
+    service_name:      str = ""
+    selected_services: list[dict]  # [{"service_title": "...", "queries": [{"query": "...", "tag_name": "...", "tag_desc": "..."}]}]
 
 
 # ── 文档编写辅助 ───────────────────────────────────────
@@ -349,10 +350,21 @@ async def chat_stream(req: ChatRequest, request: Request, user: dict = Depends(v
         # 注册取消事件（单飞：自动取消该用户旧任务）
         cancel_event = chat_registry.register(user["user_id"])
 
+        # ── 实时进度桥接：agent 线程 → asyncio Queue → SSE ──
+        loop = asyncio.get_running_loop()
+        progress_queue = asyncio.Queue()
+
+        def progress_cb(text: str):
+            """从 agent 线程调用，线程安全地往 Queue 塞进度消息"""
+            try:
+                loop.call_soon_threadsafe(progress_queue.put_nowait, text)
+            except Exception:
+                pass  # 事件循环已关闭等情况，静默
+
         mode_calls = {
-            "rag":   lambda: chat_direct("rag_agent",  req.message, thread_id, user_context=user_context, cancel_event=cancel_event),
+            "rag":   lambda: chat_direct("rag_agent",  req.message, thread_id, user_context=user_context, cancel_event=cancel_event, progress_callback=progress_cb),
             "data":  lambda: chat_direct("data_agent", req.message, thread_id, user_context=user_context, cancel_event=cancel_event),
-            "write": lambda: chat_direct("rag_agent",  req.message, thread_id, user_context=user_context, cancel_event=cancel_event),
+            "write": lambda: chat_direct("rag_agent",  req.message, thread_id, user_context=user_context, cancel_event=cancel_event, progress_callback=progress_cb),
             "api":   lambda: chat_direct("api_agent",  req.message, thread_id, user_context=user_context, cancel_event=cancel_event),
         }
         call_fn = mode_calls.get(req.mode, mode_calls["rag"])
@@ -369,21 +381,52 @@ async def chat_stream(req: ChatRequest, request: Request, user: dict = Depends(v
                     yield _sse({"type": "done"})
                     return
 
-                # 7. 线程池中运行同步 LangGraph，并发监控客户端断开
+                # 7. 线程池中运行同步 LangGraph，并发监控客户端断开 + 实时进度
                 task = asyncio.create_task(asyncio.to_thread(call_fn))
                 aborted = False
+                abort_reason: str = ""  # 取消原因，写入 LangSmith metadata
                 while True:
-                    done, _ = await asyncio.wait({task}, timeout=_cfg.CHAT_DISCONNECT_POLL_SEC)
-                    if task in done:
-                        break
-                    # 主动停止（/stop 已 set）或客户端断开 → 取消
+                    # 7a. 主动停止（/stop 已 set）或客户端断开 → 取消
                     if cancel_event.is_set():
                         aborted = True
+                        abort_reason = "user_stop"
                     elif _cfg.CHAT_CANCEL_ON_DISCONNECT and await request.is_disconnected():
                         cancel_event.set()
                         aborted = True
+                        abort_reason = "client_disconnected"
                     if aborted:
-                        await task   # 等待工作线程在 chunk 边界收尾后再释放槽
+                        # ── 在 LangSmith 当前 run 树写入中断标记 ──
+                        # 目的：让 LangSmith UI 能视觉区分"被中断"和"真跑完"，
+                        #       解决前端"假停止"引起的 trace 残留/状态不清问题。
+                        # 失败不影响主流程（LangSmith SDK 可能未启用/版本差异）。
+                        try:
+                            from langsmith.run_trees import get_current_run_tree
+                            _rt = get_current_run_tree()
+                            if _rt is not None:
+                                _rt.metadata["interrupted"] = True
+                                _rt.metadata["interrupted_at"] = datetime.now().isoformat(timespec="seconds")
+                                _rt.metadata["abort_reason"] = abort_reason
+                                # 让 LangSmith UI 状态从 'running' 变 'error'，可一眼识别中断
+                                _rt.end(error=f"USER_CANCELLED ({abort_reason})")
+                        except Exception:
+                            # LangSmith 未启用或 SDK 接口变更，静默吞掉
+                            pass
+                        # 等待工作线程在 chunk 边界收尾后再释放槽
+                        await task
+                        break
+
+                    # 7b. 尝试从 progress_queue 取实时进度
+                    try:
+                        progress_text = await asyncio.wait_for(
+                            progress_queue.get(), timeout=0.3
+                        )
+                        yield _sse({"type": "progress", "text": progress_text})
+                        continue  # 取到进度后立即循环，优先推送
+                    except asyncio.TimeoutError:
+                        pass
+
+                    # 7c. 检查 agent 线程是否完成
+                    if task.done():
                         break
 
                 # 取消的任务：不写库（避免半截回复污染历史），直接结束
@@ -744,6 +787,126 @@ def admin_list_data_files(user: dict = Depends(require_admin)):
     return {"dir": str(data_dir), "files": files}
 
 
+# 单个数据文件最大体积（100MB），超过则拒绝
+_DATA_FILE_MAX_BYTES = 100 * 1024 * 1024
+_ALLOWED_DATA_EXTS = {".xlsx", ".xls", ".csv"}
+
+
+def _resolve_data_dir() -> Path:
+    """读取 DATA_DIR 环境变量并自动创建目录，返回 Path 对象。"""
+    data_dir = os.environ.get("DATA_DIR", "").strip()
+    if not data_dir:
+        raise HTTPException(status_code=503, detail="未配置 DATA_DIR，请在 .env 文件中配置后重启服务")
+    dir_path = Path(data_dir)
+    dir_path.mkdir(parents=True, exist_ok=True)
+    return dir_path
+
+
+def _sanitize_data_filename(raw: str) -> str:
+    """从用户输入中提取安全的文件名（去除路径分隔符、防穿越）。"""
+    if not raw:
+        raise HTTPException(status_code=400, detail="文件名不能为空")
+    # 只取 basename，过滤 / \ 与 ..
+    name = os.path.basename(raw).strip()
+    if not name or name in {".", ".."}:
+        raise HTTPException(status_code=400, detail=f"非法的文件名：{raw}")
+    if "/" in name or "\\" in name:
+        raise HTTPException(status_code=400, detail=f"非法的文件名：{raw}")
+    return name
+
+
+@app.post("/api/admin/data-files/upload")
+async def admin_upload_data_file(
+    file: UploadFile = File(...),
+    overwrite: bool = Form(default=False),
+    user: dict = Depends(require_admin),
+):
+    """
+    管理员上传 Excel/CSV 文件到 DATA_DIR 目录，供 data_agent 使用。
+    - 仅接受 .xlsx / .xls / .csv
+    - 单文件最大 100MB
+    - 同名文件已存在时，overwrite=false 返回 409；前端确认后再以 overwrite=true 提交覆盖
+    """
+    import shutil
+
+    dir_path = _resolve_data_dir()
+    name = _sanitize_data_filename(file.filename or "")
+
+    ext = Path(name).suffix.lower()
+    if ext not in _ALLOWED_DATA_EXTS:
+        raise HTTPException(
+            status_code=400,
+            detail=f"不支持的文件类型：{ext or '(无后缀)'}，仅允许 .xlsx / .xls / .csv",
+        )
+
+    target = dir_path / name
+    existed = target.exists()
+
+    # 流式读取（仅在大小超限时及时拒绝，避免大文件占内存）
+    chunks = []
+    total = 0
+    while True:
+        chunk = await file.read(1024 * 1024)  # 1MB / chunk
+        if not chunk:
+            break
+        total += len(chunk)
+        if total > _DATA_FILE_MAX_BYTES:
+            raise HTTPException(
+                status_code=413,
+                detail=f"文件 {name} 超过 100MB 上限（实际 ≥ {total // (1024*1024)} MB），请压缩后再上传",
+            )
+        chunks.append(chunk)
+    content = b"".join(chunks)
+
+    if existed and not overwrite:
+        # 让前端弹窗询问是否覆盖
+        raise HTTPException(
+            status_code=409,
+            detail=f"文件 {name} 已存在",
+        )
+
+    # 原子写入：先写临时文件，再 rename，避免半写状态
+    tmp = target.with_suffix(target.suffix + ".tmp")
+    try:
+        with open(tmp, "wb") as f:
+            f.write(content)
+        os.replace(tmp, target)
+    finally:
+        if tmp.exists():
+            try:
+                tmp.unlink()
+            except OSError:
+                pass
+
+    action = "overwrite_data_file" if existed else "upload_data_file"
+    log_event(user["user_id"], user["username"], action, status="success")
+    return {
+        "ok": True,
+        "name": name,
+        "size_kb": round(total / 1024, 1),
+        "overwritten": existed,
+    }
+
+
+@app.delete("/api/admin/data-files/{filename}")
+def admin_delete_data_file(
+    filename: str,
+    user: dict = Depends(require_admin),
+):
+    """管理员删除 DATA_DIR 中的指定文件。"""
+    dir_path = _resolve_data_dir()
+    name = _sanitize_data_filename(filename)
+    target = dir_path / name
+    if not target.exists() or not target.is_file():
+        raise HTTPException(status_code=404, detail=f"文件不存在：{name}")
+    try:
+        target.unlink()
+    except OSError as e:
+        raise HTTPException(status_code=500, detail=f"删除失败：{e}")
+    log_event(user["user_id"], user["username"], "delete_data_file", status="success")
+    return {"ok": True, "name": name}
+
+
 # ── 启动时同步接口索引 ──────────────────────────────────────
 @app.on_event("startup")
 def on_startup():
@@ -808,14 +971,12 @@ def admin_discover_services(req: DiscoverServicesRequest, user: dict = Depends(r
 
 @app.post("/api/admin/interfaces/import-selected-tags")
 def admin_import_selected_tags(req: ImportSelectedTagsRequest, user: dict = Depends(require_admin)):
-    """管理员从自定义 openapi-ui 中选择标签导入接口。"""
+    """管理员从自定义 openapi-ui 中选择标签按服务分组导入接口。"""
     if not req.url:
         raise HTTPException(status_code=400, detail="URL 不能为空")
-    if not req.service_name:
-        raise HTTPException(status_code=400, detail="必须指定服务名称")
-    if not req.selected_queries:
+    if not req.selected_services:
         raise HTTPException(status_code=400, detail="必须选择至少一个标签")
-    result = import_selected_tags(req.url, req.service_name, req.selected_queries)
+    result = import_selected_tags(req.url, req.selected_services, req.service_name)
     if not result["ok"]:
         raise HTTPException(status_code=400, detail=result.get("message", "导入失败"))
     log_event(user["user_id"], user["username"], "import_interfaces_selected_tags", status="success")
@@ -990,10 +1151,10 @@ async def embed_chat(req: EmbedChatRequest):
     thread_id    = req.thread_id or f"embed-{uuid.uuid4().hex}"
     user_context = {"user_id": 0, "username": "embed_guest", "role": "visitor"}
 
-    from agent import chat as agent_chat
+    from agent import chat_direct
     try:
         response, _steps, _agent = await asyncio.to_thread(
-            lambda: agent_chat(req.message, thread_id, user_context=user_context)
+            lambda: chat_direct("api_agent", req.message, thread_id, user_context=user_context)
         )
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"对话失败：{e}")

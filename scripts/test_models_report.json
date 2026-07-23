@@ -1,0 +1,26 @@
+[
+  {
+    "status": "OK",
+    "latency": "23.7s",
+    "response": "",
+    "model": "qwen3.6:35b-a3b-mtp-q4_K_M"
+  },
+  {
+    "status": "OK",
+    "latency": "20.1s",
+    "response": "",
+    "model": "qwen3.6:27b-mtp-q4_K_M"
+  },
+  {
+    "status": "OK",
+    "latency": "29.6s",
+    "response": "",
+    "model": "qwen3.6:35b"
+  },
+  {
+    "status": "OK",
+    "latency": "23.7s",
+    "response": "",
+    "model": "qwen3.6:27b"
+  }
+]
