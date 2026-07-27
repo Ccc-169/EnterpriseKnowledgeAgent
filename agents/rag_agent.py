@@ -50,6 +50,11 @@ class RAGAgentState(TypedDict):
     context_text: str      # 格式化后的检索文本
     full_context: str      # context_text + cache_context（最终送给 generate 的上下文）
     answer: str            # LLM 生成的答案
+    # === 新增（KB 指纹 + 双阈值短路）===
+    kb_version: str                  # 当前 KB 全局指纹
+    short_circuit: bool              # 是否跳过 RAG + LLM
+    short_circuit_answer: str        # 短路时直接用的答案
+    cache_hit_id: int                # 短路命中的 qa_cache.id（用于 hit_count 计数）
 
 
 # ── 意图分类关键词常量 ──────────────────────────────────────────────────────
@@ -235,30 +240,75 @@ def create_rag_agent(llm):
         return {"question": ""}
 
     def cache_check_node(state: RAGAgentState) -> dict:
-        """QA 缓存检查"""
+        """QA 缓存检查（KB 指纹 + 双阈值短路版）"""
         _emit_progress("🔍 正在查询历史相似问答...")
         question = state.get("question", "")
+
+        # 文件日志（解决 print 不到终端的问题）
+        import logging, os
+        _cl = logging.getLogger("qacache_check")
+        if not _cl.handlers:
+            # 日志写入 data/cache_debug.log（和 chat_page 同一个文件）
+            _log_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "data", "cache_debug.log")
+            _h = logging.FileHandler(os.path.normpath(_log_path), encoding="utf-8")
+            _h.setFormatter(logging.Formatter("%(asctime)s [CHECK] %(message)s"))
+            _cl.addHandler(_h)
+            _cl.setLevel(logging.DEBUG)
+
+        _cl.info(f"question={question[:60]}")
         cache_context = ""
+        short_circuit = False
+        short_circuit_answer = ""
+        cache_hit_id = 0
+        kb_version = ""
         try:
-            from data.cache_service import embed_text, search_cache
+            from data.kb_version import compute_kb_fingerprint
+            from data.cache_service import embed_text, search_qa_cache, increment_qa_cache_hit
+            from core.config import ENABLE_QA_CACHE_SHORTCIRCUIT
+
+            _cl.info(f"ENABLE_QA_CACHE_SHORTCIRCUIT={ENABLE_QA_CACHE_SHORTCIRCUIT}")
+            kb_version = compute_kb_fingerprint()
+            _cl.info(f"kb_version={kb_version}")
             question_vec = embed_text(question)
+            _cl.info(f"embed_text success={question_vec is not None}, dim={len(question_vec) if question_vec else 0}")
             if question_vec:
-                cached = search_cache(question_vec)
-                if cached:
-                    print(f"[QACache] 命中 {len(cached)} 条相似历史问答")
-                    parts = ["\n\n【历史相似问答参考（仅供参考，请以知识库最新内容为准）】"]
-                    for i, item in enumerate(cached, 1):
-                        parts.append(
-                            f"相似问题{i}(相似度={item['score']}): {item['question'][:100]}\n"
-                            f"历史回答{i}: {item['answer'][:300]}"
-                        )
-                    cache_context = "\n".join(parts)
-                    _emit_progress(f"✅ 找到 {len(cached)} 条相似历史问答")
+                result = search_qa_cache(
+                    question_vec=question_vec,
+                    kb_version=kb_version,
+                )
+                level = result["level"]
+                _cl.info(f"result: level={level}, score={result.get('score')}, candidates={len(result.get('raw_candidates', []))}")
+                if level == "high" and ENABLE_QA_CACHE_SHORTCIRCUIT:
+                    short_circuit = True
+                    short_circuit_answer = result["answer"]
+                    _emit_progress(f"⚡ 缓存命中(高置信={result['score']:.2f})，跳过检索")
+                    _cl.info("SHORT_CIRCUIT! 跳过RAG+LLM")
+                elif level == "med":
+                    cache_context = (
+                        f"\n\n【历史相似问答（KB版本已校验={kb_version[:8]}，可作参考骨架）】\n"
+                        f"相似度={result['score']}\n历史回答：{result['context']}"
+                    )
+                    _emit_progress(f"✅ 缓存命中(中置信={result['score']:.2f})")
+                    _cl.info("中置信，提供上下文参考")
+                elif level == "low":
+                    _emit_progress(f"ℹ️ 缓存候选未达阈值({result['score']:.2f})，走完整检索")
+                    _cl.info(f"低置信({result.get('score')}),走完整检索")
                 else:
                     _emit_progress("ℹ️ 未命中历史问答缓存")
+                    _cl.info("完全未命中，走完整检索")
+                if result.get("raw_candidates"):
+                    cache_hit_id = result["raw_candidates"][0].get("id", 0)
+            else:
+                _cl.warning("embed_text 返回 None")
         except Exception as e:
-            print(f"[QACache] 缓存检查异常（不影响主流程）: {e}")
-        return {"cache_context": cache_context}
+            _cl.exception(f"缓存检查异常: {e}")
+        return {
+            "cache_context": cache_context,
+            "kb_version": kb_version,
+            "short_circuit": short_circuit,
+            "short_circuit_answer": short_circuit_answer,
+            "cache_hit_id": cache_hit_id,
+        }
 
     def rewrite_query_node(state: RAGAgentState) -> dict:
         """查询改写"""
@@ -308,7 +358,19 @@ def create_rag_agent(llm):
     def post_check_node(state: RAGAgentState) -> dict:
         """规则引擎后校验，输出最终 AIMessage"""
         _emit_progress("🛡️ 正在进行答案质量校验...")
-        raw_answer = state.get("answer", "")
+        if state.get("short_circuit") and state.get("short_circuit_answer"):
+            # 短路命中：缓存答案也要走规则引擎校验
+            raw_answer = state["short_circuit_answer"]
+            # 异步更新 hit_count
+            try:
+                from data.cache_service import increment_qa_cache_hit
+                hit_id = state.get("cache_hit_id", 0)
+                if hit_id:
+                    increment_qa_cache_hit(hit_id)
+            except Exception as e:
+                print(f"[QACache] hit_count 更新失败: {e}")
+        else:
+            raw_answer = state.get("answer", "")
         context_text = state.get("context_text", "")
         final_answer = _post_check_answer(raw_answer, context_text)
         return {"messages": [AIMessage(content=final_answer, name="rag_agent")]}
@@ -320,6 +382,12 @@ def create_rag_agent(llm):
         return {"messages": [AIMessage(content=fallback, name="rag_agent")]}
 
     # ── 条件路由 ──────────────────────────────────────────────────────────
+
+    def route_after_cache_check(state: RAGAgentState) -> str:
+        """缓存后路由：short_circuit=True 直接跳到 post_check，否则走完整 RAG 流程"""
+        if state.get("short_circuit"):
+            return "post_check"
+        return "rewrite_query"
 
     def route_after_retrieve(state: RAGAgentState) -> str:
         """检索后路由：有结果 → generate_answer，无结果 → no_answer"""
@@ -342,7 +410,15 @@ def create_rag_agent(llm):
 
     graph.add_edge(START, "extract_question")
     graph.add_edge("extract_question", "cache_check")
-    graph.add_edge("cache_check", "rewrite_query")
+    # 新增条件路由：short_circuit 直接跳到 post_check
+    graph.add_conditional_edges(
+        "cache_check",
+        route_after_cache_check,
+        {
+            "post_check": "post_check",
+            "rewrite_query": "rewrite_query",
+        },
+    )
     graph.add_edge("rewrite_query", "retrieve")
     graph.add_conditional_edges("retrieve", route_after_retrieve)
     graph.add_edge("generate_answer", "post_check")

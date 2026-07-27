@@ -266,16 +266,60 @@ def render_chat_main(user: dict, use_direct_agent: str = None) -> None:
                 # 更新对话时间戳
                 update_conversation_timestamp(st.session_state.current_conversation_id)
 
-                # 经验记忆：保存用户问题的向量嵌入（异步，异常不阻塞）
+                # ===== QACache 写入诊断（文件日志，解决 print 不到终端的问题） =====
+                import logging, os
+                _cache_log = logging.getLogger("qacache_write")
+                if not _cache_log.handlers:
+                    _h = logging.FileHandler(
+                        os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "data", "cache_debug.log"),
+                        encoding="utf-8"
+                    )
+                    _h.setFormatter(logging.Formatter("%(asctime)s %(message)s"))
+                    _cache_log.addHandler(_h)
+                    _cache_log.setLevel(logging.DEBUG)
+
+                _cache_log.info("=" * 50)
+                _cache_log.info(f"user_msg_id={user_msg_id}")
+                _cache_log.info(f"agent_used='{agent_used}' type={type(agent_used).__name__}")
+                _cache_log.info(f"agent_used == 'rag_agent' ? {agent_used == 'rag_agent'}")
+                _cache_log.info(f"ENABLE check 结果: {bool(user_msg_id and agent_used == 'rag_agent')}")
+                # 经验记忆：写入 qa_cache（KB 指纹 + 双阈值短路版）
                 if user_msg_id and agent_used == "rag_agent":
                     try:
-                        from data.cache_service import embed_text, save_embedding, _should_cache
-                        if _should_cache(user_input):
+                        from data.cache_service import (
+                            embed_text, save_qa_cache_entry, _should_cache,
+                        )
+                        from data.kb_version import compute_kb_fingerprint
+                        _cache_log.info(f"进入写入流程, input={user_input[:60]}")
+                        if not _should_cache(user_input):
+                            _cache_log.warning("_should_cache=False, skip")
+                        else:
                             vec = embed_text(user_input)
-                            if vec:
-                                save_embedding(user_msg_id, vec)
+                            _cache_log.info(f"embed_text success={vec is not None}")
+                            if not vec:
+                                _cache_log.error("embed_text returned None")
+                            else:
+                                kb_ver = compute_kb_fingerprint()
+                                _cache_log.info(f"kb_version={kb_ver}")
+                                if not kb_ver:
+                                    _cache_log.error("compute_kb_fingerprint returned None")
+                                else:
+                                    rid = save_qa_cache_entry(
+                                        question=user_input,
+                                        question_vec=vec,
+                                        answer=response,
+                                        kb_version=kb_ver,
+                                    )
+                                    _cache_log.info(f"save_qa_cache_entry result: rid={rid}")
+                                    if rid:
+                                        _cache_log.info(f"写入成功! id={rid}")
+                                    else:
+                                        _cache_log.error("save_qa_cache_entry returned None")
                     except Exception as e:
-                        print(f"[QACache] 嵌入保存失败（不影响主流程）: {e}")
+                        import traceback
+                        _cache_log.exception(f"写入异常: {e}")
+                else:
+                    _cache_log.warning(f"条件未满足，跳过写入")
 
         # 添加助手回复到 session_state
         st.session_state.messages.append({

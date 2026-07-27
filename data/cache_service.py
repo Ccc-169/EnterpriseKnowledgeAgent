@@ -4,8 +4,10 @@ data/cache_service.py — 经验记忆缓存（长期记忆：Q&A 向量相似�
 提供：
 - embed_text: 调用 Qwen embedding API 将文本转为向量
 - cosine_similarity: 余弦相似度计算
-- search_cache: 在 messages 表中检索与当前问题相似的历史 Q&A
-- save_embedding: 将问题向量存入对应的 user 消息
+- search_cache: 在 messages 表中检索与当前问题相似的历史 Q&A（兼容旧路径）
+- save_embedding: 将问题向量存入对应的 user 消息（兼容旧路径）
+- search_qa_cache: 在 qa_cache 表中检索，支持 KB 指纹校验 + 双阈值分层（高/中/低/未命中）
+- save_qa_cache_entry: 将 Q&A 写入 qa_cache 表（带 kb_version 字段）
 - should_cache: 判断问题是否值得缓存（过滤噪音）
 """
 
@@ -49,7 +51,6 @@ def _should_cache(question: str) -> bool:
 
 # ── 向量化 ──────────────────────────────────────────────
 
-@traceable(name="Qwen Embedding", run_type="embedding")
 def embed_text(text: str) -> list[float] | None:
     """
     调用 Qwen embedding API 将文本转为向量。
@@ -191,3 +192,251 @@ def save_embedding(message_id: int, question_vec: list[float]) -> bool:
     except Exception as e:
         print(f"[CacheService] 嵌入保存失败: {e}")
         return False
+
+
+# ── 新缓存：qa_cache 表（KB 指纹 + 双阈值短路） ──────────
+
+
+@traceable(name="CACHE: 分层检索(高/中/低)", run_type="retriever")
+def search_qa_cache(
+    question_vec: list[float],
+    kb_version: str,
+    high_threshold: float | None = None,
+    med_threshold: float | None = None,
+    min_threshold: float | None = None,
+    top_k: int | None = None,
+) -> dict:
+    """
+    在 qa_cache 表中检索与当前问题相似的历史 Q&A，并按 KB 指纹 + 三档阈值决策。
+
+    Returns:
+        {
+            "level":       "high" | "med" | "low" | "miss",
+            "answer":      str | None,         # high 时直接给完整答案
+            "context":     str | None,         # med 时给完整答案作 prompt 注入
+            "score":       float,              # best.score
+            "kb_matched":  bool,               # best 是否通过 kb_version 校验
+            "raw_candidates": list[dict],      # 调试用: 通过 min_threshold 的所有候选
+        }
+
+    决策流程:
+      1. 全表扫 + 余弦相似度 ≥ min_threshold 得候选
+      2. 过滤 kb_version == 当前 fingerprint 的候选
+      3. 剩余候选按分数降序，取 top1 作为 best
+      4. best.score ≥ high_threshold → "high"
+         best.score ≥ med_threshold  → "med"
+         else                        → "low" 或 "miss"（取决于是否有通过 min 但未达 med 的候选）
+    """
+    from core.config import (
+        QA_CACHE_HIGH_CONFIDENCE,
+        QA_CACHE_MED_CONFIDENCE,
+        QA_CACHE_MIN_CONFIDENCE,
+        QA_CACHE_TOP_K,
+    )
+
+    if not question_vec:
+        return {
+            "level": "miss", "answer": None, "context": None,
+            "score": 0.0, "kb_matched": False, "raw_candidates": [],
+        }
+
+    high_threshold = high_threshold if high_threshold is not None else QA_CACHE_HIGH_CONFIDENCE
+    med_threshold  = med_threshold  if med_threshold  is not None else QA_CACHE_MED_CONFIDENCE
+    min_threshold  = min_threshold  if min_threshold  is not None else QA_CACHE_MIN_CONFIDENCE
+    top_k          = top_k          if top_k          is not None else QA_CACHE_TOP_K
+
+    conn = get_db()
+    try:
+        rows = conn.execute(
+            """SELECT id, question, question_vec, answer, kb_version, hit_count
+               FROM qa_cache"""
+        ).fetchall()
+
+        all_candidates = []
+        for row in rows:
+            try:
+                cached_vec = json.loads(row["question_vec"])
+                sim = cosine_similarity(question_vec, cached_vec)
+            except Exception:
+                continue
+            if sim < min_threshold:
+                continue
+            all_candidates.append({
+                "id": row["id"],
+                "question": row["question"],
+                "answer": row["answer"],
+                "kb_version": row["kb_version"],
+                "hit_count": row["hit_count"],
+                "score": round(sim, 4),
+            })
+
+        # 按分数降序，取 top_k
+        all_candidates.sort(key=lambda x: x["score"], reverse=True)
+        all_candidates = all_candidates[:top_k]
+
+        # 过滤 KB 版本匹配的候选
+        kb_matched = [c for c in all_candidates if c["kb_version"] == kb_version]
+
+        if not all_candidates:
+            return {
+                "level": "miss", "answer": None, "context": None,
+                "score": 0.0, "kb_matched": False, "raw_candidates": [],
+            }
+
+        # 优先取 kb_version 匹配中的最高分；无匹配时 best 视为 None
+        if kb_matched:
+            best = kb_matched[0]
+            kb_ok = True
+        else:
+            best = all_candidates[0]
+            kb_ok = False
+
+        score = best["score"]
+        answer = best["answer"]
+
+        # 决策
+        if kb_ok and score >= high_threshold:
+            level = "high"
+            return {
+                "level": level, "answer": answer, "context": None,
+                "score": score, "kb_matched": True, "raw_candidates": all_candidates,
+            }
+        if kb_ok and score >= med_threshold:
+            level = "med"
+            return {
+                "level": level, "answer": None, "context": answer,
+                "score": score, "kb_matched": True, "raw_candidates": all_candidates,
+            }
+        if kb_ok:
+            return {
+                "level": "low", "answer": None, "context": None,
+                "score": score, "kb_matched": True, "raw_candidates": all_candidates,
+            }
+        # kb_version 不匹配 — 视为失效
+        return {
+            "level": "miss", "answer": None, "context": None,
+            "score": score, "kb_matched": False, "raw_candidates": all_candidates,
+        }
+    finally:
+        conn.close()
+
+
+def save_qa_cache_entry(
+    question: str,
+    question_vec: list[float],
+    answer: str,
+    kb_version: str,
+) -> int | None:
+    """
+    将一条 Q&A 写入 qa_cache 表（含 kb_version 字段）。
+    Returns:
+        新行 id，失败返回 None。
+    """
+    if not question_vec or not question or not answer or not kb_version:
+        return None
+    try:
+        conn = get_db()
+        cur = conn.execute(
+            """INSERT INTO qa_cache (question, question_vec, answer, kb_version)
+               VALUES (?, ?, ?, ?)""",
+            (
+                question,
+                json.dumps(question_vec, ensure_ascii=False),
+                answer,
+                kb_version,
+            ),
+        )
+        conn.commit()
+        new_id = cur.lastrowid
+        conn.close()
+        print(f"[CacheService] qa_cache 写入: id={new_id}, kb_version={kb_version}")
+
+        # 写入后概率性触发清理（20%），避免每次写入都全表扫描
+        import random
+        if random.random() < 0.2:
+            cleanup_qa_cache()
+
+        return new_id
+    except Exception as e:
+        print(f"[CacheService] qa_cache 写入失败: {e}")
+        return None
+
+
+# ── 缓存清理 ────────────────────────────────────────────
+
+_MAX_QA_CACHE_ROWS = 1000
+_MAX_DAYS_UNHIT = 7
+
+
+def cleanup_qa_cache(
+    max_rows: int = _MAX_QA_CACHE_ROWS,
+    max_days_unhit: int = _MAX_DAYS_UNHIT,
+) -> int:
+    """
+    清理 qa_cache 表，两个维度：
+    1. 时间维度：删除超过 max_days_unhit 天未被命中的记录
+    2. 数量维度：总数超过 max_rows 时，删除最久未命中的旧记录
+
+    写入路径每次抽 20% 概率触发（避免每次写入都做全表扫描）。
+    Returns:
+        删除的记录条数。
+    """
+    deleted = 0
+    conn = None
+    try:
+        conn = get_db()
+
+        # 1. 时间清理：超过 N 天未命中（从未命中 + 创建超期的也纳入）
+        conn.execute(
+            """DELETE FROM qa_cache
+               WHERE (last_hit_at IS NOT NULL
+                      AND last_hit_at < datetime('now', ?))
+                  OR (last_hit_at IS NULL
+                      AND created_at < datetime('now', ?))""",
+            (f"-{max_days_unhit} days", f"-{max_days_unhit} days"),
+        )
+        deleted += conn.total_changes
+
+        # 2. 数量上限：超出 max_rows 时，删除最久未命中的记录
+        count = conn.execute("SELECT COUNT(*) FROM qa_cache").fetchone()[0]
+        overflow = count - max_rows
+        if overflow > 0:
+            conn.execute(
+                """DELETE FROM qa_cache
+                   WHERE id IN (
+                       SELECT id FROM qa_cache
+                       ORDER BY
+                           CASE WHEN last_hit_at IS NULL THEN 1 ELSE 0 END,
+                           COALESCE(last_hit_at, created_at) ASC
+                       LIMIT ?
+                   )""",
+                (overflow,),
+            )
+            deleted += conn.total_changes
+
+        conn.commit()
+        if deleted > 0:
+            print(f"[CacheService] 清理完毕: 删除 {deleted} 条旧缓存 (当前表大小 {count - overflow} 条)")
+    except Exception as e:
+        print(f"[CacheService] 清理失败（不影响主流程）: {e}")
+    finally:
+        if conn:
+            conn.close()
+    return deleted
+
+
+@traceable(name="CACHE: 命中计数", run_type="chain")
+def increment_qa_cache_hit(cache_id: int) -> None:
+    """短路命中后调用，更新 hit_count 和 last_hit_at。仅用于 observability。"""
+    try:
+        conn = get_db()
+        conn.execute(
+            """UPDATE qa_cache
+               SET hit_count = hit_count + 1, last_hit_at = CURRENT_TIMESTAMP
+               WHERE id = ?""",
+            (cache_id,),
+        )
+        conn.commit()
+        conn.close()
+    except Exception as e:
+        print(f"[CacheService] hit_count 更新失败: {e}")

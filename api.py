@@ -465,6 +465,45 @@ async def chat_stream(req: ChatRequest, request: Request, user: dict = Depends(v
                     question   = req.message,
                 )
 
+                # ── QA 缓存写入（KB 指纹 + 双阈值短路版） ──
+                if agent_used == "rag_agent":
+                    import logging, os
+                    _al = logging.getLogger("qacache_write")
+                    if not _al.handlers:
+                        _log_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "data", "cache_debug.log")
+                        _h = logging.FileHandler(os.path.normpath(_log_path), encoding="utf-8")
+                        _h.setFormatter(logging.Formatter("%(asctime)s %(message)s"))
+                        _al.addHandler(_h)
+                        _al.setLevel(logging.DEBUG)
+                    try:
+                        from data.cache_service import embed_text, save_qa_cache_entry, _should_cache
+                        from data.kb_version import compute_kb_fingerprint
+                        _al.info(f"api.py 写入入口 agent_used={agent_used}, input={req.message[:50]}")
+                        if not _should_cache(req.message):
+                            _al.warning("_should_cache=False, skip")
+                        else:
+                            vec = embed_text(req.message)
+                            if not vec:
+                                _al.error("embed_text 返回 None")
+                            else:
+                                kb_ver = compute_kb_fingerprint()
+                                _al.info(f"kb_version={kb_ver}")
+                                if not kb_ver:
+                                    _al.error("compute_kb_fingerprint 返回 None")
+                                else:
+                                    rid = save_qa_cache_entry(
+                                        question=req.message,
+                                        question_vec=vec,
+                                        answer=response,
+                                        kb_version=kb_ver,
+                                    )
+                                    if rid:
+                                        _al.info(f"写入成功 id={rid}")
+                                    else:
+                                        _al.error("save_qa_cache_entry 返回 None")
+                    except Exception as e:
+                        _al.exception(f"写入异常: {e}")
+
             yield _sse({"type": "done"})
         finally:
             # 资源回收硬保证：任何退出路径（正常/取消/异常/GeneratorExit）都清理注册项

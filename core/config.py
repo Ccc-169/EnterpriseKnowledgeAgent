@@ -46,3 +46,23 @@ CHAT_DISCONNECT_POLL_SEC  = float(os.environ.get("CHAT_DISCONNECT_POLL_SEC", "0.
 RULES_CONFIG_PATH = os.environ.get("RULES_CONFIG_PATH", "./rules/rule_config.yaml")
 RULES_ENABLED = os.environ.get("RULES_ENABLED", "true").lower() == "true"
 RULES_BLOCK_ON_CRITICAL = os.environ.get("RULES_BLOCK_ON_CRITICAL", "true").lower() == "true"
+
+# ── KB 全局指纹 ────────────────────────────────────────
+# 调 RAGFlow 算指纹的进程内缓存 TTL（秒）。5 分钟内不重复打 RAGFlow。
+KB_FINGERPRINT_TTL_SECONDS = int(os.environ.get("KB_FINGERPRINT_TTL_SECONDS", "300"))
+
+# ── QA 缓存分层阈值（双阈值短路）─────────────────────
+# 候选门槛：相似度 < 此值的连候选都不算。
+QA_CACHE_MIN_CONFIDENCE = float(os.environ.get("QA_CACHE_MIN_CONFIDENCE", "0.80"))
+# 中置信门槛：[MIN, MED) 走"参考骨架"路径。
+QA_CACHE_MED_CONFIDENCE = float(os.environ.get("QA_CACHE_MED_CONFIDENCE", "0.85"))
+# 高置信门槛：≥ 此值走"短路"路径，直接返回缓存答案。
+QA_CACHE_HIGH_CONFIDENCE = float(os.environ.get("QA_CACHE_HIGH_CONFIDENCE", "0.90"))
+# 候选召回 top K。
+QA_CACHE_TOP_K = int(os.environ.get("QA_CACHE_TOP_K", "3"))
+
+# ── QA 缓存灰度开关（feature flags）───────────────────
+# 关掉后所有缓存视为 kb_version 缺失 → 永远 miss → 退化为旧行为。
+ENABLE_KB_FINGERPRINT = os.environ.get("ENABLE_KB_FINGERPRINT", "true").lower() == "true"
+# 关掉后高置信也走完整 RAG（保留 kb_version 校验过滤，但不再"直接返回缓存"）。
+ENABLE_QA_CACHE_SHORTCIRCUIT = os.environ.get("ENABLE_QA_CACHE_SHORTCIRCUIT", "true").lower() == "true"

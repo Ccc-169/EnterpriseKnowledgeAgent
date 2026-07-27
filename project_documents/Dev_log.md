@@ -1,6 +1,130 @@
 ﻿# 开发日志列表
 :
 
+## 2026-07-23 (RAG Agent Q&A 缓存优化)
+
+**背景**：用户每次相同或相似问题都要走完整 RAG 链路（检索 + LLM 生成），耗时约 26s，相同问题无缓存复用，token 和响应时间浪费严重。
+
+**功能**：
+
+1. **新增 Q&A 向量缓存机制**（`data/cache_service.py`）：
+   - 新建 `qa_cache` SQLite 表（id, question, question_vec, answer, kb_version, hit_count, created_at, last_hit_at）
+   - 每次回答后自动写入缓存，后续相同/相似问题走向量相似度匹配，三级置信度决策：
+     - **High (≥0.90)**：直接短路，跳过 RAG + LLM，0.5s 返回缓存答案
+     - **Med [0.85, 0.90)**：参考骨架（保留）
+     - **Min [0.80, 0.85)**：候选参考
+   - 千问 API 做文本向量化（1024 维）
+   - 新增 `cache_debug.log` 详细记录每次检查的相似度分数和决策过程
+
+2. **缓存清理策略**（`data/cache_service.py`）：
+   - 数量上限：维持 **1000 条**，超出删除最久未命中的
+   - 时间上限：超过 7 天未命中自动清理
+   - 写入后 20% 概率触发清理，避免每次全表扫描
+
+3. **KB 指纹变化自动清理**（`data/kb_version.py`）：
+   - `compute_kb_fingerprint` 检测到 RAGFlow 文档变化时，自动 `DELETE FROM qa_cache WHERE kb_version != '新指纹'`
+   - 同指纹去重，避免反复清理
+
+4. **检索性能优化**（`core/database.py`）：
+   - `qa_cache` 表新增 `last_hit_at` 索引，加速时间维度清理查询
+
+5. **LangSmith 观测精简**：
+   - 移除 `compute_kb_fingerprint`、`embed_text`、`save_qa_cache_entry` 三个函数的 `@traceable` 装饰器，减少 trace 中非必要 span
+
+6. **缓存命中率优化**：
+   - High 短路阈值从 **0.95 → 0.90**
+
+**效果验证**（trace 对比）：
+
+| 指标 | 第一次（无缓存） | 第二次（缓存命中） | 变化 |
+|---|---|---|---|
+| 总耗时 | ~26.47s | **~0.55s** | **↓ 98%** |
+| short_circuit | false | **true** | — |
+| LLM tokens | 3820 | **0** | **↓ 100%** |
+| 执行链路 | cache_check→rewrite→retrieve→generate→post_check（5 节点） | **cache_check→post_check（2 节点）** | 跳过 3 个节点 |
+
+**修改文件**：`data/cache_service.py`、`data/kb_version.py`、`core/config.py`、`core/database.py`、`api.py`、`agents/rag_agent.py`、`pages/chat_page.py`、`get-think-chain.py`、`data/cache_debug.log`（新建）、`view_qa_cache.py`（新建、临时观测用）
+
+**时间**：2026-07-23
+
+---
+
+## 2026-07-21 (数据文件管理功能 + 修复多处 BUG)
+
+**背景**：管理员在服务器上放置 Excel/CSV 数据文件供 data_agent 使用非常不便（需手动连接服务器将文件放到 DATA_DIR 目录）。希望在前端提供可视化上传/删除功能，且仅管理员可用。
+
+**功能**：
+
+1. **后端新增 2 个 API 端点**（`api.py`）：
+   - `POST /api/admin/data-files/upload` — 上传 Excel/CSV，限制类型(.xlsx/.xls/.csv) + 大小 100MB + 路径穿越防护；`overwrite=false` 时同名返回 409（前端弹窗询问覆盖），`overwrite=true` 直接覆盖。
+   - `DELETE /api/admin/data-files/{filename}` — 删除指定文件。
+   - 辅助函数：`_resolve_data_dir()`（自动创建目录）、`_sanitize_data_filename()`（防路径穿越）。
+
+2. **新建独立页面 `data-files-page.html`**：
+   - 完整侧边栏 + 工具栏（上传/刷新按钮 + 路径显示 + 提示文字）。
+   - 文件列表表格（类型标签 + 文件名 + 大小 + 操作列）。
+   - 上传流程：点击上传 → 文件选择器 → 检测同名（弹窗询问覆盖/取消）→ 上传 → 自动刷新列表。
+   - 删除流程：点击删除 → 确认弹窗 → DELETE 请求 → 刷新列表。
+   - 权限：仅管理员可见上传/删除按钮、侧边栏「数据文件」菜单项；普通用户直接 403 跳转首页。
+
+3. **侧边栏权限控制**（8 个 HTML 页面）：
+   - 所有页面新增「数据文件」菜单项，默认 `display:none`，`initPage()` 中 `role === 'admin'` 时才显示。
+   - `admin-page.html` 中「本地数据文件」子 section 改为跳转卡片，跳转到新独立页面。
+
+**修复**：
+
+1. `EXECUTOR_URL` 配置错误：`.env` 中 `EXECUTOR_URL=http://localhost:28001/execute` 末尾多 `/execute`，导致 data_agent 拼出 `/execute/execute_batch` 404；已改为 `http://localhost:28001`。
+2. `home-page.html` 管理员菜单项重复：之前的批量替换导致多出一组 admin-item，已清理。
+3. 各页面 HNGD logo SVG 无显式 width/height，依赖 CSS 约束，渲染异常时出现巨大默认图标（300×150px）；已给全部 SVG 加上 `width="20" height="20"`。
+4. 移除之前误插入的 inline `<script>`（在 `</nav>` 后紧贴放置，破坏 flex 布局）。
+
+**性能分析**：分析 `trace_export.json`（data_agent 88.6s），`execute_data_query` 工具占 66.53s（75%），首次 LLM OLLAMA 冷启动 14.57s。
+
+**修改文件**：
+- `api.py`、`html_files/data-files-page.html`（新建）、`html_files/admin-page.html`、`html_files/home-page.html`、`html_files/knowledge-base-page.html`、`html_files/data-analysis-page.html`、`html_files/more-features-page.html`、`html_files/interface_config.html`、`html_files/setting-page.html`、`.env`
+- `project_documents/Dev_log.md`（本日志）
+
+**时间**：2026-07-21
+
+---
+
+## 2026-07-16 (api_agent 接口导入热重载改造)
+
+**背景**：前端在前端"接口配置"页面导入近 50 个真实数据接口后，api_agent 提问时只能识别到 22 个（来自 trace 实际返回数），必须重启后端服务才能让新接口生效，影响使用体验。
+
+**根因**：
+- `agents/api_agent.py` 原本在 `create_api_agent()` 时一次性扫描 `data_interface/` 目录，把 `apis` / `api_map` 闭包到 `list_available_apis` 和 `call_real_api` 两个工具里——**进程启动后再修改磁盘 JSON 文件，agent 不会重新读取**。
+- 前端"接口配置"走 `data/interface_service.py` 的 `import_*` / `delete_*` 写入流程，仅修改磁盘文件 + SQLite `data_interfaces` 索引表，没有任何机制通知 api_agent 刷新缓存。
+- 架构上的"双数据源不一致"——前端展示来自数据库 `data_interfaces` 表，api_agent 工具来自文件系统 `data_interface/*.json`，两者同写不同读。
+
+**方案**（2 个文件，无新增/删除文件）：
+
+1. **`agents/api_agent.py` — 缓存机制 + 工具改用惰性加载**
+   - 顶部新增模块级缓存 `_api_cache = {"specs", "apis", "api_map", "loaded_at"}` + 线程锁 `_cache_lock`，TTL `_API_CACHE_TTL = 30.0` 秒。
+   - 新增 `invalidate_api_cache()` 公开失效函数（清空缓存 + 重置 `loaded_at`，下次工具调用时自动重读磁盘）。
+   - 新增 `_get_apis()` 内部加载函数：先检查 TTL，未过期复用缓存；过期或缓存为空时调用 `_load_all_specs()` + `_parse_apis_from_specs()` 重建。
+   - `create_api_agent()` 改为不再闭包 `apis`/`api_map`，仅启动时调一次 `_get_apis()` 预热（让启动日志可见 `[api_agent] 已加载 N 个规范，共 M 个接口`）。
+   - `list_available_apis` 工具开头加 `apis, _ = _get_apis()`；`call_real_api` 工具开头加 `_, api_map = _get_apis()`——两者不再捕获闭包，每次调用前实时拿最新数据。
+
+2. **`data/interface_service.py` — 写入/删除入口加失效钩子**
+   - 顶部新增内部辅助函数 `_invalidate_api_cache()`，内部 `try: from agents.api_agent import invalidate_api_cache; invalidate_api_cache(); except Exception: pass`——`try` 包裹：纯管理脚本（如 `scripts/import_swagger_specs.py`）即便 api_agent 因依赖未就绪 import 失败也不应阻断主流程。
+   - 在 7 个函数末尾加调用：`sync_data_interfaces_index`、`import_selected_tags`、`import_from_swagger_url`、`import_from_json_content`、`delete_single_interface`、`delete_interface_file`、`delete_service_directory`。每个早 return 路径（"未找到"/"参数校验失败"等不修改磁盘的路径）正确跳过失效调用——只对真正改了文件或索引的路径生效。
+
+**关键取舍**：
+- `invalidate_api_cache()` 只清**当前 Python 进程**内的缓存；跨进程场景（如 `scripts/import_swagger_specs.py` 命令行导入后 Streamlit 没重启）→ 靠 30s TTL 兜底自动刷新。如果部署了多 uvicorn worker，每个 worker 各自维护缓存，最迟 30s 内也会自刷新。
+- 端到端验证：写了 5 项测试覆盖"首次加载 / 新增文件+invalidate / TTL 内复用 / TTL 过期自动重读 / 删除文件+invalidate"，全部通过后已清理测试脚本，磁盘 `data_interface/` 保持原状。
+
+**后续建议**（不在本次改动范围）：
+- 重启当前 Linux 后端的 Streamlit 服务，让进程首次加载到 109 个接口（热重载只对"导入后的新调用"生效，老进程内存里仍是 22 个）。
+- 删除 `data_interface/test/Message.json`（与 `消息中心/消息控制器.json` 内容完全重复，浪费 6 个槽位）。
+- 关键词细化检索优化（已讨论设计，待确认后实施）：把 `list_available_apis` 改为"概览+关键词检索"双模式，解决 LLM token 爆炸问题。
+
+**修改文件**：`agents/api_agent.py`、`data/interface_service.py`
+
+**时间**：2026-07-16
+
+---
+
 ## 2026-06-18 (Agent 回复气泡增加白色卡片效果)
 
 **问题**：Agent（AI）回复消息气泡使用 `background: #f4f7fc` 极浅蓝灰背景，在页面灰色背景下视觉上几乎透明，与用户深蓝色消息缺乏明显对比。

@@ -108,6 +108,38 @@ CREATE TABLE IF NOT EXISTS user_interface_access (
 );
 """
 
+# ── QA 经验记忆缓存（KB 指纹 + 双阈值短路） ────────────
+# 用于 cache_check 节点的快速命中。
+# 旧方案是把 question_vec 存在 messages.question_vec，本表是独立的新缓存表。
+# 读取和写入都走本表；messages.question_vec 列保留 1 个月后清理。
+_CREATE_QA_CACHE_TABLE = """
+CREATE TABLE IF NOT EXISTS qa_cache (
+    id           INTEGER PRIMARY KEY AUTOINCREMENT,
+    question     TEXT    NOT NULL,
+    question_vec TEXT    NOT NULL,
+    answer       TEXT    NOT NULL,
+    kb_version   TEXT    NOT NULL,
+    hit_count    INTEGER NOT NULL DEFAULT 1,
+    last_hit_at  TIMESTAMP,
+    created_at   TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+"""
+
+_CREATE_QA_CACHE_VERSION_IDX = """
+CREATE INDEX IF NOT EXISTS idx_qa_cache_kb_version
+ON qa_cache(kb_version);
+"""
+
+_CREATE_QA_CACHE_CREATED_AT_IDX = """
+CREATE INDEX IF NOT EXISTS idx_qa_cache_created_at
+ON qa_cache(created_at);
+"""
+
+_CREATE_QA_CACHE_LAST_HIT_IDX = """
+CREATE INDEX IF NOT EXISTS idx_qa_cache_last_hit_at
+ON qa_cache(last_hit_at);
+"""
+
 
 def get_db() -> sqlite3.Connection:
     """返回数据库连接，自动创建 ./data/ 目录。"""
@@ -132,6 +164,10 @@ def init_db() -> None:
         conn.execute(_CREATE_DOCUMENT_HISTORY_TABLE)
         conn.execute(_CREATE_DATA_INTERFACES_TABLE)
         conn.execute(_CREATE_USER_INTERFACE_ACCESS_TABLE)
+        conn.execute(_CREATE_QA_CACHE_TABLE)
+        conn.execute(_CREATE_QA_CACHE_VERSION_IDX)
+        conn.execute(_CREATE_QA_CACHE_CREATED_AT_IDX)
+        conn.execute(_CREATE_QA_CACHE_LAST_HIT_IDX)
         # 迁移：为已有 messages 表添加 question_vec 列（列已存在则跳过）
         try:
             conn.execute(_MIGRATE_MESSAGES_QUESTION_VEC)
