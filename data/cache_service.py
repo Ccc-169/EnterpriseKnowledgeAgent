@@ -20,6 +20,11 @@ from langsmith import traceable
 
 from core.database import get_db
 
+# 强制加载 .env，确保 os.environ.get('QWEN_API_KEY') 在 embed_text 被调用时一定有值
+# （trace_export 里 cache_check_node 走 else 分支说明 embed_text 调用时 key 为空）
+from dotenv import load_dotenv
+load_dotenv()
+
 # ── 常量 ────────────────────────────────────────────────
 EMBEDDING_MODEL = "text-embedding-v3"
 SIMILARITY_THRESHOLD = 0.80        # 余弦相似度命中阈值
