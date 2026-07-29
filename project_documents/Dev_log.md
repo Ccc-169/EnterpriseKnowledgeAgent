@@ -1,6 +1,30 @@
 ﻿# 开发日志列表
 :
 
+## 2026-07-27 (修复 QA 缓存静默失效——QWEN_API_KEY 缺失)
+
+**背景**：QA 缓存（7-23 优化点）在 155 服务器上始终未生效——`view_qa_cache.py` 查看缓存表记录为 0，LangSmith trace 中从未出现 `CACHE: 分层检索` 节点。但 RAG 对话功能一切正常，缓存静默失败近一周未被发现。
+
+**根因**：`.env` 中 `QWEN_API_KEY` 为空。`cache_check_node` → `embed_text()` 调千问 embedding API 需要此 Key → 值为空时 API 调用不报错但返回 None → `search_qa_cache` 被跳过 → 整个缓存链路静默绕过，回退到正常 RAG 流程。LLM（qwen3.6:35b）跑在本地 Ollama 无需 `QWEN_API_KEY`，所以对话功能不受影响。
+
+**排查过程**：
+1. **LangSmith trace 分析**：发现 trace 中缺少 `cache_check` 预期应有的 span，怀疑缓存检查从未执行
+2. **前端配置排查**：发现 `html_files/config.js` 中 `api_base` 指向 `192.168.1.155` 而非 `localhost`，浏览器请求打到远程旧代码。通过 `tracert` + `netstat` 确认网络拓扑后修正配置
+3. **诊断日志注入**：在 `cache_check_node` 中加入文件日志（`cache_debug.log`）和 trace 诊断字段（`_diag_qwen_key_len`、`_diag_embed_ok`），一举定位到 `embed_text` 返回 None 且 `QWEN_API_KEY` 长度为 0
+4. **服务器验证**：`ss -tlnp | grep :28000` + `ps -o lstart,cmd -p <PID>` 确认进程启动于文件修改之后，排除旧代码可能
+
+**修复**：
+- 155 服务器 `.env` 补填 `QWEN_API_KEY`
+- `html_files/config.js` 改为 `localhost`（本地调试），并加入 `.gitignore` + `git rm --cached` 防止提交到 GitHub
+- `cache_check_node` 保留诊断日志逻辑以便后续排查
+
+**教训**：embedding API 的静默失败模式（Key 为空不抛异常但返回 None）导致问题潜伏周期长。后续关键路径依赖外部 API 时应在启动阶段做连通性检查，而非等到运行时静默降级。
+
+**修改文件**：`html_files/config.js`、`.gitignore`、`agents/rag_agent.py`（诊断日志）、`data/cache_service.py`（load_dotenv）、`api.py`（诊断日志）
+
+**时间**：2026-07-27
+
+---
 ## 2026-07-23 (RAG Agent Q&A 缓存优化)
 
 **背景**：用户每次相同或相似问题都要走完整 RAG 链路（检索 + LLM 生成），耗时约 26s，相同问题无缓存复用，token 和响应时间浪费严重。
@@ -48,6 +72,7 @@
 **时间**：2026-07-23
 
 ---
+
 
 ## 2026-07-21 (数据文件管理功能 + 修复多处 BUG)
 

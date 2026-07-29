@@ -299,15 +299,32 @@ def create_rag_agent(llm):
                 if result.get("raw_candidates"):
                     cache_hit_id = result["raw_candidates"][0].get("id", 0)
             else:
-                _cl.warning("embed_text 返回 None")
+                _qwen_key_len = len(os.environ.get('QWEN_API_KEY', ''))
+                _cl.warning(f"embed_text 返回 None！QWEN_API_KEY 长度={_qwen_key_len}")
+                # 直接同步写文件 + 标记诊断字段到 trace，绕开 logger 可能失效的问题
+                try:
+                    from datetime import datetime
+                    with open(os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "data", "cache_debug.log"), "a", encoding="utf-8") as _f:
+                        _f.write(f"{datetime.now()} [CHECK] FORCED: embed_text failed, QWEN_API_KEY len={_qwen_key_len}\n")
+                except Exception:
+                    pass
         except Exception as e:
             _cl.exception(f"缓存检查异常: {e}")
+            try:
+                from datetime import datetime
+                with open(os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "data", "cache_debug.log"), "a", encoding="utf-8") as _f:
+                    _f.write(f"{datetime.now()} [CHECK] FORCED EXCEPTION: {e!r}\n")
+            except Exception:
+                pass
         return {
             "cache_context": cache_context,
             "kb_version": kb_version,
             "short_circuit": short_circuit,
             "short_circuit_answer": short_circuit_answer,
             "cache_hit_id": cache_hit_id,
+            # 诊断字段：直接出现在 trace outputs 里，下次出问题一眼看到
+            "_diag_qwen_key_len": len(os.environ.get('QWEN_API_KEY', '')),
+            "_diag_embed_ok": cache_hit_id > 0 or (question_vec is not None if 'question_vec' in dir() else False),
         }
 
     def rewrite_query_node(state: RAGAgentState) -> dict:

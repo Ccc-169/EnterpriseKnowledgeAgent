@@ -14,6 +14,31 @@ import requests
 from langchain_core.tools import tool
 from langgraph.prebuilt import create_react_agent
 
+# LangSmith 诊断：通过 traceable 子 span 暴露工具内部状态
+try:
+    from langsmith import traceable
+except Exception:  # pragma: no cover
+    traceable = None
+
+
+if traceable:
+    @traceable(name="api_agent: diagnostics", run_type="tool")
+    def _api_agent_diag(diag: dict) -> dict:
+        """诊断信息 span，供 LangSmith 查看 api_agent 工具内部状态。"""
+        return diag
+else:
+    def _api_agent_diag(diag: dict) -> dict:  # type: ignore
+        return diag
+
+
+def _trace_metadata(diag: dict) -> None:
+    """安全地生成一个 LangSmith 诊断子 span。"""
+    try:
+        _api_agent_diag(diag)
+    except Exception:
+        # tracing 未启用或版本不兼容时不影响主流程
+        pass
+
 # ── 路径 & HTTP Session ──────────────────────────────
 _DATA_INTERFACE_DIR = Path(__file__).parent.parent / "data_interface"
 _http_session = requests.Session()
@@ -257,6 +282,11 @@ def create_api_agent(llm):
         """
         apis, _ = _get_apis()
         if not apis:
+            _trace_metadata({
+                "api_agent.tool": "list_available_apis",
+                "api_agent.error": "no_apis_loaded",
+                "api_agent.data_interface_dir": str(_DATA_INTERFACE_DIR.resolve()),
+            })
             return (
                 "当前没有加载任何真实接口配置。\n"
                 "请确认 data_interface/ 目录下有 OpenAPI 3.0 JSON 文件。\n"
@@ -264,7 +294,15 @@ def create_api_agent(llm):
             )
 
         if not keyword:
-            return _build_api_list_summary(apis)
+            summary = _build_api_list_summary(apis)
+            _trace_metadata({
+                "api_agent.tool": "list_available_apis",
+                "api_agent.keyword": "",
+                "api_agent.total_count": len(apis),
+                "api_agent.result_count": len(apis),
+                "api_agent.has_keyword": False,
+            })
+            return summary
 
         kw = keyword.lower()
         filtered = [
@@ -278,6 +316,13 @@ def create_api_agent(llm):
         ]
 
         if not filtered:
+            _trace_metadata({
+                "api_agent.tool": "list_available_apis",
+                "api_agent.keyword": keyword,
+                "api_agent.total_count": len(apis),
+                "api_agent.result_count": 0,
+                "api_agent.error": "no_match",
+            })
             return (
                 f"未找到与「{keyword}」相关的接口（共 {len(apis)} 个可用接口）。\n"
                 "请尝试其他关键词，或不带关键词调用 list_available_apis 查看完整概览。"
@@ -286,6 +331,13 @@ def create_api_agent(llm):
         lines = [f"匹配接口（共 {len(filtered)} 个 / 总计 {len(apis)} 个）：\n"]
         for api in filtered:
             lines.append(_format_api_detail(api))
+        _trace_metadata({
+            "api_agent.tool": "list_available_apis",
+            "api_agent.keyword": keyword,
+            "api_agent.total_count": len(apis),
+            "api_agent.result_count": len(filtered),
+            "api_agent.has_keyword": True,
+        })
         return "\n\n".join(lines)
 
     @tool
@@ -310,9 +362,19 @@ def create_api_agent(llm):
                          仅 POST/PUT 请求使用，如 '{"title": "测试", "content": "..."}'
         """
         _, api_map = _get_apis()
+
+        # ── 诊断上下文：收集整个工具调用过程的关键状态 ──
+        diag = {
+            "api_agent.tool": "call_real_api",
+            "api_agent.operation_id": operation_id,
+            "api_agent.api_found": operation_id in api_map,
+        }
+
         if operation_id not in api_map:
             # 尝试模糊匹配
             similar = [k for k in api_map if operation_id.lower() in k.lower()]
+            diag["api_agent.fuzzy_candidates"] = similar[:10]
+            _trace_metadata(diag)
             hint = ""
             if similar:
                 hint = f"\n可能的匹配：{', '.join(similar[:5])}"
@@ -324,38 +386,62 @@ def create_api_agent(llm):
         api = api_map[operation_id]
         method = api["method"]
         url = api["full_url"]
+        diag.update({
+            "api_agent.method": method,
+            "api_agent.url_template": url,
+            "api_agent.auth_required": api.get("auth_required", False),
+            "api_agent.has_real_api_token": bool(_REAL_API_TOKEN),
+        })
 
         # ── 处理路径参数：替换 URL 中的 {xxx} 占位符 ──
+        path_values = {}
         if path_params:
+            diag["api_agent.path_params_raw"] = path_params
             try:
                 path_values = json.loads(path_params)
-            except Exception:
+                diag["api_agent.path_params_parsed"] = path_values
+            except Exception as e:
+                diag["api_agent.path_params_error"] = str(e)
+                _trace_metadata(diag)
                 return f"path_params 格式错误，请使用 JSON 字符串：{path_params}"
             for key, value in path_values.items():
                 url = url.replace(f"{{{key}}}", str(value))
+            diag["api_agent.url_after_path"] = url
 
         # ── 处理查询参数 ──
         params = {}
         if query_params:
+            diag["api_agent.query_params_raw"] = query_params
             try:
                 params = json.loads(query_params)
-            except Exception:
+                diag["api_agent.query_params_parsed"] = params
+            except Exception as e:
+                diag["api_agent.query_params_error"] = str(e)
+                _trace_metadata(diag)
                 return f"query_params 格式错误，请使用 JSON 字符串：{query_params}"
 
         # ── 处理请求体 ──
         json_body = None
         form_body = None
         if body and method in ("POST", "PUT", "PATCH"):
+            diag["api_agent.body_raw"] = body
             content_type = api.get("body_content_type", "")
+            diag["api_agent.body_content_type"] = content_type
             if "json" in content_type or not content_type:
                 try:
                     json_body = json.loads(body)
-                except Exception:
+                    diag["api_agent.json_body_parsed"] = json_body
+                except Exception as e:
+                    diag["api_agent.body_error"] = str(e)
+                    _trace_metadata(diag)
                     return f"请求体格式错误，请使用 JSON 字符串：{body}"
             elif "form" in content_type:
                 try:
                     form_body = json.loads(body)
-                except Exception:
+                    diag["api_agent.form_body_parsed"] = form_body
+                except Exception as e:
+                    diag["api_agent.body_error"] = str(e)
+                    _trace_metadata(diag)
                     return f"请求体格式错误，请使用 JSON 字符串：{body}"
 
         # ── 请求头 ──
@@ -364,9 +450,18 @@ def create_api_agent(llm):
             headers["Authorization"] = f"Bearer {_REAL_API_TOKEN}"
         elif api["auth_required"]:
             print("[api_agent] 警告：接口需要认证但未配置 REAL_API_TOKEN")
+            diag["api_agent.auth_warning"] = "接口需要认证但未配置 REAL_API_TOKEN"
 
         if json_body is not None:
             headers["Content-Type"] = "application/json"
+
+        # 记录最终请求信息（不暴露 Token）
+        diag.update({
+            "api_agent.final_url": url,
+            "api_agent.final_params": params,
+            "api_agent.final_method": method,
+            "api_agent.final_headers_keys": list(headers.keys()),
+        })
 
         # ── 发起请求 ──
         try:
@@ -382,22 +477,44 @@ def create_api_agent(llm):
                 else:
                     resp = _http_session.request(method, url, params=params, headers=headers, timeout=30)
             else:
+                diag["api_agent.error"] = f"unsupported_method: {method}"
+                _trace_metadata(diag)
                 return f"不支持的 HTTP 方法：{method}"
 
+            diag["api_agent.response_status"] = resp.status_code
+            diag["api_agent.response_content_length"] = len(resp.text)
+
             if resp.status_code >= 400:
+                diag["api_agent.response_error_preview"] = resp.text[:200]
+                _trace_metadata(diag)
                 return f"接口返回错误 HTTP {resp.status_code}：\n{resp.text[:500]}"
 
             try:
                 result = resp.json()
+                diag["api_agent.response_is_json"] = True
+                diag["api_agent.response_preview"] = json.dumps(result, ensure_ascii=False)[:200]
+                _trace_metadata(diag)
                 return json.dumps(result, ensure_ascii=False, indent=2)
-            except Exception:
+            except Exception as e:
+                diag["api_agent.response_is_json"] = False
+                diag["api_agent.response_parse_error"] = str(e)
+                diag["api_agent.response_preview"] = resp.text[:200]
+                _trace_metadata(diag)
                 return resp.text[:3000]
 
-        except requests.exceptions.ConnectionError:
+        except requests.exceptions.ConnectionError as e:
+            diag["api_agent.error"] = "connection_error"
+            diag["api_agent.error_detail"] = str(e)
+            _trace_metadata(diag)
             return f"无法连接到 {url}，请确认目标服务已启动。"
         except requests.exceptions.Timeout:
+            diag["api_agent.error"] = "timeout"
+            _trace_metadata(diag)
             return f"请求超时（30秒）：{url}"
         except Exception as e:
+            diag["api_agent.error"] = "exception"
+            diag["api_agent.error_detail"] = str(e)
+            _trace_metadata(diag)
             return f"接口调用异常：{e}"
 
     return create_react_agent(
