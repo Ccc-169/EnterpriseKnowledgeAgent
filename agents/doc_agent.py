@@ -7,19 +7,39 @@ from langgraph.prebuilt import create_react_agent
 
 # ── 规则引擎导入 ─────────────────────────────────────
 from rules.integration import check_generated_answer
+from core.cancel import check_or_raise, UserCancelledError
 
 
 # ── LLM 调用重试 ──────────────────────────────────────────────────────────
 
+def _stream_llm_text(llm_obj, prompt) -> str:
+    """流式消费 LLM，每个 token chunk 后检查 cancel_event。
+
+    UserCancelledError 直接向上抛出，不被这里的重试逻辑吞掉。
+    返回拼接后的完整文本。
+    """
+    content = ""
+    for chunk in llm_obj.stream(prompt):
+        check_or_raise()
+        content += chunk.content if hasattr(chunk, "content") else str(chunk)
+    return content
+
+
 def _invoke_with_retry(llm_obj, prompt: str, max_retries: int = 3, label: str = "生成"):
-    """带重试的 LLM 调用，处理连接超时等瞬时错误。"""
+    """带重试的 LLM 调用，处理连接超时等瞬时错误。
+
+    改为流式调用 + token 边界取消检查：用户在前端点击停止后，
+    LLM 在生成下一个 token 之前能立即抛出 UserCancelledError，真正中断生成。
+    """
     from openai import APIConnectionError
 
     last_error = None
     for attempt in range(1, max_retries + 1):
         try:
-            result = llm_obj.invoke(prompt)
-            return result.content if hasattr(result, "content") else str(result)
+            return _stream_llm_text(llm_obj, prompt)
+        except UserCancelledError:
+            # 取消异常不应被重试吞掉，直接向上抛
+            raise
         except APIConnectionError as e:
             last_error = e
             if attempt < max_retries:

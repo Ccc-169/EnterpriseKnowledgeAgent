@@ -12,6 +12,20 @@ _http_session = requests.Session()
 # ── 规则引擎导入 ─────────────────────────────────────
 from rules.integration import check_generated_code
 from rules.engine import RuleViolationError
+from core.cancel import check_or_raise, UserCancelledError
+
+
+def _stream_llm_text(llm_obj, prompt) -> str:
+    """流式消费 LLM，每个 token chunk 后检查 cancel_event。
+
+    UserCancelledError 直接向上抛出，不被这里吞掉。
+    返回拼接后的完整文本。
+    """
+    content = ""
+    for chunk in llm_obj.stream(prompt):
+        check_or_raise()
+        content += chunk.content if hasattr(chunk, "content") else str(chunk)
+    return content
 
 _SCHEMA_PATH = os.path.join(os.path.dirname(__file__), "..", "project_documents", "data_schema.json")
 
@@ -190,7 +204,8 @@ def create_data_agent(llm):
         if cache_key in _code_cache:
             code = _code_cache[cache_key]
         else:
-            code = _clean(llm.invoke(code_prompt).content)
+            # 流式生成代码：用户取消时能立即在下一个 token 边界中断
+            code = _clean(_stream_llm_text(llm, code_prompt))
             _code_cache[cache_key] = code
 
         payload_data_path = file_paths if is_multi else file_paths[0]
@@ -226,7 +241,7 @@ def create_data_agent(llm):
                 f"{col_hint}"
                 f"只输出修复后的纯 Python 代码，不含说明。"
             )
-            code = _clean(llm.invoke(fix_prompt).content)
+            code = _clean(_stream_llm_text(llm, fix_prompt))
             _code_cache[cache_key] = code
             try:
                 check_generated_code(code, agent_name="data_agent", raise_on_critical=True)

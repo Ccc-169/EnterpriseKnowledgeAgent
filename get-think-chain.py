@@ -7,7 +7,7 @@ load_dotenv()
 
 client = Client(api_key=os.environ["LANGSMITH_API_KEY"])
 # 填入你截图中的 Run ID (通常在 URL 中可以看到)
-run_id = "019fa69c-46e6-7832-b911-ef4f38d18754" 
+run_id = "019fb207-1638-7d03-aacd-5686bc98ea4d" 
 
 def get_full_trace(run_id):
     # 获取当前节点

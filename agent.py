@@ -14,6 +14,7 @@ from agents.doc_agent import create_doc_agent
 from agents.api_agent import create_api_agent
 from rules.integration import init_engine, check_user_input
 from rules.engine import RuleViolationError
+from core.cancel import set_cancel_event, clear_cancel_event, check_or_raise
 
 load_dotenv()
 
@@ -246,8 +247,14 @@ def chat_direct(
     # StateGraph 节点名称跳过集合（ReAct 框架内部节点 + supervisor）
     _SKIP_NODE_NAMES = {"agent", "tools", "__start__", "__end__", "supervisor"}
 
-    # 注入进度回调到 rag_agent 的 threading.local（仅 rag_agent 使用）
+# 注入进度回调到 rag_agent 的 threading.local（仅 rag_agent 使用）
     _rag_local.progress_callback = progress_callback
+
+    # ── 把 cancel_event 注入当前工作线程的线程局部存储 ──
+    # 节点函数（如 rewrite_query / _generate_answer）通过 check_or_raise()
+    # 读取这个事件，从而在 LLM 流式生成的 token 边界响应用户停止。
+    if cancel_event is not None:
+        set_cancel_event(cancel_event)
 
     try:
         for chunk in agent.stream(state_input, config=config, stream_mode="updates"):
@@ -298,6 +305,8 @@ def chat_direct(
     finally:
         # 清理进度回调，防线程池复用导致回调串台
         _rag_local.progress_callback = None
+        # 清理线程局部存储中的 cancel_event，避免线程池复用时新任务误读到旧事件
+        clear_cancel_event()
 
     # 提取最终答案（优先从工具返回中获取，其次取最后一个 AIMessage）
     for msg in reversed(all_messages):
@@ -380,40 +389,48 @@ def chat(
         state_input["user_context"] = user_context
 
     # 单次 stream：同时收集步骤日志 + 所有消息（用于提取最终答案）
-    for chunk in router.stream(
-        state_input,
-        config=config,
-        stream_mode="updates"
-    ):
-        # 协作式取消点：用户切页/停止后退出循环，复用下方"提取已收集答案"逻辑
-        if cancel_event is not None and cancel_event.is_set():
-            break
-        for node_name, node_data in chunk.items():
-            for msg in (node_data or {}).get("messages", []):
-                all_messages.append(msg)
+    # ── 把 cancel_event 注入当前工作线程，供各 sub-agent 节点内部检查 ──
+    if cancel_event is not None:
+        set_cancel_event(cancel_event)
 
-                # 记录工具调用（用 tool_call id 去重）
-                if hasattr(msg, "tool_calls") and msg.tool_calls:
-                    for tc in msg.tool_calls:
-                        if tc["name"].startswith("transfer"):
+    try:
+        for chunk in router.stream(
+            state_input,
+            config=config,
+            stream_mode="updates"
+        ):
+            # 协作式取消点：用户切页/停止后退出循环，复用下方"提取已收集答案"逻辑
+            if cancel_event is not None and cancel_event.is_set():
+                break
+            for node_name, node_data in chunk.items():
+                for msg in (node_data or {}).get("messages", []):
+                    all_messages.append(msg)
+
+                    # 记录工具调用（用 tool_call id 去重）
+                    if hasattr(msg, "tool_calls") and msg.tool_calls:
+                        for tc in msg.tool_calls:
+                            if tc["name"].startswith("transfer"):
+                                continue
+                            tool_key = tc["id"]
+                            if tool_key not in seen_tools:
+                                seen_tools.add(tool_key)
+                                steps_log.append(f"🔧 调用工具：**{tc['name']}**")
+                                if tc.get("args"):
+                                    for k, v in tc["args"].items():
+                                        steps_log.append(f"&nbsp;&nbsp;&nbsp;参数 {k}：{v}")
+
+                    # 记录工具返回（用 name 去重）
+                    if getattr(msg, "name", None):
+                        if msg.name.startswith("transfer"):
                             continue
-                        tool_key = tc["id"]
+                        tool_key = f"{msg.name}_{str(msg.content)[:20]}"
                         if tool_key not in seen_tools:
                             seen_tools.add(tool_key)
-                            steps_log.append(f"🔧 调用工具：**{tc['name']}**")
-                            if tc.get("args"):
-                                for k, v in tc["args"].items():
-                                    steps_log.append(f"&nbsp;&nbsp;&nbsp;参数 {k}：{v}")
-
-                # 记录工具返回（用 name 去重）
-                if getattr(msg, "name", None):
-                    if msg.name.startswith("transfer"):
-                        continue
-                    tool_key = f"{msg.name}_{str(msg.content)[:20]}"
-                    if tool_key not in seen_tools:
-                        seen_tools.add(tool_key)
-                        preview = str(msg.content)[:80]
-                        steps_log.append(f"✅ 工具返回：{preview}...")
+                            preview = str(msg.content)[:80]
+                            steps_log.append(f"✅ 工具返回：{preview}...")
+    finally:
+        # 清理线程局部存储中的 cancel_event，防止线程池复用串台
+        clear_cancel_event()
 
     # 从收集到的消息中提取最终答案
     final_answer = ""

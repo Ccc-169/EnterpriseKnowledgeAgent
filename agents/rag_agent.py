@@ -12,6 +12,7 @@ from langgraph.graph import StateGraph, START, END
 
 # ── 规则引擎导入 ─────────────────────────────────────
 from rules.integration import check_generated_answer
+from core.cancel import check_or_raise, UserCancelledError
 
 logger = logging.getLogger(__name__)
 
@@ -90,6 +91,9 @@ def rewrite_query(llm, question: str) -> dict:
     """
     用 LLM 改写用户查询，返回结构化检索参数。
     任何异常均回退到原始问题，保证主流程不中断。
+
+    使用流式调用 + token 边界取消检查：用户在前端点击停止后，
+    LLM 能在生成当前 token 之后立即退出，而不是要等整个回复生成完。
     """
     if len(question) <= SHORT_QUERY_THRESHOLD or len(question.split()) <= SHORT_WORD_THRESHOLD:
         print(f"[QueryRewrite] 问题较短，跳过改写: {question}")
@@ -101,8 +105,15 @@ def rewrite_query(llm, question: str) -> dict:
 
     try:
         chain = QUERY_REWRITE_PROMPT | llm
-        result = chain.invoke({"question": question})
-        text = result.content if hasattr(result, "content") else str(result)
+        # 流式调用：每收到一个 chunk 就检查一次 cancel_event
+        # UserCancelledError 会向上抛出，由 api.py 捕获并正常结束 SSE
+        chunks = []
+        for chunk in chain.stream({"question": question}):
+            check_or_raise()
+            chunks.append(chunk)
+        text = "".join(
+            c.content if hasattr(c, "content") else str(c) for c in chunks
+        )
         text = re.sub(r"```json|```", "", text).strip()
         parsed = json.loads(text)
         rewritten = {
@@ -114,6 +125,9 @@ def rewrite_query(llm, question: str) -> dict:
         print(f"[QueryRewrite] 改写: {rewritten['rewritten_query']}")
         print(f"[QueryRewrite] 关键词: {rewritten['keywords']}")
         return rewritten
+    except UserCancelledError:
+        # 取消异常向上抛出，不被这里吞掉
+        raise
     except Exception as e:
         print(f"[QueryRewrite] 改写失败，使用原始问题: {e}")
         return {
@@ -448,7 +462,12 @@ def create_rag_agent(llm):
 # ── 辅助函数 ──────────────────────────────────────────────────────────────
 
 def _generate_answer(llm, question: str, context_text: str) -> str:
-    """基于检索到的上下文生成答案。"""
+    """基于检索到的上下文生成答案。
+
+    使用流式调用 + token 边界取消检查：用户在前端点击停止按钮后，
+    LLM 在生成下一个 token 之前会检测 cancel_event 并抛出
+    UserCancelledError，真正中断生成。
+    """
     answer_prompt = f"""请根据以下知识库文档内容回答用户问题。
 如果文档中没有相关信息，请如实告知，不要编造内容。
 
@@ -457,5 +476,9 @@ def _generate_answer(llm, question: str, context_text: str) -> str:
 
 用户问题：{question}
 """
-    result = llm.invoke([HumanMessage(content=answer_prompt)])
-    return result.content if hasattr(result, "content") else str(result)
+    # 流式消费：每收到一个 token chunk 就检查一次 cancel_event
+    answer = ""
+    for chunk in llm.stream([HumanMessage(content=answer_prompt)]):
+        check_or_raise()
+        answer += chunk.content if hasattr(chunk, "content") else str(chunk)
+    return answer

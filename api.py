@@ -28,6 +28,7 @@ from auth.auth_service import (
     create_user, list_users, update_user_role, toggle_user_active, delete_user,
 )
 from audit.audit_service import get_logs, get_summary_stats
+from core.cancel import UserCancelledError
 from data.document_service import generate_title_from_requirements, save_document
 from data.conversation_service import (
     create_conversation,
@@ -436,6 +437,11 @@ async def chat_stream(req: ChatRequest, request: Request, user: dict = Depends(v
 
                 try:
                     response, steps, agent_used = task.result()
+                except UserCancelledError:
+                    # 用户主动取消：节点内部检测到 cancel_event 已 set 后抛出，
+                    # 这里和前面的"协作式 chunk 边界退出"等价处理：直接 done，不报错。
+                    yield _sse({"type": "done"})
+                    return
                 except Exception as e:
                     yield _sse({"type": "error", "text": f"执行失败：{e}"})
                     yield _sse({"type": "done"})
